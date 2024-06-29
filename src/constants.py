@@ -1,0 +1,5 @@
+# Define colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GRAY = (100, 100, 100)
+NUM_BALLS_PER_PLAYER = 6
