@@ -13,3 +13,9 @@ class MDNSListener:
         info = zeroconf.get_service_info(type, name)
         if info:
             print(f"Service {name} added, service info: {info}")
+
+    def read_holes(self):
+        return 0
+
+    def next(self):
+        return False

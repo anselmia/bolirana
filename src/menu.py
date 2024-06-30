@@ -1,5 +1,6 @@
 import pygame
-from src.constants import WHITE, GRAY, BLACK
+from src.constants import GRAY, BLACK
+import os
 
 
 class Menu:
@@ -14,7 +15,7 @@ class Menu:
                 "values": ["Normal", "Grenouille", "Bouteille"],
             },
             {"name": "Score", "value": 400, "min": 400, "max": 10000, "step": 200},
-            {"name": "Equipe", "value": "Seul", "values": ["Seul", "Paire", "Equipe"]},
+            {"name": "Equipe", "value": "Seul", "values": ["Seul", "Duo", "Equipe"]},
             {
                 "name": "Nombre de joueurs",
                 "value": 1,
@@ -23,20 +24,57 @@ class Menu:
                 "step": 1,
             },
         ]
+        # Construct the relative path to the background image
+        background_path = os.path.join(
+            os.path.dirname(__file__), "..", "assets", "images", "option_background.png"
+        )
+
+        # Debugging: Check if the file exists
+        if not os.path.exists(background_path):
+            raise FileNotFoundError(f"No such file: {background_path}")
+
+        # Load the image
+        self.menu_background = pygame.image.load(background_path)
+
+        # Scale the background image to fit the screen size
+        self.menu_background = pygame.transform.scale(
+            self.menu_background, self.screen.get_size()
+        )
 
     def draw(self):
-        self.screen.fill(BLACK)
+        self.screen.blit(self.menu_background, (0, 0))  # Draw the background image
+
+        # Draw the options
+        box_width = 400
+        box_height = 100
+        margin_x = 20
+        margin_y = 20
+        start_x = 50
+        start_y = 150
+
         for i, option in enumerate(self.menu_options):
-            color = WHITE if i == self.selected_option else GRAY
-            if option["name"] in ["Equipe", "Mode de jeu"]:
-                text = self.font.render(
-                    f"{option['name']}: {option['value']}", True, color
-                )
-            else:
-                text = self.font.render(
-                    f"{option['name']}: {option['value']}", True, color
-                )
-            self.screen.blit(text, (250, 250 + i * 40))
+            color = (
+                pygame.Color("blue")
+                if i == self.selected_option
+                else pygame.Color("darkblue")
+            )
+            # Calculate position
+            x = start_x + (i % 2) * (box_width + margin_x)
+            y = start_y + (i // 2) * (box_height + margin_y)
+            # Draw rectangle
+            pygame.draw.rect(
+                self.screen, color, (x, y, box_width, box_height), border_radius=10
+            )
+            # Render text
+            name_text = self.font.render(option["name"], True, pygame.Color("white"))
+            value_text = self.font.render(
+                str(option["value"]), True, pygame.Color("yellow")
+            )
+            # Blit text
+            self.screen.blit(name_text, (x + 20, y + 20))
+            self.screen.blit(value_text, (x + 20, y + 60))
+
+        pygame.display.flip()
 
     def handle_button_press(self, button):
         option = self.menu_options[self.selected_option]
@@ -99,12 +137,12 @@ class Menu:
             )
             self.remove_menu_option("Nombre d'équipes")
             self.remove_menu_option("Joueurs / équipe")
-            self.remove_menu_option("Nombre de paires")
-        elif option["value"] == "Paire":
+            self.remove_menu_option("Nombre de Duo")
+        elif option["value"] == "Duo":
             self.menu_options.insert(
                 3,
                 {
-                    "name": "Nombre de paires",
+                    "name": "Nombre de Duo",
                     "value": 1,
                     "min": 1,
                     "max": 6,
@@ -135,7 +173,7 @@ class Menu:
                     "step": 1,
                 },
             )
-            self.remove_menu_option("Nombre de paires")
+            self.remove_menu_option("Nombre de Duo")
             self.remove_menu_option("Nombre de joueurs")
 
     def set_max_plaxer_in_team(self, option_selected):
@@ -160,7 +198,7 @@ class Menu:
 
     def get_team_mode(self):
         return self.menu_options[2]["value"]
-    
+
     def get_score(self):
         return self.menu_options[1]["value"]
 
@@ -169,7 +207,7 @@ class Menu:
 
     def get_num_pairs(self):
         for option in self.menu_options:
-            if option["name"] == "Nombre de paires":
+            if option["name"] == "Nombre de Duo":
                 return option["value"]
         return 1
 
