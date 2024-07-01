@@ -15,6 +15,7 @@ class Menu:
                 "values": ["Normal", "Grenouille", "Bouteille"],
             },
             {"name": "Score", "value": 400, "min": 400, "max": 10000, "step": 200},
+            {"name": "Pénalité", "value": "Sans", "values": ["Sans", "Avec"],},
             {"name": "Equipe", "value": "Seul", "values": ["Seul", "Duo", "Equipe"]},
             {
                 "name": "Nombre de joueurs",
@@ -44,13 +45,22 @@ class Menu:
     def draw(self):
         self.screen.blit(self.menu_background, (0, 0))  # Draw the background image
 
-        # Draw the options
+        # Menu options dimensions
         box_width = 400
         box_height = 100
         margin_x = 20
         margin_y = 20
-        start_x = 50
-        start_y = 150
+
+        # Calculate the number of rows needed
+        num_options = len(self.menu_options)
+        num_rows = (num_options + 1) // 2
+
+        # Calculate total height of the menu
+        total_height = num_rows * box_height + (num_rows - 1) * margin_y
+
+        # Calculate starting positions to center the menu
+        start_x = (self.screen.get_width() - (2 * box_width + margin_x)) // 2
+        start_y = (self.screen.get_height() - total_height) // 2
 
         for i, option in enumerate(self.menu_options):
             color = (
@@ -194,10 +204,10 @@ class Menu:
                     break
 
     def get_num_players(self):
-        return self.menu_options[3]["value"]
+        return self.menu_options[4]["value"]
 
     def get_team_mode(self):
-        return self.menu_options[2]["value"]
+        return self.menu_options[3]["value"]
 
     def get_score(self):
         return self.menu_options[1]["value"]
@@ -214,6 +224,12 @@ class Menu:
     def get_num_teams(self):
         for option in self.menu_options:
             if option["name"] == "Nombre d'équipes":
+                return option["value"]
+        return 1
+
+    def get_penalty(self):
+        for option in self.menu_options:
+            if option["name"] == "Pénalité":
                 return option["value"]
         return 1
 
