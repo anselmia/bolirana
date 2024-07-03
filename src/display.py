@@ -163,19 +163,27 @@ class Display:
         for hole in holes:
             x1, y1 = hole.position
             pygame.draw.circle(
-                self.screen, pygame.Color("white"), (x1, y1), HOLE_RADIUS
+                self.screen, pygame.Color("black"), (x1, y1), HOLE_RADIUS
+            )
+            # Draw the border with specified thickness
+            pygame.draw.circle(
+                self.screen, pygame.Color("red"), (x1, y1), HOLE_RADIUS, 2
             )
             font = self.font_medium
             if hole.type == "large_frog":
                 font = self.font_small
-            points_text = font.render(hole.text, True, DARK_GREY)
+            points_text = font.render(hole.text, True, LIGHT_GREY)
             text_rect = points_text.get_rect(center=(x1, y1))
             self.screen.blit(points_text, text_rect)
 
             if hole.type == "side" or hole.type == "bottle":
                 x2, y2 = hole.position2
                 pygame.draw.circle(
-                    self.screen, pygame.Color("white"), (x2, y2), HOLE_RADIUS
+                    self.screen, pygame.Color("black"), (x2, y2), HOLE_RADIUS
+                )
+                # Draw the border with specified thickness
+                pygame.draw.circle(
+                    self.screen, pygame.Color("red"), (x2, y2), HOLE_RADIUS, 2
                 )
                 text_rect = points_text.get_rect(center=(x2, y2))
                 self.screen.blit(points_text, text_rect)
