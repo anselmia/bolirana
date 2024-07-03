@@ -28,9 +28,7 @@ class Player:
         self.turn_score = 0
 
     @staticmethod
-    def activate_next_player(players):
-        # Attempt to find the currently active player
-        current_player = next(p for p in players if p.is_active)
+    def activate_next_player(current_player, players):
 
         # Filter players who are eligible to play
         valid_players = [p for p in players if p.order is not None and not p.won]
@@ -69,19 +67,10 @@ class Player:
 
         # Reset the turn score for cleanup
         current_player.reset_turn()
-        
+
         # Deactivate current and activate next player
         current_player.deactivate()
         next_player.activate()
 
         return next_player
 
-    def update_rank(self, players):
-        self.won = True
-        current_rank = self._find_max_rank(players)
-        self.rank = current_rank + 1
-
-    def _find_max_rank(self, players):
-        ranks = [player.rank for player in players if player.rank not in (None, 0)]
-        max_rank = max(ranks) if ranks else 0
-        return max_rank if max_rank != 0 else 0
