@@ -111,6 +111,18 @@ class Display:
 
         pygame.display.flip()
 
+    def play_intro(self):
+        sound = pygame.mixer.Sound(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "assets",
+                "sounds",
+                "intro.mp3",
+            )
+        )
+        sound.play()
+
     def draw_game(
         self,
         players,

@@ -34,14 +34,13 @@ class Player:
         valid_players = [p for p in players if p.order is not None and not p.won]
 
         # If no valid players or only one is left, no activation needed
-        if not valid_players:
-            return None
-        elif len(players) == 1 and valid_players:
+        if (
+            not valid_players
+            or (len(players) == 1 and valid_players)
+            or (len(players) == 1 and not valid_players)
+            or (len(players) > 1 and len(valid_players) == 1)
+        ):
             return current_player
-        elif len(players) == 1 and not valid_players:
-            return None
-        elif len(players) > 1 and len(valid_players) == 1:
-            return None
 
         sorted_players = sorted(valid_players, key=lambda x: x.order)
 
@@ -73,4 +72,3 @@ class Player:
         next_player.activate()
 
         return next_player
-
