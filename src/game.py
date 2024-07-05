@@ -31,9 +31,9 @@ class Game:
                     self.handle_key_event(event.key)
 
             # Check the queue for new data
-            # pin = self.process_queue("menu")
-            # if pin is not None:
-            #    self.handle_menu_button(pin)
+            pin = self.process_queue("menu")
+            if pin is not None:
+                self.handle_menu_button(pin)
 
             self.display.draw_menu(self.menu)
             pygame.display.flip()

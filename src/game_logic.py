@@ -40,12 +40,12 @@ class GameLogic:
                     PIN_H20,
                     "20",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS,
-                        250,
+                        (screen_width / 3 + 20) + HOLE_RADIUS,
+                        255,
                     ),
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 240,
-                        250,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 240,
+                        255,
                     ),
                 ),
             )
@@ -55,10 +55,10 @@ class GameLogic:
                     25,
                     PIN_H25,
                     "25",
-                    ((screen_width / 3.2) + HOLE_RADIUS, 150),
+                    ((screen_width / 3 + 20) + HOLE_RADIUS, 150),
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 240,
-                        150,
+                        screen_width / 3 + 20 + HOLE_RADIUS + 240,
+                        155,
                     ),
                 )
             )
@@ -69,12 +69,12 @@ class GameLogic:
                     PIN_H40,
                     "40",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 60,
-                        200,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 60,
+                        205,
                     ),
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 180,
-                        200,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 180,
+                        205,
                     ),
                 )
             )
@@ -85,12 +85,12 @@ class GameLogic:
                     PIN_H50,
                     "50",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 60,
-                        100,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 60,
+                        105,
                     ),
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 180,
-                        100,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 180,
+                        105,
                     ),
                 )
             )
@@ -101,12 +101,12 @@ class GameLogic:
                     PIN_H100,
                     "100",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 60,
-                        300,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 60,
+                        305,
                     ),
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 180,
-                        300,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 180,
+                        305,
                     ),
                 )
             )
@@ -117,12 +117,12 @@ class GameLogic:
                     PIN_HBOTTLE,
                     "150",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS,
-                        50,
+                        (screen_width / 3 + 20) + HOLE_RADIUS,
+                        55,
                     ),
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 240,
-                        50,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 240,
+                        55,
                     ),
                 )
             )
@@ -133,8 +133,8 @@ class GameLogic:
                     PIN_HSFROG,
                     "200",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 120,
-                        150,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 120,
+                        155,
                     ),
                 )
             )
@@ -145,8 +145,8 @@ class GameLogic:
                     PIN_HLFROG,
                     "ROUL",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 120,
-                        50,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 120,
+                        55,
                     ),
                 )
             )
@@ -158,8 +158,8 @@ class GameLogic:
                     PIN_HSFROG,
                     "200",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 120,
-                        150,
+                        (screen_width / 3 +20) + HOLE_RADIUS + 120,
+                        155,
                     ),
                 )
             )
@@ -170,8 +170,8 @@ class GameLogic:
                     PIN_HLFROG,
                     "ROUL",
                     (
-                        (screen_width / 3.2) + HOLE_RADIUS + 120,
-                        50,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 120,
+                        55,
                     ),
                 )
             )
@@ -182,12 +182,12 @@ class GameLogic:
                 PIN_HBOTTLE,
                 "150",
                 (
-                    (screen_width / 3.2) + HOLE_RADIUS,
-                    50,
+                    (screen_width / 3 + 20) + HOLE_RADIUS,
+                    55,
                 ),
                 (
-                    (screen_width / 3.2) + HOLE_RADIUS + 240,
-                    50,
+                    (screen_width / 3 + 20) + HOLE_RADIUS + 240,
+                    55,
                 ),
             )
 

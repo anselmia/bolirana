@@ -33,6 +33,12 @@ RANK_COLOR = pygame.Color(255, 165, 0)  # Soft orange for rank box
 LIGHT_PINK = pygame.Color(255, 182, 193),  # Light pink
 PEACH_PUFF = pygame.Color(255, 218, 185),  # Peach puff
 
+CHROME_COLORS = [
+    pygame.Color(192, 192, 192),
+    pygame.Color(128, 128, 128),
+    pygame.Color(255, 255, 255),
+]
+
 # Define pin
 
 PIN_H20 = 4

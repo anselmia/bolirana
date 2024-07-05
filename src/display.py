@@ -13,10 +13,17 @@ class Display:
     def __init__(self):
         pygame.display.set_caption("Bolirana Game")
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
-        self.font_large = pygame.font.Font(None, 72)
-        self.font_medium = pygame.font.Font(None, 48)
-        self.font_small = pygame.font.Font(None, 36)
-        self.font_verysmall = pygame.font.Font(None, 30)
+        font_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "assets",
+            "fonts",
+            "AntonSC-Regular.ttf",
+        )
+        self.font_large = pygame.font.Font(font_path, 50)
+        self.font_medium = pygame.font.Font(font_path, 30)
+        self.font_small = pygame.font.Font(font_path, 25)
+        self.font_verysmall = pygame.font.Font(font_path, 20)
         self.screen_width = self.screen.get_width()
         self.screen_height = self.screen.get_height()
 
@@ -30,7 +37,7 @@ class Display:
                 "..",
                 "assets",
                 "images",
-                "game_background.jpg",
+                "game3.jpg",
             )
             self.game_background = pygame.image.load(game_background_path)
             self.game_background = pygame.transform.scale(
@@ -42,7 +49,7 @@ class Display:
                 "..",
                 "assets",
                 "images",
-                "option_background.png",
+                "intro.jpg",
             )
             self.menu_background = pygame.image.load(menu_background_path)
             self.menu_background = pygame.transform.scale(
@@ -65,6 +72,18 @@ class Display:
             logging.error(f"Failed to load resources: {e}")
             raise SystemExit
 
+    def draw_chrome_rect(self, rect, colors, border_radius, width):
+        """Draws a rounded rectangle with a chrome effect."""
+        x, y, w, h = rect
+        for i in range(width):
+            pygame.draw.rect(
+                self.screen,
+                colors[i % len(colors)],
+                (x - i, y - i, w + 2 * i, h + 2 * i),
+                border_radius=border_radius - i if border_radius > i else 0,
+                width=1,
+            )
+
     def draw_menu(self, menu):
         self.screen.blit(self.menu_background, (0, 0))  # Draw the background image
 
@@ -73,6 +92,8 @@ class Display:
         box_height = 100
         margin_x = 20
         margin_y = 20
+        border_radius = 15  # Rounded border radius
+        border_width = 5  # Width of the border
 
         # Calculate the number of rows needed
         num_options = len(menu.options)
@@ -94,10 +115,26 @@ class Display:
             # Calculate position
             x = start_x + (i % 2) * (box_width + margin_x)
             y = start_y + (i // 2) * (box_height + margin_y)
-            # Draw rectangle
-            pygame.draw.rect(
-                self.screen, color, (x, y, box_width, box_height), border_radius=10
+            # Draw chrome effect rectangle
+            self.draw_chrome_rect(
+                (x, y, box_width, box_height),
+                CHROME_COLORS,
+                border_radius,
+                border_width,
             )
+            # Draw filled rectangle inside the chrome border
+            pygame.draw.rect(
+                self.screen,
+                color,
+                (
+                    x + border_width,
+                    y + border_width,
+                    box_width - 2 * border_width,
+                    box_height - 2 * border_width,
+                ),
+                border_radius=border_radius - border_width,
+            )
+
             # Render text
             name_text = self.font_medium.render(
                 option["name"], True, pygame.Color("white")
@@ -152,20 +189,32 @@ class Display:
             current_player_score, True, DARK_YELLOW
         )
         remaining_points_text_rendered = self.font_verysmall.render(
-            remaining_points_text, True, LIGHT_GREY
+            remaining_points_text, True, DARK_GREY
         )
 
-        self.screen.blit(current_player_name_text, (20, 20))
-        self.screen.blit(current_player_score_text, (20, 80))
-        self.screen.blit(remaining_points_text_rendered, (20, 150))
+        # Define the area for the current player info and add chrome border
+        current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)
+        self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
+        self.screen.blit(current_player_name_text, (30, 30))
+        self.screen.blit(current_player_score_text, (30, 80))
+        self.screen.blit(remaining_points_text_rendered, (30, 150))
+
+        # Define the area for the holes and add chrome border
+        holes_area_rect = (
+            self.screen_width // 3,
+            20,
+            self.screen_width // 3,
+            self.screen_height // 2.4,
+        )
+        self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
 
         # Draw holes
         for hole in holes:
             x1, y1 = hole.position
+
             pygame.draw.circle(
                 self.screen, pygame.Color("black"), (x1, y1), HOLE_RADIUS
             )
-            # Draw the border with specified thickness
             pygame.draw.circle(
                 self.screen, pygame.Color("red"), (x1, y1), HOLE_RADIUS, 2
             )
@@ -178,27 +227,36 @@ class Display:
 
             if hole.type == "side" or hole.type == "bottle":
                 x2, y2 = hole.position2
+
                 pygame.draw.circle(
                     self.screen, pygame.Color("black"), (x2, y2), HOLE_RADIUS
                 )
-                # Draw the border with specified thickness
                 pygame.draw.circle(
                     self.screen, pygame.Color("red"), (x2, y2), HOLE_RADIUS, 2
                 )
                 text_rect = points_text.get_rect(center=(x2, y2))
                 self.screen.blit(points_text, text_rect)
 
-        # Draw game information
+        # Define the area for the game options and add chrome border
+        game_mode_rect = (
+            self.screen_width - (self.screen_width / 3 - 20),
+            20,
+            self.screen_width / 3 - 40,
+            200,
+        )
+        self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
         game_mode_text = self.font_medium.render(game_mode, True, DARK_YELLOW)
         score_text = self.font_medium.render(str(score) + " points", True, DARK_YELLOW)
         team_mode_text = self.font_medium.render(team_mode, True, DARK_YELLOW)
 
         self.screen.blit(
-            game_mode_text, (self.screen_width - (self.screen_width / 3), 20)
+            game_mode_text, (self.screen_width - (self.screen_width / 3) + 40, 30)
         )
-        self.screen.blit(score_text, (self.screen_width - (self.screen_width / 3), 80))
         self.screen.blit(
-            team_mode_text, (self.screen_width - (self.screen_width / 3), 140)
+            score_text, (self.screen_width - (self.screen_width / 3) + 40, 80)
+        )
+        self.screen.blit(
+            team_mode_text, (self.screen_width - (self.screen_width / 3) + 40, 140)
         )
 
     def display_grouped_players(self, players, team_mode, player_in_team):
@@ -247,10 +305,12 @@ class Display:
             id(group): group_colors[i % len(group_colors)]
             for i, group in enumerate(groups)
         }
+        border_radius = 15  # Rounded border radius
+        border_width = 5  # Width of the border
 
         # Set initial coordinates and layout settings
-        start_y = self.screen_height / 2
-        gap_between_boxes = 10
+        start_y = self.screen_height / 2 - 30
+        gap_between_boxes = 20
         box_width = self.screen_width / 5
         box_height = 70  # Adjusted height to fit more players
         start_x = (self.screen_width - (4 * box_width) - (3 * gap_between_boxes)) / 2
@@ -286,13 +346,19 @@ class Display:
                 else:
                     border_color = pygame.Color("black")
 
-                pygame.draw.rect(
-                    self.screen,
-                    border_color,
+                self.draw_chrome_rect(
                     (x, y + height_score, box_width, box_height),
-                    border_radius=5,
-                    width=5,
+                    CHROME_COLORS,
+                    border_radius,
+                    border_width,
                 )
+                # pygame.draw.rect(
+                #    self.screen,
+                #    border_color,
+                #    (x, y + height_score, box_width, box_height),
+                #    border_radius=5,
+                #    width=5,
+                # )
                 pygame.draw.rect(
                     self.screen,
                     group_color,
@@ -414,18 +480,18 @@ class Display:
             if current_time - last_blink_time > BLINK_INTERVAL:
                 # Toggle the color
                 current_color = (
-                    pygame.Color("white")
-                    if current_color == DARK_YELLOW
-                    else DARK_YELLOW
+                    pygame.Color("red") if current_color == DARK_YELLOW else DARK_YELLOW
                 )
                 last_blink_time = current_time
 
             # Draw the circle with the current color
             x1, y1 = hole.position
-            pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS)
+            # Draw the border with specified thickness
+            pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 2)
             if hole.type == "side" or hole.type == "bottle":
                 x2, y2 = hole.position2
-                pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS)
+                # Draw the border with specified thickness
+                pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS, 2)
 
             # Update the display
             pygame.display.flip()
