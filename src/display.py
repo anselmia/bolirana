@@ -95,6 +95,12 @@ class Display:
         border_radius = 15  # Rounded border radius
         border_width = 5  # Width of the border
 
+        # Transparency settings
+        semi_transparent_blue = pygame.Color("blue")
+        semi_transparent_darkblue = pygame.Color("darkblue")
+        semi_transparent_blue.a = 128  # Set alpha value (0-255)
+        semi_transparent_darkblue.a = 128  # Set alpha value (0-255)
+
         # Calculate the number of rows needed
         num_options = len(menu.options)
         num_rows = (num_options + 1) // 2
@@ -108,13 +114,14 @@ class Display:
 
         for i, option in enumerate(menu.options):
             color = (
-                pygame.Color("blue")
+                semi_transparent_blue
                 if i == menu.selected_option
-                else pygame.Color("darkblue")
+                else semi_transparent_darkblue
             )
             # Calculate position
             x = start_x + (i % 2) * (box_width + margin_x)
             y = start_y + (i // 2) * (box_height + margin_y)
+
             # Draw chrome effect rectangle
             self.draw_chrome_rect(
                 (x, y, box_width, box_height),
@@ -122,18 +129,22 @@ class Display:
                 border_radius,
                 border_width,
             )
-            # Draw filled rectangle inside the chrome border
+
+            # Create a semi-transparent surface for the filled rectangle
+            rect_surface = pygame.Surface(
+                (box_width - 2 * border_width, box_height - 2 * border_width),
+                pygame.SRCALPHA,
+            )
+            rect_surface = rect_surface.convert_alpha()
             pygame.draw.rect(
-                self.screen,
+                rect_surface,
                 color,
-                (
-                    x + border_width,
-                    y + border_width,
-                    box_width - 2 * border_width,
-                    box_height - 2 * border_width,
-                ),
+                rect_surface.get_rect(),
                 border_radius=border_radius - border_width,
             )
+
+            # Blit the semi-transparent surface onto the main screen
+            self.screen.blit(rect_surface, (x + border_width, y + border_width))
 
             # Render text
             name_text = self.font_medium.render(
@@ -142,9 +153,18 @@ class Display:
             value_text = self.font_medium.render(
                 str(option["value"]), True, pygame.Color("yellow")
             )
-            # Blit text
-            self.screen.blit(name_text, (x + 20, y + 20))
-            self.screen.blit(value_text, (x + 20, y + 60))
+
+            # Calculate center positions for the texts within the rectangle
+            name_text_rect = name_text.get_rect(
+                center=(x + box_width // 2, y + box_height // 2 - 20)
+            )
+            value_text_rect = value_text.get_rect(
+                center=(x + box_width // 2, y + box_height // 2 + 20)
+            )
+
+            # Blit centered text
+            self.screen.blit(name_text, name_text_rect)
+            self.screen.blit(value_text, value_text_rect)
 
         pygame.display.flip()
 
@@ -195,9 +215,25 @@ class Display:
         # Define the area for the current player info and add chrome border
         current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)
         self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
-        self.screen.blit(current_player_name_text, (30, 30))
-        self.screen.blit(current_player_score_text, (30, 80))
-        self.screen.blit(remaining_points_text_rendered, (30, 150))
+
+        # Calculate center positions for the texts within the rectangle
+        rect_x, rect_y, rect_width, rect_height = current_player_rect
+        name_text_rect = current_player_name_text.get_rect(
+            center=(rect_x + rect_width / 2, rect_y + 40)
+        )
+        score_text_rect = current_player_score_text.get_rect(
+            center=(rect_x + rect_width / 2, rect_y + 100)
+        )
+        remaining_points_text_rect = remaining_points_text_rendered.get_rect(
+            center=(rect_x + rect_width / 2, rect_y + 160)
+        )
+
+        # Blit the centered text
+        self.screen.blit(current_player_name_text, name_text_rect.topleft)
+        self.screen.blit(current_player_score_text, score_text_rect.topleft)
+        self.screen.blit(
+            remaining_points_text_rendered, remaining_points_text_rect.topleft
+        )
 
         # Define the area for the holes and add chrome border
         holes_area_rect = (
@@ -245,19 +281,27 @@ class Display:
             200,
         )
         self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
+
+        # Calculate center positions for the game options texts within the rectangle
+        rect_x, rect_y, rect_width, rect_height = game_mode_rect
         game_mode_text = self.font_medium.render(game_mode, True, DARK_YELLOW)
         score_text = self.font_medium.render(str(score) + " points", True, DARK_YELLOW)
         team_mode_text = self.font_medium.render(team_mode, True, DARK_YELLOW)
 
-        self.screen.blit(
-            game_mode_text, (self.screen_width - (self.screen_width / 3) + 40, 30)
+        game_mode_text_rect = game_mode_text.get_rect(
+            center=(rect_x + rect_width / 2, rect_y + 40)
         )
-        self.screen.blit(
-            score_text, (self.screen_width - (self.screen_width / 3) + 40, 80)
+        score_text_rect = score_text.get_rect(
+            center=(rect_x + rect_width / 2, rect_y + 100)
         )
-        self.screen.blit(
-            team_mode_text, (self.screen_width - (self.screen_width / 3) + 40, 140)
+        team_mode_text_rect = team_mode_text.get_rect(
+            center=(rect_x + rect_width / 2, rect_y + 160)
         )
+
+        # Blit the centered game options texts
+        self.screen.blit(game_mode_text, game_mode_text_rect.topleft)
+        self.screen.blit(score_text, score_text_rect.topleft)
+        self.screen.blit(team_mode_text, team_mode_text_rect.topleft)
 
     def display_grouped_players(self, players, team_mode, player_in_team):
         """Handles the display of player groups on the screen."""
@@ -321,7 +365,7 @@ class Display:
         rank_square_size = 25  # Adjusted size to fit better
 
         if display_score:
-            height_score = self.font_medium.render("T", True, DARK_GREY)
+            height_score = self.font_small.render("T", True, DARK_GREY)
             height_score = height_score.get_height() + 5
         else:
             height_score = 0
@@ -331,7 +375,7 @@ class Display:
 
             if display_score:
                 # Display total score above each group
-                total_score_text = self.font_medium.render(
+                total_score_text = self.font_small.render(
                     f"Total: {group_total_score}", True, DARK_YELLOW
                 )
                 self.screen.blit(total_score_text, (x, y))
@@ -340,25 +384,18 @@ class Display:
             for player in group:
                 # Draw player box
                 if player.won:
-                    border_color = RANK_COLOR
+                    border_color = GOLD_COLORS
                 elif player.is_active:
-                    border_color = pygame.Color("yellow")
+                    border_color = RED_COLORS
                 else:
-                    border_color = pygame.Color("black")
+                    border_color = CHROME_COLORS
 
                 self.draw_chrome_rect(
                     (x, y + height_score, box_width, box_height),
-                    CHROME_COLORS,
+                    border_color,
                     border_radius,
                     border_width,
                 )
-                # pygame.draw.rect(
-                #    self.screen,
-                #    border_color,
-                #    (x, y + height_score, box_width, box_height),
-                #    border_radius=5,
-                #    width=5,
-                # )
                 pygame.draw.rect(
                     self.screen,
                     group_color,
@@ -370,7 +407,7 @@ class Display:
                 square_y = y + 5 + height_score
                 pygame.draw.rect(
                     self.screen,
-                    border_color,
+                    group_color,  # Use group color instead of black
                     (square_x, square_y, rank_square_size, rank_square_size),
                 )
 
@@ -386,10 +423,14 @@ class Display:
                 self.screen.blit(rank_text, rank_text_rect)
 
                 # Player details
-                player_label = self.font_small.render(str(player), True, DARK_GREY)
+                player_label = self.font_verysmall.render(str(player), True, DARK_GREY)
                 score_text = self.font_medium.render(str(player.score), True, DARK_GREY)
-                self.screen.blit(player_label, (x + 10, y + height_score + 10))
-                self.screen.blit(score_text, (x + 10, y + height_score + 30))
+                self.screen.blit(
+                    player_label, (x + 10, y + height_score + 5)
+                )  # Reduced gap from top
+                self.screen.blit(
+                    score_text, (x + 10, y + height_score + 25)
+                )  # Increased gap from bottom
 
                 if (
                     team_mode == "Seul"
@@ -487,11 +528,11 @@ class Display:
             # Draw the circle with the current color
             x1, y1 = hole.position
             # Draw the border with specified thickness
-            pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 2)
+            pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 5)
             if hole.type == "side" or hole.type == "bottle":
                 x2, y2 = hole.position2
                 # Draw the border with specified thickness
-                pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS, 2)
+                pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS, 5)
 
             # Update the display
             pygame.display.flip()
@@ -642,7 +683,7 @@ class Display:
         while True:
             pass
 
-    def draw_end_menu(self, game):
+    def draw_end_menu(self, players):
         dark_green = pygame.Color(GREENDARK)
         dark_red = pygame.Color(REDDARK)
 
@@ -655,16 +696,16 @@ class Display:
         )
         sound.play()
 
-        game.run_fireworks()
+        self.run_fireworks()
 
-        winner = next((player for player in game.players if player.rank == 1), None)
+        winner = next((player for player in players if player.rank == 1), None)
         message = f"Bravo {winner}!" if winner else "Game Over!"
         text_surface = self.font_large.render(message, True, pygame.Color("yellow"))
         text_rect = text_surface.get_rect(center=(self.screen.get_width() // 2, 50))
         self.screen.blit(text_surface, text_rect)
 
         sorted_players = sorted(
-            game.players, key=lambda x: x.rank if x.rank > 0 else float("inf")
+            players, key=lambda x: x.rank if x.rank > 0 else float("inf")
         )
 
         margin_left = 50
