@@ -128,14 +128,14 @@ class Display:
             )
         elif hole_value == "150":
             return (
-                (((self.screen_width / 3 + 20) + HOLE_RADIUS, 55),)
+                (((self.screen_width / 2) - 120, 55),)
                 if position == 1
-                else (((self.screen_width / 3 + 20) + HOLE_RADIUS + 240, 55),)
+                else (((self.screen_width / 2) + 120, 55),)
             )
         elif hole_value == "200":
-            return (((self.screen_width / 2) + 120, 155),)
+            return (((self.screen_width / 2), 155),)
         elif hole_value == "ROUL":
-            return (((self.screen_width / 2) + 120, 55),)
+            return (((self.screen_width / 2), 55),)
         return None
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
