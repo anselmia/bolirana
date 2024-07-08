@@ -13,7 +13,7 @@ from src.constants import (
     YELLOW,
     WHITE,
     DARK_GREEN,
-    DARK_YELLOW,
+    DARK_ORANGE,
     DARK_GREY,
     LIGHT_GREY,
     BLACK,
@@ -133,9 +133,9 @@ class Display:
                 else (((self.screen_width / 3 + 20) + HOLE_RADIUS + 240, 55),)
             )
         elif hole_value == "200":
-            return (((self.screen_width / 3 + 20) + HOLE_RADIUS + 120, 155),)
+            return (((self.screen_width / 2) + 120, 155),)
         elif hole_value == "ROUL":
-            return (((self.screen_width / 3 + 20) + HOLE_RADIUS + 120, 55),)
+            return (((self.screen_width / 2) + 120, 55),)
         return None
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
@@ -252,7 +252,7 @@ class Display:
             str(current_player), True, DARK_GREEN
         )
         current_player_score_text = self.font_medium.render(
-            current_player_score, True, DARK_YELLOW
+            current_player_score, True, DARK_ORANGE
         )
         remaining_points_text_rendered = self.font_verysmall.render(
             remaining_points_text, True, DARK_GREY
@@ -320,9 +320,9 @@ class Display:
 
         # Calculate center positions for the game options texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = game_mode_rect
-        game_mode_text = self.font_medium.render(game_mode, True, DARK_YELLOW)
-        score_text = self.font_medium.render(str(score) + " points", True, DARK_YELLOW)
-        team_mode_text = self.font_medium.render(team_mode, True, DARK_YELLOW)
+        game_mode_text = self.font_medium.render(game_mode, True, DARK_ORANGE)
+        score_text = self.font_medium.render(str(score) + " points", True, DARK_ORANGE)
+        team_mode_text = self.font_medium.render(team_mode, True, DARK_ORANGE)
 
         game_mode_text_rect = game_mode_text.get_rect(
             center=(rect_x + rect_width / 2, rect_y + 40)
@@ -403,7 +403,7 @@ class Display:
             if display_score:
                 # Display total score above each group
                 total_score_text = self.font_small.render(
-                    f"Total: {group_total_score}", True, DARK_YELLOW
+                    f"Total: {group_total_score}", True, DARK_ORANGE
                 )
                 self.screen.blit(total_score_text, (x, y))
 
@@ -499,7 +499,7 @@ class Display:
 
     def draw_player(self, x, y, player, box_width, box_height, group_color):
         """Draws individual player boxes and details."""
-        border_color = DARK_YELLOW if player.is_active else BLACK
+        border_color = DARK_ORANGE if player.is_active else BLACK
         pygame.draw.rect(
             self.screen,
             border_color,
@@ -542,7 +542,7 @@ class Display:
             current_time = time.time()
             if current_time - last_blink_time > BLINK_INTERVAL:
                 # Toggle the color
-                current_color = RED if current_color == DARK_YELLOW else DARK_YELLOW
+                current_color = RED if current_color == DARK_ORANGE else DARK_ORANGE
                 last_blink_time = current_time
 
             # Draw the circle with the current color

@@ -5,7 +5,7 @@ import os
 DARK_GREEN = pygame.Color(34, 139, 34)  # Dark green
 DARK_RED = pygame.Color(128, 0, 0)
 LIGHT_GREEN = pygame.Color(144, 238, 144)  # Light green
-DARK_YELLOW = pygame.Color(255, 215, 0)  # Gold
+DARK_ORANGE = pygame.Color(255, 140, 0)  # Gold
 LIGHT_GREY = pygame.Color(245, 245, 245)  # Light grey for background
 DARK_GREY = pygame.Color(50, 50, 50)  # Dark grey for text
 LIGHT_BLUE = pygame.Color(173, 216, 230)  # Light blue
