@@ -286,7 +286,7 @@ class Display:
         self.draw_text_with_shadow(
             remaining_points_text_rendered,
             self.font_verysmall,
-            DARK_GREY,
+            DARK_GREEN,
             BLACK,
             remaining_points_text_position,
             shadow_offset=(2, 2),
@@ -478,14 +478,20 @@ class Display:
                 self.screen.blit(rank_text, rank_text_rect)
 
                 # Player details
+                player_label = self.font_small.render(str(player), True, DARK_GREY)
                 player_label_pos = (x + 10, y + height_score + 5)
-                score_text_pos = (x + 10, y + height_score + 25)
                 self.draw_text_with_shadow(
-                    str(player), self.font_verysmall, DARK_GREY, WHITE, player_label_pos
+                    str(player), self.font_small, DARK_GREY, WHITE, player_label_pos
+                )
+
+                # Calculate the position for the score text
+                score_text_pos = (
+                    player_label_pos[0] + player_label.get_width() + 20,
+                    player_label_pos[1],
                 )
                 self.draw_text_with_shadow(
                     str(player.score),
-                    self.font_medium,
+                    self.font_small,
                     DARK_GREY,
                     WHITE,
                     score_text_pos,
