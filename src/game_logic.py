@@ -24,6 +24,7 @@ class GameLogic:
         self.winner = 0
         self.score = 0
         self.holes = []
+        self.draw_game = True
 
     def setup_game(self, screen_width):
         self.setup_players()
@@ -158,7 +159,7 @@ class GameLogic:
                     PIN_HSFROG,
                     "200",
                     (
-                        (screen_width / 3 +20) + HOLE_RADIUS + 120,
+                        (screen_width / 3 + 20) + HOLE_RADIUS + 120,
                         155,
                     ),
                 )
@@ -301,6 +302,7 @@ class GameLogic:
                 player.won = True
                 player.rank = self.find_next_available_rank()
                 self.next_player(display)
+                self.draw_game = True
 
     def update_group_status(self, groups, display):
         for group in groups:
@@ -314,6 +316,7 @@ class GameLogic:
 
                 self.next_player(display)
                 self.adjust_player_order_after_win()
+                self.draw_game = True
 
     def adjust_player_order_after_win(self):
         active_players = [p for p in self.players if not p.won]

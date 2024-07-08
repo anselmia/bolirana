@@ -1,8 +1,8 @@
 import pygame
 import random
-import sys
 import time
 import os
+import math
 from pygame.locals import *
 from src.constants import *
 
@@ -13,51 +13,29 @@ class RouletteAnimation:
         self.clock = pygame.time.Clock()
 
         screen_width, screen_height = self.screen.get_size()
-        center_x, center_y = screen_width // 2, screen_height // 2
+        self.center_x, self.center_y = screen_width // 2, screen_height // 2
 
-        self.posx = [
-            center_x + 75,
-            center_x + 170,
-            center_x + 170,
-            center_x + 75,
-            center_x - 75,
-            center_x - 170,
-            center_x - 170,
-            center_x - 75,
-        ]
-        self.posy = [
-            center_y - 170,
-            center_y - 70,
-            center_y + 65,
-            center_y + 170,
-            center_y + 170,
-            center_y + 65,
-            center_y - 70,
-            center_y - 170,
+        self.sections = 8
+        self.radius = 250
+        self.inner_radius = 100
+        self.section_colors = [
+            pygame.Color("red"),
+            pygame.Color("blue"),
+            pygame.Color("green"),
+            pygame.Color("yellow"),
+            pygame.Color("orange"),
+            pygame.Color("purple"),
+            pygame.Color("pink"),
+            pygame.Color("cyan"),
         ]
 
         if type == "frog":
-            self.posibles = [300, 350, 400, 450, 300, 350, 400, 450]
+            self.values = [300, 350, 400, 450, 300, 350, 400, 450]
         else:
-            self.posibles = [10, 20, 40, 50, 10, 20, 40, 50]
-        self.vivo = [GREEN, BLUE, RED, MAGENTA, GREEN, BLUE, RED, MAGENTA]
-        self.muerto = [
-            GREENDARK,
-            BLUEDARK,
-            REDDARK,
-            MAGENTADARK,
-            GREENDARK,
-            BLUEDARK,
-            REDDARK,
-            MAGENTADARK,
-        ]
+            self.values = [10, 20, 40, 50, 10, 20, 40, 50]
 
-        self.ruletaFont = pygame.font.Font(None, 165)
-        self.posiblesFont = pygame.font.Font(None, 80)
-
-        self.radio = 65
-        self.ajustx = 48
-        self.ajusty = 30
+        self.font = pygame.font.Font(None, 40)
+        self.roulette_font = pygame.font.Font(None, 80)
 
         self.roulette_sound = pygame.mixer.Sound(
             os.path.join(
@@ -69,34 +47,82 @@ class RouletteAnimation:
             )
         )
 
+    def draw_circle_with_border(self, center, radius, border_colors, border_width):
+        """Draws a circle with a border effect."""
+        for i in range(border_width):
+            pygame.draw.circle(
+                self.screen,
+                border_colors[i % len(border_colors)],
+                center,
+                radius + i,
+                width=1,
+            )
+
+    def draw_roulette(self):
+        # Draw golden external border around the main big circle
+        self.draw_circle_with_border(
+            (self.center_x, self.center_y), self.radius, GOLD_COLORS, 10
+        )
+
+        # Draw the main roulette sections
+        for i in range(self.sections):
+            start_angle = (360 / self.sections) * i
+            end_angle = start_angle + (360 / self.sections)
+            pygame.draw.arc(
+                self.screen,
+                self.section_colors[i],
+                (
+                    self.center_x - self.radius,
+                    self.center_y - self.radius,
+                    self.radius * 2,
+                    self.radius * 2,
+                ),
+                math.radians(start_angle),
+                math.radians(end_angle),
+                self.radius,
+            )
+
+        # Draw chrome border around the number circle
+        self.draw_circle_with_border(
+            (self.center_x, self.center_y), self.inner_radius, CHROME_COLORS, 10
+        )
+
+        # Draw the inner circle
+        pygame.draw.circle(
+            self.screen,
+            pygame.Color("gray"),
+            (self.center_x, self.center_y),
+            self.inner_radius,
+        )
+
+        # Add values to the sections
+        for i in range(self.sections):
+            angle = (360 / self.sections) * i + (360 / self.sections) / 2
+            x = self.center_x + (self.radius / 1.5) * math.cos(
+                math.radians(angle)
+            )
+            y = self.center_y + (self.radius / 1.5) * math.sin(
+                math.radians(angle)
+            )
+            text_surface = self.font.render(
+                str(self.values[i]), True, pygame.Color("white")
+            )
+            text_rect = text_surface.get_rect(center=(x, y))
+            self.screen.blit(text_surface, text_rect)
+
+        # Draw the spinner pointer
+        pointer = [
+            (self.center_x, self.center_y - self.radius - 20),
+            (self.center_x - 20, self.center_y - self.radius + 20),
+            (self.center_x + 20, self.center_y - self.radius + 20),
+        ]
+        pygame.draw.polygon(self.screen, GOLD_COLORS[0], pointer)
+
     def run(self):
         while True:
             self.screen.fill((0, 0, 0))  # Clear the screen
 
-            pygame.draw.circle(
-                self.screen,
-                ORANGE2,
-                [self.screen.get_width() // 2, self.screen.get_height() // 2],
-                250,
-            )
-            pygame.draw.circle(
-                self.screen,
-                BLUE3,
-                [self.screen.get_width() // 2, self.screen.get_height() // 2],
-                100,
-            )
-            for i in range(8):
-                pygame.draw.circle(
-                    self.screen,
-                    self.muerto[i],
-                    [self.posx[i], self.posy[i]],
-                    self.radio,
-                )
-                text_surface = self.posiblesFont.render(
-                    str(self.posibles[i]), True, WHITE
-                )
-                text_rect = text_surface.get_rect(center=(self.posx[i], self.posy[i]))
-                self.screen.blit(text_surface, text_rect)
+            self.draw_roulette()
 
             pygame.display.update()
             time.sleep(1)
@@ -110,44 +136,44 @@ class RouletteAnimation:
                 for j in range(8):
                     pygame.draw.circle(
                         self.screen,
-                        self.vivo[j],
-                        [self.posx[j], self.posy[j]],
-                        self.radio,
+                        self.section_colors[j],
+                        [self.center_x, self.center_y],
+                        self.radius,
                     )
-                    text_surface = self.posiblesFont.render(
-                        str(self.posibles[j]), True, WHITE
+                    text_surface = self.font.render(
+                        str(self.values[j]), True, pygame.Color("white")
                     )
                     text_rect = text_surface.get_rect(
-                        center=(self.posx[j], self.posy[j])
+                        center=(self.center_x, self.center_y)
                     )
                     self.screen.blit(text_surface, text_rect)
 
                     if j != 0:
                         pygame.draw.circle(
                             self.screen,
-                            self.muerto[j - 1],
-                            [self.posx[j - 1], self.posy[j - 1]],
-                            self.radio,
+                            self.section_colors[j - 1],
+                            [self.center_x, self.center_y],
+                            self.radius,
                         )
-                        text_surface = self.posiblesFont.render(
-                            str(self.posibles[j - 1]), True, WHITE
+                        text_surface = self.font.render(
+                            str(self.values[j - 1]), True, pygame.Color("white")
                         )
                         text_rect = text_surface.get_rect(
-                            center=(self.posx[j - 1], self.posy[j - 1])
+                            center=(self.center_x, self.center_y)
                         )
                         self.screen.blit(text_surface, text_rect)
                     else:
                         pygame.draw.circle(
                             self.screen,
-                            self.muerto[7],
-                            [self.posx[7], self.posy[7]],
-                            self.radio,
+                            self.section_colors[7],
+                            [self.center_x, self.center_y],
+                            self.radius,
                         )
-                        text_surface = self.posiblesFont.render(
-                            str(self.posibles[7]), True, WHITE
+                        text_surface = self.font.render(
+                            str(self.values[7]), True, pygame.Color("white")
                         )
                         text_rect = text_surface.get_rect(
-                            center=(self.posx[7], self.posy[7])
+                            center=(self.center_x, self.center_y)
                         )
                         self.screen.blit(text_surface, text_rect)
 
@@ -156,39 +182,42 @@ class RouletteAnimation:
 
             for k in range(rand):
                 pygame.draw.circle(
-                    self.screen, self.vivo[k], [self.posx[k], self.posy[k]], self.radio
+                    self.screen,
+                    self.section_colors[k],
+                    [self.center_x, self.center_y],
+                    self.radius,
                 )
-                text_surface = self.posiblesFont.render(
-                    str(self.posibles[k]), True, WHITE
+                text_surface = self.font.render(
+                    str(self.values[k]), True, pygame.Color("white")
                 )
-                text_rect = text_surface.get_rect(center=(self.posx[k], self.posy[k]))
+                text_rect = text_surface.get_rect(center=(self.center_x, self.center_y))
                 self.screen.blit(text_surface, text_rect)
                 if k != 0:
                     pygame.draw.circle(
                         self.screen,
-                        self.muerto[k - 1],
-                        [self.posx[k - 1], self.posy[k - 1]],
-                        self.radio,
+                        self.section_colors[k - 1],
+                        [self.center_x, self.center_y],
+                        self.radius,
                     )
-                    text_surface = self.posiblesFont.render(
-                        str(self.posibles[k - 1]), True, WHITE
+                    text_surface = self.font.render(
+                        str(self.values[k - 1]), True, pygame.Color("white")
                     )
                     text_rect = text_surface.get_rect(
-                        center=(self.posx[k - 1], self.posy[k - 1])
+                        center=(self.center_x, self.center_y)
                     )
                     self.screen.blit(text_surface, text_rect)
                 else:
                     pygame.draw.circle(
                         self.screen,
-                        self.muerto[7],
-                        [self.posx[7], self.posy[7]],
-                        self.radio,
+                        self.section_colors[7],
+                        [self.center_x, self.center_y],
+                        self.radius,
                     )
-                    text_surface = self.posiblesFont.render(
-                        str(self.posibles[7]), True, WHITE
+                    text_surface = self.font.render(
+                        str(self.values[7]), True, pygame.Color("white")
                     )
                     text_rect = text_surface.get_rect(
-                        center=(self.posx[7], self.posy[7])
+                        center=(self.center_x, self.center_y)
                     )
                     self.screen.blit(text_surface, text_rect)
 
@@ -197,19 +226,17 @@ class RouletteAnimation:
 
             pygame.draw.circle(
                 self.screen,
-                self.vivo[rand - 1],
-                [self.posx[rand - 1], self.posy[rand - 1]],
-                self.radio,
+                self.section_colors[rand - 1],
+                [self.center_x, self.center_y],
+                self.radius,
             )
-            text_surface = self.posiblesFont.render(
-                str(self.posibles[rand - 1]), True, WHITE
+            text_surface = self.font.render(
+                str(self.values[rand - 1]), True, pygame.Color("white")
             )
-            text_rect = text_surface.get_rect(
-                center=(self.posx[rand - 1], self.posy[rand - 1])
-            )
+            text_rect = text_surface.get_rect(center=(self.center_x, self.center_y))
             self.screen.blit(text_surface, text_rect)
-            final_value_text = self.ruletaFont.render(
-                str(self.posibles[rand - 1]), True, MANGOBICHE
+            final_value_text = self.roulette_font.render(
+                str(self.values[rand - 1]), True, pygame.Color("yellow")
             )
             final_value_rect = final_value_text.get_rect(
                 center=(self.screen.get_width() // 2, self.screen.get_height() // 2)
@@ -219,4 +246,4 @@ class RouletteAnimation:
             pygame.display.update()
             time.sleep(2)
 
-            return self.posibles[rand - 1]
+            return self.values[rand - 1]

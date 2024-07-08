@@ -36,8 +36,7 @@ class Player:
         # If no valid players or only one is left, no activation needed
         if (
             not valid_players
-            or (len(players) == 1 and valid_players)
-            or (len(players) == 1 and not valid_players)
+            or len(players) == 1
             or (len(players) > 1 and len(valid_players) == 1)
         ):
             return current_player

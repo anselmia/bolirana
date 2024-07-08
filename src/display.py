@@ -68,6 +68,65 @@ class Display:
                 self.win_background, self.screen.get_size()
             )
 
+            self.penalty_frames, self.penalty_duration = self.load_gif(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "gif",
+                    "fail.gif",
+                )
+            )
+            self.penalty_sound = pygame.mixer.Sound(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "sounds",
+                    "fail.mp3",
+                )
+            )
+            self.win_sound = pygame.mixer.Sound(
+                os.path.join(
+                    os.path.dirname(__file__), "..", "assets", "sounds", "victoire.mp3"
+                )
+            )
+            self.large_frog_frames, self.large_frog_duration = self.load_gif(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "gif",
+                    "large_frog_animation.gif",
+                )
+            )
+            self.large_frog_sound = pygame.mixer.Sound(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "sounds",
+                    "aplaudissement_largefrog.mp3",
+                )
+            )
+            self.little_frog_frames, self.little_frog_duration = self.load_gif(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "gif",
+                    "small_frog_animation.gif",
+                )
+            )
+            self.little_frog_sound = pygame.mixer.Sound(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "sounds",
+                    "aplaudissement_smallfrog.mp3",
+                )
+            )
         except Exception as e:
             logging.error(f"Failed to load resources: {e}")
             raise SystemExit
@@ -538,43 +597,18 @@ class Display:
             pygame.display.flip()
 
     def draw_penalty(self):
-        frames, duration = self.load_gif(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "gif",
-                "fail.gif",
-            )
-        )
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "fail.mp3",
-            )
-        )
-        sound.play()
-        self.play_gif(frames, duration)
-        self.play_gif(frames, duration)
+        self.penalty_sound.play()
+        self.play_gif(self.penalty_frames, self.penalty_duration)
+        self.play_gif(self.penalty_frames, self.penalty_duration)
         roulette_animation = RouletteAnimation(self.screen, "null")
         points = roulette_animation.run()
 
         return points
 
     def draw_win(self, players, team_mode):
-        dark_green = pygame.Color(GREENDARK)  # A darker shade of green
-        dark_red = pygame.Color(REDDARK)  # A darker shade of red
-
         # Play victory sound
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__), "..", "assets", "sounds", "victoire.mp3"
-            )
-        )
-        sound.play()
+
+        self.win_sound.play()
 
         # Run fireworks if implemented
         self.run_fireworks()
@@ -778,48 +812,13 @@ class Display:
         sound.play()
 
     def animation_little_frog(self):
-        frames, duration = self.load_gif(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "gif",
-                "small_frog_animation.gif",
-            )
-        )
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "aplaudissement_smallfrog.mp3",
-            )
-        )
-        sound.play()
-        self.play_gif(frames, duration)
+
+        self.little_frog_sound.play()
+        self.play_gif(self.little_frog_frames, self.little_frog_duration)
 
     def animation_large_frog(self):
-        frames, duration = self.load_gif(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "gif",
-                "large_frog_animation.gif",
-            )
-        )
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "aplaudissement_largefrog.mp3",
-            )
-        )
-        sound.play()
-        self.play_gif(frames, duration)
+        self.large_frog_sound.play()
+        self.play_gif(self.large_frog_frames, self.large_frog_duration)
 
         roulette_animation = RouletteAnimation(self.screen, "frog")
         return roulette_animation.run()

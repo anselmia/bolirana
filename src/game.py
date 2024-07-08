@@ -39,9 +39,9 @@ class Game:
         logging.debug(f"Pin states reset to LOW: {self.pin_states}")
 
     def run(self):
-        clock = pygame.time.Clock()
         while self.gamelogic.selecting_mode:
             for event in pygame.event.get():
+                logging.debug(f"Event detected: {event}")
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
@@ -55,7 +55,7 @@ class Game:
 
             self.display.draw_menu(self.menu)
             pygame.display.flip()
-            clock.tick(60)  # Cap the frame rate to 60 FPS
+            pygame.time.Clock().tick(60)  # Cap the frame rate to 60 FPS
 
         self.play()
         self.display_end_menu()
@@ -120,7 +120,6 @@ class Game:
     def play(self):
         logging.debug("Starting game...")
         self.display.play_intro()
-        clock = pygame.time.Clock()
 
         self.display.draw_game(
             self.gamelogic.players,
@@ -138,19 +137,33 @@ class Game:
 
         while not self.gamelogic.game_ended:
             for event in pygame.event.get():
+                logging.debug(f"Event detected: {event}")
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-
             self.read_pin_states()  # Update pin states from file
             pin = self.get_next_pin("game")
             logging.debug(f"Next pin: {pin}")
 
             self.handle_turn(pin)
             self.gamelogic.check_game_end(self.display)
-
+            if self.gamelogic.draw_game:
+                self.display.draw_game(
+                    self.gamelogic.players,
+                    self.gamelogic.current_player,
+                    self.gamelogic.holes,
+                    self.gamelogic.score,
+                    self.gamelogic.game_mode,
+                    self.gamelogic.team_mode,
+                    (
+                        len(self.gamelogic.players)
+                        if self.gamelogic.team_mode == "Seul"
+                        else self.gamelogic.players_per_team
+                    ),
+                )
+                self.gamelogic.draw_game = False
             pygame.display.flip()
-            clock.tick(60)  # Cap the frame rate to 60 FPS
+            pygame.time.Clock().tick(60)  # Cap the frame rate to 60 FPS
 
         self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
 
