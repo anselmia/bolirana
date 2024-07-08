@@ -1,9 +1,6 @@
 import pygame
 import os
 
-# Display
-SCREEN_SIZE = (1024, 768)
-
 # Define colors
 DARK_GREEN = pygame.Color(34, 139, 34)  # Dark green
 DARK_RED = pygame.Color(128, 0, 0)

@@ -32,7 +32,7 @@ from PIL import Image
 class Display:
     def __init__(self):
         pygame.display.set_caption("Bolirana Game")
-        self.screen = pygame.display.set_mode(SCREEN_SIZE)
+        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         font_path = os.path.join(
             os.path.dirname(__file__), "..", "assets", "fonts", "AntonSC-Regular.ttf"
         )
