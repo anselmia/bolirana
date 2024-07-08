@@ -5,26 +5,8 @@ import os
 SCREEN_SIZE = (1024, 768)
 
 # Define colors
-
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GRAY = (100, 100, 100)
-GREENDARK = (0, 128, 0)
-BLUEDARK = (0, 0, 128)
-REDDARK = (128, 0, 0)
-MAGENTADARK = (128, 0, 128)
-YELLOWDARK = (204, 204, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
-RED = (255, 0, 0)
-MAGENTA = (255, 0, 255)
-ORANGE2 = (255, 195, 0)
-MANGOBICHE = (255, 255, 51)
-BLUE3 = (26, 0, 179)
-YELLOW = (255, 255, 0)
-
-# Define colors
 DARK_GREEN = pygame.Color(34, 139, 34)  # Dark green
+DARK_RED = pygame.Color(128, 0, 0)
 LIGHT_GREEN = pygame.Color(144, 238, 144)  # Light green
 DARK_YELLOW = pygame.Color(255, 215, 0)  # Gold
 LIGHT_GREY = pygame.Color(245, 245, 245)  # Light grey for background
@@ -33,6 +15,21 @@ LIGHT_BLUE = pygame.Color(173, 216, 230)  # Light blue
 RANK_COLOR = pygame.Color(255, 165, 0)  # Soft orange for rank box
 LIGHT_PINK = (pygame.Color(255, 182, 193),)  # Light pink
 PEACH_PUFF = (pygame.Color(255, 218, 185),)  # Peach puff
+DARK_BLUE = pygame.Color("darkblue")
+BLUE = pygame.Color("blue")
+WHITE = pygame.Color("white")
+YELLOW = pygame.Color("yellow")
+BLACK = pygame.Color(0, 0, 0)
+MAGENTA = pygame.Color("magenta")
+RED = pygame.Color("red")
+GROUP_COLORS = [
+    pygame.Color(85, 130, 250),
+    pygame.Color(250, 85, 85),
+    pygame.Color(85, 250, 85),
+    pygame.Color(250, 250, 85),
+    pygame.Color(250, 85, 250),
+]
+
 
 CHROME_COLORS = [
     pygame.Color(192, 192, 192),
@@ -40,15 +37,15 @@ CHROME_COLORS = [
     pygame.Color(255, 255, 255),
 ]
 GOLD_COLORS = [
-    pygame.Color(255, 215, 0),   # Light gold
+    pygame.Color(255, 215, 0),  # Light gold
     pygame.Color(218, 165, 32),  # Goldenrod
     pygame.Color(184, 134, 11),  # Dark goldenrod
 ]
 
 RED_COLORS = [
-    pygame.Color(255, 69, 0),    # Light red (OrangeRed)
-    pygame.Color(220, 20, 60),   # Crimson
-    pygame.Color(139, 0, 0),     # Dark red (DarkRed)
+    pygame.Color(255, 69, 0),  # Light red (OrangeRed)
+    pygame.Color(220, 20, 60),  # Crimson
+    pygame.Color(139, 0, 0),  # Dark red (DarkRed)
 ]
 
 # Define pin
@@ -73,3 +70,8 @@ PIN_STATES_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "pin_state
 
 HOLE_RADIUS = 30
 BLINK_INTERVAL = 0.2
+
+# Game Logic
+
+FPS = 60
+ACTION_COOLDOWN = 3

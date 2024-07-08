@@ -2,7 +2,27 @@ import pygame
 import os
 import time
 import logging
-from src.constants import *
+import sys
+from src.constants import (
+    SCREEN_SIZE,
+    HOLE_RADIUS,
+    CHROME_COLORS,
+    RED_COLORS,
+    GOLD_COLORS,
+    BLUE,
+    DARK_BLUE,
+    YELLOW,
+    WHITE,
+    DARK_GREEN,
+    DARK_YELLOW,
+    DARK_GREY,
+    LIGHT_GREY,
+    BLACK,
+    MAGENTA,
+    RED,
+    DARK_RED,
+    GROUP_COLORS,
+)
 import random
 from src.firework import Firework
 from src.roulette import RouletteAnimation
@@ -14,11 +34,7 @@ class Display:
         pygame.display.set_caption("Bolirana Game")
         self.screen = pygame.display.set_mode(SCREEN_SIZE)
         font_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "assets",
-            "fonts",
-            "AntonSC-Regular.ttf",
+            os.path.dirname(__file__), "..", "assets", "fonts", "AntonSC-Regular.ttf"
         )
         self.font_large = pygame.font.Font(font_path, 50)
         self.font_medium = pygame.font.Font(font_path, 30)
@@ -30,106 +46,98 @@ class Display:
         self.load_ressources()
 
     def load_ressources(self):
-        # Load the background image
         try:
-            game_background_path = os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "images",
-                "game3.jpg",
-            )
-            self.game_background = pygame.image.load(game_background_path)
-            self.game_background = pygame.transform.scale(
-                self.game_background, self.screen.get_size()
-            )
-
-            menu_background_path = os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "images",
-                "intro.jpg",
-            )
-            self.menu_background = pygame.image.load(menu_background_path)
-            self.menu_background = pygame.transform.scale(
-                self.menu_background, self.screen.get_size()
-            )
-
-            win_background_path = os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "images",
-                "win.jpg",
-            )
-            self.win_background = pygame.image.load(win_background_path)
-            self.win_background = pygame.transform.scale(
-                self.win_background, self.screen.get_size()
-            )
-
+            self.game_background = self.load_image("images", "game3.jpg")
+            self.menu_background = self.load_image("images", "intro.jpg")
+            self.win_background = self.load_image("images", "win.jpg")
             self.penalty_frames, self.penalty_duration = self.load_gif(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "assets",
-                    "gif",
-                    "fail.gif",
-                )
+                "gif", "fail.gif"
             )
-            self.penalty_sound = pygame.mixer.Sound(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "assets",
-                    "sounds",
-                    "fail.mp3",
-                )
-            )
-            self.win_sound = pygame.mixer.Sound(
-                os.path.join(
-                    os.path.dirname(__file__), "..", "assets", "sounds", "victoire.mp3"
-                )
-            )
+            self.penalty_sound = self.load_sound("sounds", "fail.mp3")
+            self.win_sound = self.load_sound("sounds", "victoire.mp3")
             self.large_frog_frames, self.large_frog_duration = self.load_gif(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "assets",
-                    "gif",
-                    "large_frog_animation.gif",
-                )
+                "gif", "large_frog_animation.gif"
             )
-            self.large_frog_sound = pygame.mixer.Sound(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "assets",
-                    "sounds",
-                    "aplaudissement_largefrog.mp3",
-                )
+            self.large_frog_sound = self.load_sound(
+                "sounds", "aplaudissement_largefrog.mp3"
             )
             self.little_frog_frames, self.little_frog_duration = self.load_gif(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "assets",
-                    "gif",
-                    "small_frog_animation.gif",
-                )
+                "gif", "small_frog_animation.gif"
             )
-            self.little_frog_sound = pygame.mixer.Sound(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    "..",
-                    "assets",
-                    "sounds",
-                    "aplaudissement_smallfrog.mp3",
-                )
+            self.little_frog_sound = self.load_sound(
+                "sounds", "aplaudissement_smallfrog.mp3"
             )
         except Exception as e:
             logging.error(f"Failed to load resources: {e}")
-            raise SystemExit
+            self.display_error_message("Failed to load resources. Exiting...")
+            pygame.quit()
+            sys.exit()
+
+    def load_image(self, folder, filename):
+        path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+        image = pygame.image.load(path)
+        return pygame.transform.scale(image, self.screen.get_size())
+
+    def load_sound(self, folder, filename):
+        path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+        return pygame.mixer.Sound(path)
+
+    def display_error_message(self, message):
+        self.screen.fill((0, 0, 0))
+        error_text = self.font_large.render(message, True, RED)
+        self.screen.blit(
+            error_text,
+            (
+                self.screen_width // 2 - error_text.get_width() // 2,
+                self.screen_height // 2,
+            ),
+        )
+        pygame.display.flip()
+        time.sleep(3)  # Display the message for 3 seconds
+
+    def get_hole_position(self, hole_value, position):
+        # Adjust the function to handle all cases and default return None
+        if hole_value == "20":
+            return (
+                (((self.screen_width / 3 + 20) + HOLE_RADIUS, 255),)
+                if position == 1
+                else (((self.screen_width / 3 + 20) + HOLE_RADIUS + 240, 255),)
+            )
+        elif hole_value == "25":
+            return (
+                (((self.screen_width / 3 + 20) + HOLE_RADIUS, 150),)
+                if position == 1
+                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 240, 155),)
+            )
+        elif hole_value == "40":
+            return (
+                (((self.screen_width / 3 + 20) + HOLE_RADIUS + 60, 205),)
+                if position == 1
+                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 180, 205),)
+            )
+        elif hole_value == "50":
+            return (
+                (((self.screen_width / 3 + 20) + HOLE_RADIUS + 60, 105),)
+                if position == 1
+                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 180, 105),)
+            )
+        elif hole_value == "100":
+            return (
+                (((self.screen_width / 3 + 20) + HOLE_RADIUS + 60, 305),)
+                if position == 1
+                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 180, 305),)
+            )
+        elif hole_value == "150":
+            return (
+                (((self.screen_width / 3 + 20) + HOLE_RADIUS, 55),)
+                if position == 1
+                else (((self.screen_width / 3 + 20) + HOLE_RADIUS + 240, 55),)
+            )
+        elif hole_value == "200":
+            return (((self.screen_width / 3 + 20) + HOLE_RADIUS + 120, 155),)
+        elif hole_value == "ROUL":
+            return (((self.screen_width / 3 + 20) + HOLE_RADIUS + 120, 55),)
+        return None
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
         """Draws a rounded rectangle with a chrome effect."""
@@ -147,22 +155,15 @@ class Display:
         self.screen.blit(self.menu_background, (0, 0))  # Draw the background image
 
         # Menu options dimensions
-        box_width = 400
-        box_height = 100
-        margin_x = 20
-        margin_y = 20
-        border_radius = 15  # Rounded border radius
-        border_width = 5  # Width of the border
+        box_width, box_height, margin_x, margin_y = 400, 100, 20, 20
+        border_radius, border_width = 15, 5
 
         # Transparency settings
-        semi_transparent_blue = pygame.Color("blue")
-        semi_transparent_darkblue = pygame.Color("darkblue")
-        semi_transparent_blue.a = 128  # Set alpha value (0-255)
-        semi_transparent_darkblue.a = 128  # Set alpha value (0-255)
+        semi_transparent_blue, semi_transparent_darkblue = BLUE, DARK_BLUE
+        semi_transparent_blue.a, semi_transparent_darkblue.a = 128, 128
 
         # Calculate the number of rows needed
-        num_options = len(menu.options)
-        num_rows = (num_options + 1) // 2
+        num_rows = (len(menu.options) + 1) // 2
 
         # Calculate total height of the menu
         total_height = num_rows * box_height + (num_rows - 1) * margin_y
@@ -178,8 +179,9 @@ class Display:
                 else semi_transparent_darkblue
             )
             # Calculate position
-            x = start_x + (i % 2) * (box_width + margin_x)
-            y = start_y + (i // 2) * (box_height + margin_y)
+            x, y = start_x + (i % 2) * (box_width + margin_x), start_y + (i // 2) * (
+                box_height + margin_y
+            )
 
             # Draw chrome effect rectangle
             self.draw_chrome_rect(
@@ -206,12 +208,8 @@ class Display:
             self.screen.blit(rect_surface, (x + border_width, y + border_width))
 
             # Render text
-            name_text = self.font_medium.render(
-                option["name"], True, pygame.Color("white")
-            )
-            value_text = self.font_medium.render(
-                str(option["value"]), True, pygame.Color("yellow")
-            )
+            name_text = self.font_medium.render(option["name"], True, WHITE)
+            value_text = self.font_medium.render(str(option["value"]), True, YELLOW)
 
             # Calculate center positions for the texts within the rectangle
             name_text_rect = name_text.get_rect(
@@ -228,15 +226,7 @@ class Display:
         pygame.display.flip()
 
     def play_intro(self):
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "intro.mp3",
-            )
-        )
+        sound = self.load_sound("sounds", "intro.mp3")
         sound.play()
 
     def draw_game(
@@ -251,10 +241,8 @@ class Display:
     ):
         self.screen.blit(self.game_background, (0, 0))
         self.draw_static_elements(current_player, score, game_mode, team_mode, holes)
-
         self.display_grouped_players(players, team_mode, player_in_team)
-
-        pygame.display.flip()  # Update the display with all changes made
+        pygame.display.flip()
 
     def draw_static_elements(self, current_player, score, game_mode, team_mode, holes):
         """Draws static elements like scores and game info."""
@@ -305,30 +293,20 @@ class Display:
 
         # Draw holes
         for hole in holes:
-            x1, y1 = hole.position
+            x1, y1 = hole.position[0]
 
-            pygame.draw.circle(
-                self.screen, pygame.Color("black"), (x1, y1), HOLE_RADIUS
-            )
-            pygame.draw.circle(
-                self.screen, pygame.Color("red"), (x1, y1), HOLE_RADIUS, 2
-            )
-            font = self.font_medium
-            if hole.type == "large_frog":
-                font = self.font_small
+            pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
+            pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 2)
+            font = self.font_medium if hole.type != "large_frog" else self.font_small
             points_text = font.render(hole.text, True, LIGHT_GREY)
             text_rect = points_text.get_rect(center=(x1, y1))
             self.screen.blit(points_text, text_rect)
 
             if hole.type == "side" or hole.type == "bottle":
-                x2, y2 = hole.position2
+                x2, y2 = hole.position2[0]
 
-                pygame.draw.circle(
-                    self.screen, pygame.Color("black"), (x2, y2), HOLE_RADIUS
-                )
-                pygame.draw.circle(
-                    self.screen, pygame.Color("red"), (x2, y2), HOLE_RADIUS, 2
-                )
+                pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
+                pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 2)
                 text_rect = points_text.get_rect(center=(x2, y2))
                 self.screen.blit(points_text, text_rect)
 
@@ -364,7 +342,6 @@ class Display:
 
     def display_grouped_players(self, players, team_mode, player_in_team):
         """Handles the display of player groups on the screen."""
-
         if team_mode == "Equipe":
             teams = {}
             for player in players:
@@ -373,14 +350,15 @@ class Display:
                     teams[team_id] = []
                 teams[team_id].append(player)
             groups = list(teams.values())
-            if player_in_team == 3:
-                players_per_row = 1
-            elif player_in_team > 4:
-                players_per_row = 2
-            elif player_in_team != 2:
-                players_per_row = player_in_team  # Each team on a row
-            else:
-                players_per_row = 4
+            players_per_row = (
+                1
+                if player_in_team == 3
+                else (
+                    2
+                    if player_in_team > 4
+                    else (player_in_team if player_in_team != 2 else 4)
+                )
+            )
             display_score = True
         elif team_mode == "Duo":
             pairs = {}
@@ -390,26 +368,18 @@ class Display:
                     pairs[pair_id] = []
                 pairs[pair_id].append(player)
             groups = list(pairs.values())
-            players_per_row = 4
-            display_score = True
+            players_per_row, display_score = 4, True
         else:  # For "Seul" mode, treat all players as a single group
             groups = [players]
-            players_per_row = 4
-            display_score = False
+            players_per_row, display_score = 4, False
 
         # Define colors for each group
-        group_colors = [
-            LIGHT_GREEN,  # Light green
-            LIGHT_BLUE,  # Light blue
-            LIGHT_PINK,  # Light pink
-            PEACH_PUFF,  # Peach puff
-        ]
+        group_colors = GROUP_COLORS
         group_color_map = {
             id(group): group_colors[i % len(group_colors)]
             for i, group in enumerate(groups)
         }
-        border_radius = 15  # Rounded border radius
-        border_width = 5  # Width of the border
+        border_radius, border_width = 15, 5
 
         # Set initial coordinates and layout settings
         start_y = self.screen_height / 2 - 30
@@ -417,8 +387,7 @@ class Display:
         box_width = self.screen_width / 5
         box_height = 70  # Adjusted height to fit more players
         start_x = (self.screen_width - (4 * box_width) - (3 * gap_between_boxes)) / 2
-        x = start_x
-        y = start_y
+        x, y = start_x, start_y
         players_in_row = 0
 
         rank_square_size = 25  # Adjusted size to fit better
@@ -442,12 +411,11 @@ class Display:
             # Layout players within the group
             for player in group:
                 # Draw player box
-                if player.won:
-                    border_color = GOLD_COLORS
-                elif player.is_active:
-                    border_color = RED_COLORS
-                else:
-                    border_color = CHROME_COLORS
+                border_color = (
+                    GOLD_COLORS
+                    if player.won
+                    else (RED_COLORS if player.is_active else CHROME_COLORS)
+                )
 
                 self.draw_chrome_rect(
                     (x, y + height_score, box_width, box_height),
@@ -466,13 +434,11 @@ class Display:
                 square_y = y + 5 + height_score
                 pygame.draw.rect(
                     self.screen,
-                    group_color,  # Use group color instead of black
+                    group_color,
                     (square_x, square_y, rank_square_size, rank_square_size),
                 )
 
-                rank_text = self.font_small.render(
-                    f"{player.rank}", True, pygame.Color("white")
-                )
+                rank_text = self.font_small.render(f"{player.rank}", True, WHITE)
                 rank_text_rect = rank_text.get_rect(
                     center=(
                         square_x + rank_square_size / 2,
@@ -491,10 +457,8 @@ class Display:
                     score_text, (x + 10, y + height_score + 25)
                 )  # Increased gap from bottom
 
-                if (
-                    team_mode == "Seul"
-                    or team_mode == "Duo"
-                    or (team_mode == "Equipe" and len(group) == 2)
+                if team_mode in ["Seul", "Duo"] or (
+                    team_mode == "Equipe" and len(group) == 2
                 ):
                     x += box_width + gap_between_boxes
                     players_in_row += 1  # Increment players in row counter
@@ -536,7 +500,7 @@ class Display:
 
     def draw_player(self, x, y, player, box_width, box_height, group_color):
         """Draws individual player boxes and details."""
-        border_color = DARK_YELLOW if player.is_active else pygame.Color("black")
+        border_color = DARK_YELLOW if player.is_active else BLACK
         pygame.draw.rect(
             self.screen,
             border_color,
@@ -572,23 +536,21 @@ class Display:
 
     def draw_goal_animation(self, hole):
         start_time = time.time()
-        current_color = pygame.Color("white")
+        current_color = WHITE
         last_blink_time = start_time
 
         while time.time() - start_time < 1.5:
             current_time = time.time()
             if current_time - last_blink_time > BLINK_INTERVAL:
                 # Toggle the color
-                current_color = (
-                    pygame.Color("red") if current_color == DARK_YELLOW else DARK_YELLOW
-                )
+                current_color = RED if current_color == DARK_YELLOW else DARK_YELLOW
                 last_blink_time = current_time
 
             # Draw the circle with the current color
             x1, y1 = hole.position
             # Draw the border with specified thickness
             pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 5)
-            if hole.type == "side" or hole.type == "bottle":
+            if hole.type in ["side", "bottle"]:
                 x2, y2 = hole.position2
                 # Draw the border with specified thickness
                 pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS, 5)
@@ -606,19 +568,14 @@ class Display:
         return points
 
     def draw_win(self, players, team_mode):
-        # Play victory sound
-
         self.win_sound.play()
-
-        # Run fireworks if implemented
         self.run_fireworks()
-
         self.screen.blit(self.win_background, (0, 0))
 
         # Display the congratulatory message for the winner
         winner = next((player for player in players if player.rank == 1), None)
         message = f"Bravo {winner}!" if winner else "Game Over!"
-        text_surface = self.font_large.render(message, True, pygame.Color("yellow"))
+        text_surface = self.font_large.render(message, True, YELLOW)
         text_rect = text_surface.get_rect(center=(self.screen.get_width() // 2, 50))
         self.screen.blit(text_surface, text_rect)
 
@@ -650,23 +607,15 @@ class Display:
             group.sort(key=lambda player: player.rank)
 
         # Assign colors to each group
-        group_colors = [
-            pygame.Color(85, 130, 250),  # Blue
-            pygame.Color(250, 85, 85),  # Red
-            pygame.Color(85, 250, 85),  # Green
-            pygame.Color(250, 250, 85),  # Yellow
-            pygame.Color(250, 85, 250),  # Magenta
-        ]
-        group_color_map = {}
-        for i, group in enumerate(sorted_groups):
-            group_color_map[id(group)] = group_colors[i % len(group_colors)]
+        group_colors = GROUP_COLORS
+        group_color_map = {
+            id(group): group_colors[i % len(group_colors)]
+            for i, group in enumerate(sorted_groups)
+        }
 
         # Calculate positions for displaying player groups
-        margin_left = self.screen.get_width() / 4
-        margin_top = 150
-        gap_between_boxes = 2
-        box_width = self.screen.get_width() / 2
-        box_height = 40
+        margin_left, margin_top, gap_between_boxes = self.screen.get_width() / 4, 150, 2
+        box_width, box_height = self.screen.get_width() / 2, 40
 
         # Calculate total height required for all groups
         num_rows = sum(len(group) for group in sorted_groups)  # Number of rows needed
@@ -683,9 +632,7 @@ class Display:
 
                 # Draw the player box with the group's color
                 bg_color = group_color
-                border_color = (
-                    pygame.Color("magenta") if player.won else pygame.Color("black")
-                )
+                border_color = MAGENTA if player.won else BLACK
 
                 # Draw the background
                 pygame.draw.rect(
@@ -696,15 +643,9 @@ class Display:
                 )
 
                 # Player information
-                player_label = self.font_small.render(
-                    str(player), True, pygame.Color("white")
-                )
-                score_text = self.font_medium.render(
-                    f"{player.score}", True, pygame.Color("white")
-                )
-                rank_text = self.font_small.render(
-                    f"{player.rank}", True, pygame.Color("yellow")
-                )
+                player_label = self.font_small.render(str(player), True, WHITE)
+                score_text = self.font_medium.render(f"{player.score}", True, WHITE)
+                rank_text = self.font_small.render(f"{player.rank}", True, YELLOW)
 
                 self.screen.blit(player_label, (x + 10, y + 10))
                 self.screen.blit(score_text, (x + box_width // 2, y + 10))
@@ -714,27 +655,24 @@ class Display:
 
         pygame.display.flip()
 
-        while True:
-            pass
+        # Add a condition to exit the loop
+        waiting = True
+        while waiting:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN or event.type == pygame.QUIT:
+                    waiting = False
+                    break
 
     def draw_end_menu(self, players):
-        dark_green = pygame.Color(GREENDARK)
-        dark_red = pygame.Color(REDDARK)
+        dark_green, dark_red = DARK_GREEN, DARK_RED
 
         self.screen.fill((0, 0, 0))
-
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__), "..", "assets", "sounds", "victoire.mp3"
-            )
-        )
-        sound.play()
-
+        self.win_sound.play()
         self.run_fireworks()
 
         winner = next((player for player in players if player.rank == 1), None)
         message = f"Bravo {winner}!" if winner else "Game Over!"
-        text_surface = self.font_large.render(message, True, pygame.Color("yellow"))
+        text_surface = self.font_large.render(message, True, YELLOW)
         text_rect = text_surface.get_rect(center=(self.screen.get_width() // 2, 50))
         self.screen.blit(text_surface, text_rect)
 
@@ -742,9 +680,7 @@ class Display:
             players, key=lambda x: x.rank if x.rank > 0 else float("inf")
         )
 
-        margin_left = 50
-        margin_top = 100
-        gap_between_boxes = 10
+        margin_left, margin_top, gap_between_boxes = 50, 100, 10
         box_width = (self.screen.get_width() - 2 * margin_left) // 4
         box_height = 90
 
@@ -753,9 +689,7 @@ class Display:
             y = margin_top + (i // 4) * (box_height + gap_between_boxes + 20)
 
             bg_color = dark_green if i % 2 == 0 else dark_red
-            border_color = (
-                pygame.Color("magenta") if player.won else pygame.Color("black")
-            )
+            border_color = MAGENTA if player.won else BLACK
 
             pygame.draw.rect(
                 self.screen,
@@ -771,27 +705,20 @@ class Display:
                 border_radius=5,
             )
 
-            player_label = self.font_small.render(
-                f"{player}", True, pygame.Color("yellow")
-            )
-            score_text = self.font_medium.render(
-                f"Score: {player.score}", True, pygame.Color("white")
-            )
+            player_label = self.font_small.render(f"{player}", True, YELLOW)
+            score_text = self.font_medium.render(f"Score: {player.score}", True, WHITE)
             self.screen.blit(player_label, (x + 10, y + 10))
             self.screen.blit(score_text, (x + 10, y + 50))
 
             if player.rank > 0:
                 square_size = 30
-                square_x = x + box_width - square_size - 5
-                square_y = y + 5
+                square_x, square_y = x + box_width - square_size - 5, y + 5
                 pygame.draw.rect(
                     self.screen,
-                    pygame.Color("magenta"),
+                    MAGENTA,
                     (square_x, square_y, square_size, square_size),
                 )
-                rank_text = self.font_small.render(
-                    f"{player.rank}", True, pygame.Color("white")
-                )
+                rank_text = self.font_small.render(f"{player.rank}", True, WHITE)
                 rank_text_rect = rank_text.get_rect(
                     center=(square_x + square_size / 2, square_y + square_size / 2)
                 )
@@ -800,31 +727,24 @@ class Display:
         pygame.display.flip()
 
     def animation_bottle(self):
-        sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "bouteille.mp3",
-            )
-        )
+        sound = self.load_sound("sounds", "bouteille.mp3")
         sound.play()
 
     def animation_little_frog(self):
-
         self.little_frog_sound.play()
         self.play_gif(self.little_frog_frames, self.little_frog_duration)
 
     def animation_large_frog(self):
         self.large_frog_sound.play()
         self.play_gif(self.large_frog_frames, self.large_frog_duration)
-
         roulette_animation = RouletteAnimation(self.screen, "frog")
         return roulette_animation.run()
 
-    def load_gif(self, gif_path):
+    def load_gif(self, folder, filename):
         # Load GIF using PIL
+        gif_path = os.path.join(
+            os.path.dirname(__file__), "..", "assets", folder, filename
+        )
         gif = Image.open(gif_path)
         frames = []
         try:
@@ -850,36 +770,37 @@ class Display:
 
             # Get the current frame
             frame = frames[frame_index]
-            mode = frame.mode
-            size = frame.size
+            mode, size = frame.mode, frame.size
             data = frame.tobytes()
 
-            if mode == "RGBA":
-                surface = pygame.image.fromstring(data, size, "RGBA")
-            else:
-                surface = pygame.image.fromstring(data, size, "RGB")
+            surface = pygame.image.fromstring(
+                data, size, "RGBA" if mode == "RGBA" else "RGB"
+            )
 
             # Calculate position to center the frame
             frame_width, frame_height = size
-            x = (screen_width - frame_width) // 2
-            y = (screen_height - frame_height) // 2
+            x, y = (screen_width - frame_width) // 2, (
+                screen_height - frame_height
+            ) // 2
 
             # Define the rectangle area for the GIF
             padding = 10
-            rect_x = x - padding
-            rect_y = y - padding
-            rect_width = frame_width + 2 * padding
-            rect_height = frame_height + 2 * padding
+            rect_x, rect_y, rect_width, rect_height = (
+                x - padding,
+                y - padding,
+                frame_width + 2 * padding,
+                frame_height + 2 * padding,
+            )
 
             # Draw the white rectangle with a black border
             pygame.draw.rect(
                 self.screen,
-                pygame.Color("black"),
+                BLACK,
                 (rect_x, rect_y, rect_width, rect_height),
             )
             pygame.draw.rect(
                 self.screen,
-                pygame.Color("white"),
+                WHITE,
                 (rect_x + 1, rect_y + 1, rect_width - 2, rect_height - 2),
             )
 
