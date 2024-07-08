@@ -54,7 +54,7 @@ class PIN:
                 and state == "LOW"
             ):
                 self.last_read_time = current_time  # Update the last read time
-                self._reset_pin_states(game_action)  # Reset pin states to LOW
+                self._reset_pin_states()  # Reset pin states to LOW
                 return int(pin)
             elif (
                 game_action == "game"
@@ -74,6 +74,6 @@ class PIN:
                 and state == "LOW"
             ):
                 self.last_read_time = current_time  # Update the last read time
-                self._reset_pin_states(game_action)  # Reset pin states to LOW
+                self._reset_pin_states()  # Reset pin states to LOW
                 return int(pin)
         return None
