@@ -21,6 +21,7 @@ from src.constants import (
     RED,
     DARK_RED,
     GROUP_COLORS,
+    BLINK_INTERVAL,
 )
 import random
 from src.firework import Firework

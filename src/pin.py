@@ -37,10 +37,10 @@ class PIN:
 
     def _reset_pin_states(self):
         for pin in self.pin_states:
-            self.pin_states[pin] = "LOW"
+            self.pin_states[pin] = "HIGH"
         with open(PIN_STATES_FILE, "w") as file:
             json.dump(self.pin_states, file)
-        logging.debug(f"Pin states reset to LOW: {self.pin_states}")
+        logging.debug(f"Pin states reset to HIGH: {self.pin_states}")
 
     def _get_next_pin(self, game_action):
         current_time = time.time()
