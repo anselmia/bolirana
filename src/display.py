@@ -305,7 +305,7 @@ class Display:
 
         # Draw holes
         for hole in holes:
-            x1, y1 = hole.position[0]
+            x1, y1 = hole.position
 
             pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
             pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 2)
@@ -315,7 +315,7 @@ class Display:
             self.screen.blit(points_text, text_rect)
 
             if hole.type == "side" or hole.type == "bottle":
-                x2, y2 = hole.position2[0]
+                x2, y2 = hole.position2
 
                 pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
                 pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 2)
