@@ -99,44 +99,44 @@ class Display:
         # Adjust the function to handle all cases and default return None
         if hole_value == "20":
             return (
-                (((self.screen_width / 2) - 160, 255),)
+                [(self.screen_width / 2) - 160, 255]
                 if position == 1
-                else (((self.screen_width / 2) + 160, 255),)
+                else [(self.screen_width / 2) + 160, 255]
             )
         elif hole_value == "25":
             return (
-                (((self.screen_width / 2) - 160, 150),)
+                [(self.screen_width / 2) - 160, 150]
                 if position == 1
-                else (((self.screen_width / 2) + 160, 155),)
+                else [(self.screen_width / 2) + 160, 155]
             )
         elif hole_value == "40":
             return (
-                (((self.screen_width / 2) - 80, 205),)
+                [(self.screen_width / 2) - 80, 205]
                 if position == 1
-                else (((self.screen_width / 2) + 80, 205),)
+                else [(self.screen_width / 2) + 80, 205]
             )
         elif hole_value == "50":
             return (
-                (((self.screen_width / 2) - 80, 105),)
+                [(self.screen_width / 2) - 80, 105]
                 if position == 1
-                else (((self.screen_width / 2) + 80, 105),)
+                else [(self.screen_width / 2) + 80, 105]
             )
         elif hole_value == "100":
             return (
-                (((self.screen_width / 2) - 80, 305),)
+                [(self.screen_width / 2) - 80, 305]
                 if position == 1
-                else (((self.screen_width / 2) + 80, 305),)
+                else [(self.screen_width / 2) + 80, 305]
             )
         elif hole_value == "150":
             return (
-                (((self.screen_width / 2) - 160, 55),)
+                [(self.screen_width / 2) - 160, 55]
                 if position == 1
-                else (((self.screen_width / 2) + 160, 55),)
+                else [(self.screen_width / 2) + 160, 55]
             )
         elif hole_value == "200":
-            return (((self.screen_width / 2), 155),)
+            return [(self.screen_width / 2), 155]
         elif hole_value == "ROUL":
-            return (((self.screen_width / 2), 55),)
+            return [(self.screen_width / 2), 55]
         return None
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
@@ -305,7 +305,7 @@ class Display:
 
         # Draw holes
         for hole in holes:
-            x1, y1 = hole.position
+            x1, y1 = hole.position[0], hole.position[1]
 
             pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
             pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 2)
@@ -315,7 +315,7 @@ class Display:
             self.screen.blit(points_text, text_rect)
 
             if hole.type == "side" or hole.type == "bottle":
-                x2, y2 = hole.position2
+                x2, y2 = hole.position2[0], hole.position2[1]
 
                 pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
                 pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 2)
