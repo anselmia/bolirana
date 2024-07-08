@@ -4,7 +4,6 @@ import time
 import logging
 import sys
 from src.constants import (
-    SCREEN_SIZE,
     HOLE_RADIUS,
     CHROME_COLORS,
     RED_COLORS,
