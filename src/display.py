@@ -98,39 +98,39 @@ class Display:
         # Adjust the function to handle all cases and default return None
         if hole_value == "20":
             return (
-                (((self.screen_width / 3 + 20) + HOLE_RADIUS, 255),)
+                (((self.screen_width / 2) - 160, 255),)
                 if position == 1
-                else (((self.screen_width / 3 + 20) + HOLE_RADIUS + 240, 255),)
+                else (((self.screen_width / 2) + 160, 255),)
             )
         elif hole_value == "25":
             return (
-                (((self.screen_width / 3 + 20) + HOLE_RADIUS, 150),)
+                (((self.screen_width / 2) - 160, 150),)
                 if position == 1
-                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 240, 155),)
+                else (((self.screen_width / 2) + 160, 155),)
             )
         elif hole_value == "40":
             return (
-                (((self.screen_width / 3 + 20) + HOLE_RADIUS + 60, 205),)
+                (((self.screen_width / 2) - 80, 205),)
                 if position == 1
-                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 180, 205),)
+                else (((self.screen_width / 2) + 80, 205),)
             )
         elif hole_value == "50":
             return (
-                (((self.screen_width / 3 + 20) + HOLE_RADIUS + 60, 105),)
+                (((self.screen_width / 2) - 80, 105),)
                 if position == 1
-                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 180, 105),)
+                else (((self.screen_width / 2) + 80, 105),)
             )
         elif hole_value == "100":
             return (
-                (((self.screen_width / 3 + 20) + HOLE_RADIUS + 60, 305),)
+                (((self.screen_width / 2) - 80, 305),)
                 if position == 1
-                else ((self.screen_width / 3 + 20 + HOLE_RADIUS + 180, 305),)
+                else (((self.screen_width / 2) + 80, 305),)
             )
         elif hole_value == "150":
             return (
-                (((self.screen_width / 2) - 120, 55),)
+                (((self.screen_width / 2) - 160, 55),)
                 if position == 1
-                else (((self.screen_width / 2) + 120, 55),)
+                else (((self.screen_width / 2) + 160, 55),)
             )
         elif hole_value == "200":
             return (((self.screen_width / 2), 155),)
