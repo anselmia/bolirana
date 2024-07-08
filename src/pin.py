@@ -51,7 +51,7 @@ class PIN:
             if (
                 game_action == "menu"
                 and int(pin) in {PIN_BENTER, PIN_DOWN, PIN_UP, PIN_LEFT, PIN_RIGHT}
-                and state == "HIGH"
+                and state == "LOW"
             ):
                 self.last_read_time = current_time  # Update the last read time
                 self._reset_pin_states(game_action)  # Reset pin states to LOW
@@ -71,7 +71,7 @@ class PIN:
                     PIN_HSFROG,
                     PIN_HLFROG,
                 }
-                and state == "HIGH"
+                and state == "LOW"
             ):
                 self.last_read_time = current_time  # Update the last read time
                 self._reset_pin_states(game_action)  # Reset pin states to LOW
