@@ -248,15 +248,9 @@ class Display:
         current_player_score = f"Score: {current_player.score}"
         remaining_points_text = f"Points Restants: {score - current_player.score}"
 
-        current_player_name_text = self.font_large.render(
-            str(current_player), True, DARK_GREEN
-        )
-        current_player_score_text = self.font_medium.render(
-            current_player_score, True, DARK_ORANGE
-        )
-        remaining_points_text_rendered = self.font_verysmall.render(
-            remaining_points_text, True, DARK_GREY
-        )
+        current_player_name_text = str(current_player)
+        current_player_score_text = current_player_score
+        remaining_points_text_rendered = remaining_points_text
 
         # Define the area for the current player info and add chrome border
         current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)
@@ -264,21 +258,27 @@ class Display:
 
         # Calculate center positions for the texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = current_player_rect
-        name_text_rect = current_player_name_text.get_rect(
-            center=(rect_x + rect_width / 2, rect_y + 40)
-        )
-        score_text_rect = current_player_score_text.get_rect(
-            center=(rect_x + rect_width / 2, rect_y + 100)
-        )
-        remaining_points_text_rect = remaining_points_text_rendered.get_rect(
-            center=(rect_x + rect_width / 2, rect_y + 160)
-        )
+        name_text_pos = (rect_x + rect_width / 2, rect_y + 40)
+        score_text_pos = (rect_x + rect_width / 2, rect_y + 100)
+        remaining_points_text_pos = (rect_x + rect_width / 2, rect_y + 160)
 
-        # Blit the centered text
-        self.screen.blit(current_player_name_text, name_text_rect.topleft)
-        self.screen.blit(current_player_score_text, score_text_rect.topleft)
-        self.screen.blit(
-            remaining_points_text_rendered, remaining_points_text_rect.topleft
+        # Draw centered text with shadow
+        self.draw_text_with_shadow(
+            current_player_name_text, self.font_large, DARK_GREEN, BLACK, name_text_pos
+        )
+        self.draw_text_with_shadow(
+            current_player_score_text,
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            score_text_pos,
+        )
+        self.draw_text_with_shadow(
+            remaining_points_text_rendered,
+            self.font_verysmall,
+            DARK_GREY,
+            BLACK,
+            remaining_points_text_pos,
         )
 
         # Define the area for the holes and add chrome border
@@ -320,24 +320,20 @@ class Display:
 
         # Calculate center positions for the game options texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = game_mode_rect
-        game_mode_text = self.font_medium.render(game_mode, True, DARK_ORANGE)
-        score_text = self.font_medium.render(str(score) + " points", True, DARK_ORANGE)
-        team_mode_text = self.font_medium.render(team_mode, True, DARK_ORANGE)
+        game_mode_text_pos = (rect_x + rect_width / 2, rect_y + 40)
+        score_text_pos = (rect_x + rect_width / 2, rect_y + 100)
+        team_mode_text_pos = (rect_x + rect_width / 2, rect_y + 160)
 
-        game_mode_text_rect = game_mode_text.get_rect(
-            center=(rect_x + rect_width / 2, rect_y + 40)
+        # Draw centered game options texts with shadow
+        self.draw_text_with_shadow(
+            game_mode, self.font_medium, DARK_ORANGE, BLACK, game_mode_text_pos
         )
-        score_text_rect = score_text.get_rect(
-            center=(rect_x + rect_width / 2, rect_y + 100)
+        self.draw_text_with_shadow(
+            str(score) + " points", self.font_medium, DARK_ORANGE, BLACK, score_text_pos
         )
-        team_mode_text_rect = team_mode_text.get_rect(
-            center=(rect_x + rect_width / 2, rect_y + 160)
+        self.draw_text_with_shadow(
+            team_mode, self.font_medium, DARK_ORANGE, BLACK, team_mode_text_pos
         )
-
-        # Blit the centered game options texts
-        self.screen.blit(game_mode_text, game_mode_text_rect.topleft)
-        self.screen.blit(score_text, score_text_rect.topleft)
-        self.screen.blit(team_mode_text, team_mode_text_rect.topleft)
 
     def display_grouped_players(self, players, team_mode, player_in_team):
         """Handles the display of player groups on the screen."""
@@ -396,16 +392,19 @@ class Display:
             height_score = height_score.get_height() + 5
         else:
             height_score = 0
+
         for group in groups:
             group_color = group_color_map[id(group)]
             group_total_score = sum(player.score for player in group)
 
-            if display_score:
-                # Display total score above each group
-                total_score_text = self.font_small.render(
-                    f"Total: {group_total_score}", True, DARK_ORANGE
-                )
-                self.screen.blit(total_score_text, (x, y))
+            total_score_text = f"Total: {group_total_score}"
+            self.draw_text_with_shadow(
+                total_score_text,
+                self.font_small,
+                DARK_ORANGE,  # Text color
+                pygame.Color("black"),  # Shadow color
+                (x, y),  # Position
+            )
 
             # Layout players within the group
             for player in group:
@@ -447,14 +446,18 @@ class Display:
                 self.screen.blit(rank_text, rank_text_rect)
 
                 # Player details
-                player_label = self.font_verysmall.render(str(player), True, DARK_GREY)
-                score_text = self.font_medium.render(str(player.score), True, DARK_GREY)
-                self.screen.blit(
-                    player_label, (x + 10, y + height_score + 5)
-                )  # Reduced gap from top
-                self.screen.blit(
-                    score_text, (x + 10, y + height_score + 25)
-                )  # Increased gap from bottom
+                player_label_pos = (x + 10, y + height_score + 5)
+                score_text_pos = (x + 10, y + height_score + 25)
+                self.draw_text_with_shadow(
+                    str(player), self.font_verysmall, DARK_GREY, WHITE, player_label_pos
+                )
+                self.draw_text_with_shadow(
+                    str(player.score),
+                    self.font_medium,
+                    DARK_GREY,
+                    WHITE,
+                    score_text_pos,
+                )
 
                 if team_mode in ["Seul", "Duo"] or (
                     team_mode == "Equipe" and len(group) == 2
@@ -496,6 +499,30 @@ class Display:
                 elif len(group) != 2:
                     x = start_x
                     y += box_height + gap_between_boxes + height_score
+
+    def draw_text_with_shadow(
+        self, text, font, text_color, shadow_color, position, shadow_offset=(2, 2)
+    ):
+        """
+        Renders text with a shadow effect.
+        :param text: The text to render.
+        :param font: The font to use.
+        :param text_color: The color of the text.
+        :param shadow_color: The color of the shadow.
+        :param position: The position to render the text.
+        :param shadow_offset: The offset of the shadow from the text.
+        """
+        # Render the shadow text
+        shadow_text = font.render(text, True, shadow_color)
+        shadow_position = (
+            position[0] + shadow_offset[0],
+            position[1] + shadow_offset[1],
+        )
+        self.screen.blit(shadow_text, shadow_position)
+
+        # Render the actual text on top
+        actual_text = font.render(text, True, text_color)
+        self.screen.blit(actual_text, position)
 
     def draw_player(self, x, y, player, box_width, box_height, group_color):
         """Draws individual player boxes and details."""
