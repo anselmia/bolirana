@@ -258,27 +258,39 @@ class Display:
 
         # Calculate center positions for the texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = current_player_rect
-        name_text_pos = (rect_x + rect_width / 2, rect_y + 40)
-        score_text_pos = (rect_x + rect_width / 2, rect_y + 100)
-        remaining_points_text_pos = (rect_x + rect_width / 2, rect_y + 160)
+        name_text_position = (rect_x + rect_width / 2, rect_y + 40)
+        score_text_position = (rect_x + rect_width / 2, rect_y + 100)
+        remaining_points_text_position = (rect_x + rect_width / 2, rect_y + 160)
 
-        # Draw centered text with shadow
+        # Draw the current player name with shadow
         self.draw_text_with_shadow(
-            current_player_name_text, self.font_large, DARK_GREEN, BLACK, name_text_pos
+            current_player_name_text,
+            self.font_large,
+            DARK_GREEN,
+            BLACK,
+            name_text_position,
+            shadow_offset=(2, 2),
+            center=True,
         )
+        # Draw the current player score with shadow
         self.draw_text_with_shadow(
             current_player_score_text,
             self.font_medium,
             DARK_ORANGE,
             BLACK,
-            score_text_pos,
+            score_text_position,
+            shadow_offset=(2, 2),
+            center=True,
         )
+        # Draw the remaining points with shadow
         self.draw_text_with_shadow(
             remaining_points_text_rendered,
             self.font_verysmall,
             DARK_GREY,
             BLACK,
-            remaining_points_text_pos,
+            remaining_points_text_position,
+            shadow_offset=(2, 2),
+            center=True,
         )
 
         # Define the area for the holes and add chrome border
@@ -320,19 +332,39 @@ class Display:
 
         # Calculate center positions for the game options texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = game_mode_rect
-        game_mode_text_pos = (rect_x + rect_width / 2, rect_y + 40)
-        score_text_pos = (rect_x + rect_width / 2, rect_y + 100)
-        team_mode_text_pos = (rect_x + rect_width / 2, rect_y + 160)
+        game_mode_text_position = (rect_x + rect_width / 2, rect_y + 40)
+        score_text_position = (rect_x + rect_width / 2, rect_y + 100)
+        team_mode_text_position = (rect_x + rect_width / 2, rect_y + 160)
 
-        # Draw centered game options texts with shadow
+        # Draw the game mode with shadow
         self.draw_text_with_shadow(
-            game_mode, self.font_medium, DARK_ORANGE, BLACK, game_mode_text_pos
+            game_mode,
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            game_mode_text_position,
+            shadow_offset=(2, 2),
+            center=True,
         )
+        # Draw the game score with shadow
         self.draw_text_with_shadow(
-            str(score) + " points", self.font_medium, DARK_ORANGE, BLACK, score_text_pos
+            str(score) + " points",
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            score_text_position,
+            shadow_offset=(2, 2),
+            center=True,
         )
+        # Draw the team mode with shadow
         self.draw_text_with_shadow(
-            team_mode, self.font_medium, DARK_ORANGE, BLACK, team_mode_text_pos
+            team_mode,
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            team_mode_text_position,
+            shadow_offset=(2, 2),
+            center=True,
         )
 
     def display_grouped_players(self, players, team_mode, player_in_team):
@@ -501,7 +533,14 @@ class Display:
                     y += box_height + gap_between_boxes + height_score
 
     def draw_text_with_shadow(
-        self, text, font, text_color, shadow_color, position, shadow_offset=(2, 2)
+        self,
+        text,
+        font,
+        text_color,
+        shadow_color,
+        position,
+        shadow_offset=(2, 2),
+        center=False,
     ):
         """
         Renders text with a shadow effect.
@@ -511,18 +550,28 @@ class Display:
         :param shadow_color: The color of the shadow.
         :param position: The position to render the text.
         :param shadow_offset: The offset of the shadow from the text.
+        :param center: Whether to center the text at the given position.
         """
-        # Render the shadow text
         shadow_text = font.render(text, True, shadow_color)
         shadow_position = (
             position[0] + shadow_offset[0],
             position[1] + shadow_offset[1],
         )
+        if center:
+            shadow_position = (
+                shadow_position[0] - shadow_text.get_width() // 2,
+                shadow_position[1] - shadow_text.get_height() // 2,
+            )
         self.screen.blit(shadow_text, shadow_position)
 
-        # Render the actual text on top
         actual_text = font.render(text, True, text_color)
-        self.screen.blit(actual_text, position)
+        actual_position = position
+        if center:
+            actual_position = (
+                actual_position[0] - actual_text.get_width() // 2,
+                actual_position[1] - actual_text.get_height() // 2,
+            )
+        self.screen.blit(actual_text, actual_position)
 
     def draw_player(self, x, y, player, box_width, box_height, group_color):
         """Draws individual player boxes and details."""
