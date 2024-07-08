@@ -468,7 +468,7 @@ class Display:
                     (square_x, square_y, rank_square_size, rank_square_size),
                 )
 
-                rank_text = self.font_small.render(f"{player.rank}", True, WHITE)
+                rank_text = self.font_verysmall.render(f"{player.rank}", True, WHITE)
                 rank_text_rect = rank_text.get_rect(
                     center=(
                         square_x + rank_square_size / 2,
@@ -479,15 +479,18 @@ class Display:
 
                 # Player details
                 player_label = self.font_small.render(str(player), True, DARK_GREY)
-                player_label_pos = (x + 10, y + height_score + 5)
+                player_label_pos = (
+                    x + 10,
+                    y + height_score + (box_height - player_label.get_height()) // 2,
+                )
                 self.draw_text_with_shadow(
                     str(player), self.font_small, DARK_GREY, WHITE, player_label_pos
                 )
 
                 # Calculate the position for the score text
                 score_text_pos = (
-                    player_label_pos[0] + player_label.get_width() + 20,
-                    player_label_pos[1],
+                    player_label_pos[0] + player_label.get_width() + 40,
+                    y + height_score + (box_height - player_label.get_height()) // 2,
                 )
                 self.draw_text_with_shadow(
                     str(player.score),
