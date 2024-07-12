@@ -4,7 +4,9 @@ import time
 import os
 import math
 from pygame.locals import *
-from src.constants import *
+
+# Define the solid gold color
+GOLD_COLOR = (255, 215, 0)
 
 
 class RouletteAnimation:
@@ -34,8 +36,8 @@ class RouletteAnimation:
         else:
             self.values = [10, 20, 40, 50, 10, 20, 40, 50]
 
-        self.font = pygame.font.Font(None, 40)
-        self.roulette_font = pygame.font.Font(None, 80)
+        self.font = pygame.font.Font(None, 80)  # Double the font size
+        self.roulette_font = pygame.font.Font(None, 160)  # Double the font size
 
         self.roulette_sound = pygame.mixer.Sound(
             os.path.join(
@@ -47,203 +49,234 @@ class RouletteAnimation:
             )
         )
 
-    def draw_circle_with_border(self, center, radius, border_colors, border_width):
+    def draw_circle_with_border(self, center, radius, border_color, border_width):
         """Draws a circle with a border effect."""
         for i in range(border_width):
             pygame.draw.circle(
                 self.screen,
-                border_colors[i % len(border_colors)],
+                border_color,
                 center,
                 radius + i,
                 width=1,
             )
 
-    def draw_roulette(self):
-        # Draw golden external border around the main big circle
-        self.draw_circle_with_border(
-            (self.center_x, self.center_y), self.radius, GOLD_COLORS, 10
+    def draw_roulette(self, angle=0):
+        # Draw the light grey background circle
+        pygame.draw.circle(
+            self.screen,
+            pygame.Color("lightgrey"),
+            (self.center_x, self.center_y),
+            self.radius + 10,
         )
 
         # Draw the main roulette sections
         for i in range(self.sections):
-            start_angle = (360 / self.sections) * i
+            start_angle = (360 / self.sections) * i + angle
             end_angle = start_angle + (360 / self.sections)
-            pygame.draw.arc(
-                self.screen,
-                self.section_colors[i],
+            points = [
+                (self.center_x, self.center_y),
                 (
-                    self.center_x - self.radius,
-                    self.center_y - self.radius,
-                    self.radius * 2,
-                    self.radius * 2,
+                    self.center_x + self.radius * math.cos(math.radians(start_angle)),
+                    self.center_y + self.radius * math.sin(math.radians(start_angle)),
                 ),
-                math.radians(start_angle),
-                math.radians(end_angle),
-                self.radius,
+                (
+                    self.center_x + self.radius * math.cos(math.radians(end_angle)),
+                    self.center_y + self.radius * math.sin(math.radians(end_angle)),
+                ),
+            ]
+            pygame.draw.polygon(self.screen, self.section_colors[i], points)
+            # Draw thin gold borders for each section
+            pygame.draw.line(
+                self.screen,
+                GOLD_COLOR,
+                (self.center_x, self.center_y),
+                (
+                    self.center_x + self.radius * math.cos(math.radians(start_angle)),
+                    self.center_y + self.radius * math.sin(math.radians(start_angle)),
+                ),
+                5,
+            )
+            pygame.draw.line(
+                self.screen,
+                GOLD_COLOR,
+                (self.center_x, self.center_y),
+                (
+                    self.center_x + self.radius * math.cos(math.radians(end_angle)),
+                    self.center_y + self.radius * math.sin(math.radians(end_angle)),
+                ),
+                5,
             )
 
-        # Draw chrome border around the number circle
+        # Draw the text for each section
+        for i in range(self.sections):
+            angle_offset = (360 / self.sections) / 2
+            angle2 = (360 / self.sections) * i + angle_offset + angle
+            x = self.center_x + (self.radius * 0.7) * math.cos(math.radians(angle2))
+            y = self.center_y + (self.radius * 0.7) * math.sin(math.radians(angle2))
+
+            # Render the text
+            text_surface = self.font.render(
+                str(self.values[i]), True, pygame.Color("black")
+            )
+            text_surface_rotated = pygame.transform.rotate(text_surface, -angle2)
+            text_rect = text_surface_rotated.get_rect(center=(x, y))
+            self.screen.blit(text_surface_rotated, text_rect)
+
+        # Draw the gold border around the main circle
         self.draw_circle_with_border(
-            (self.center_x, self.center_y), self.inner_radius, CHROME_COLORS, 10
+            (self.center_x, self.center_y), self.radius, GOLD_COLOR, 10
+        )
+
+        # Draw the gold border around the inner circle
+        self.draw_circle_with_border(
+            (self.center_x, self.center_y), self.inner_radius, GOLD_COLOR, 5
         )
 
         # Draw the inner circle
         pygame.draw.circle(
             self.screen,
-            pygame.Color("gray"),
+            pygame.Color("white"),
             (self.center_x, self.center_y),
-            self.inner_radius,
+            self.inner_radius - 5,
         )
 
-        # Add values to the sections
-        for i in range(self.sections):
-            angle = (360 / self.sections) * i + (360 / self.sections) / 2
-            x = self.center_x + (self.radius / 1.5) * math.cos(
-                math.radians(angle)
-            )
-            y = self.center_y + (self.radius / 1.5) * math.sin(
-                math.radians(angle)
-            )
-            text_surface = self.font.render(
-                str(self.values[i]), True, pygame.Color("white")
-            )
-            text_rect = text_surface.get_rect(center=(x, y))
-            self.screen.blit(text_surface, text_rect)
-
-        # Draw the spinner pointer
+    def draw_pointer(self):
         pointer = [
             (self.center_x, self.center_y - self.radius - 20),
-            (self.center_x - 20, self.center_y - self.radius + 20),
-            (self.center_x + 20, self.center_y - self.radius + 20),
+            (self.center_x - 20, self.center_y - self.radius - 60),
+            (self.center_x + 20, self.center_y - self.radius - 60),
         ]
-        pygame.draw.polygon(self.screen, GOLD_COLORS[0], pointer)
+        pygame.draw.polygon(self.screen, pygame.Color("black"), pointer)
+        pygame.draw.polygon(self.screen, pygame.Color("grey"), pointer, 1)
+
+    def draw_roulette_with_blur(self, angle=0):
+        blurred_screen = self.screen.copy()
+        self.draw_roulette(angle)
+        self.screen.blit(blurred_screen, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
     def run(self):
-        while True:
-            self.screen.fill((0, 0, 0))  # Clear the screen
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    running = False
 
             self.draw_roulette()
+            self.draw_pointer()
 
             pygame.display.update()
             time.sleep(1)
             self.roulette_sound.play()
 
-            rand = random.randint(0, 7)
-            rand_6 = rand + 8
-            rand_6_div_6 = rand_6 // 6
+            current_angle = 0
+            start_time = time.time()
 
-            for i in range(rand_6_div_6 + 1):
-                for j in range(8):
-                    pygame.draw.circle(
-                        self.screen,
-                        self.section_colors[j],
-                        [self.center_x, self.center_y],
-                        self.radius,
-                    )
-                    text_surface = self.font.render(
-                        str(self.values[j]), True, pygame.Color("white")
-                    )
-                    text_rect = text_surface.get_rect(
-                        center=(self.center_x, self.center_y)
-                    )
-                    self.screen.blit(text_surface, text_rect)
-
-                    if j != 0:
-                        pygame.draw.circle(
-                            self.screen,
-                            self.section_colors[j - 1],
-                            [self.center_x, self.center_y],
-                            self.radius,
-                        )
-                        text_surface = self.font.render(
-                            str(self.values[j - 1]), True, pygame.Color("white")
-                        )
-                        text_rect = text_surface.get_rect(
-                            center=(self.center_x, self.center_y)
-                        )
-                        self.screen.blit(text_surface, text_rect)
-                    else:
-                        pygame.draw.circle(
-                            self.screen,
-                            self.section_colors[7],
-                            [self.center_x, self.center_y],
-                            self.radius,
-                        )
-                        text_surface = self.font.render(
-                            str(self.values[7]), True, pygame.Color("white")
-                        )
-                        text_rect = text_surface.get_rect(
-                            center=(self.center_x, self.center_y)
-                        )
-                        self.screen.blit(text_surface, text_rect)
-
-                    pygame.display.update()
-                    time.sleep(0.1)
-
-            for k in range(rand):
-                pygame.draw.circle(
-                    self.screen,
-                    self.section_colors[k],
-                    [self.center_x, self.center_y],
-                    self.radius,
+            while time.time() - start_time < 3:
+                # Clear only the area behind the roulette
+                clear_rect = pygame.Rect(
+                    self.center_x - self.radius - 20,
+                    self.center_y - self.radius - 20,
+                    (self.radius + 20) * 2,
+                    (self.radius + 20) * 2,
                 )
-                text_surface = self.font.render(
-                    str(self.values[k]), True, pygame.Color("white")
-                )
-                text_rect = text_surface.get_rect(center=(self.center_x, self.center_y))
-                self.screen.blit(text_surface, text_rect)
-                if k != 0:
-                    pygame.draw.circle(
-                        self.screen,
-                        self.section_colors[k - 1],
-                        [self.center_x, self.center_y],
-                        self.radius,
-                    )
-                    text_surface = self.font.render(
-                        str(self.values[k - 1]), True, pygame.Color("white")
-                    )
-                    text_rect = text_surface.get_rect(
-                        center=(self.center_x, self.center_y)
-                    )
-                    self.screen.blit(text_surface, text_rect)
-                else:
-                    pygame.draw.circle(
-                        self.screen,
-                        self.section_colors[7],
-                        [self.center_x, self.center_y],
-                        self.radius,
-                    )
-                    text_surface = self.font.render(
-                        str(self.values[7]), True, pygame.Color("white")
-                    )
-                    text_rect = text_surface.get_rect(
-                        center=(self.center_x, self.center_y)
-                    )
-                    self.screen.blit(text_surface, text_rect)
+                pygame.draw.rect(self.screen, pygame.Color("white"), clear_rect)
+                pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect, 10)
+                self.draw_roulette_with_blur(current_angle)
+                self.draw_pointer()
+
+                # Increment the angle to simulate rotation
+                current_angle += 15  # Adjust this value for faster/slower spinning
+                current_angle %= 360
 
                 pygame.display.update()
-                time.sleep(0.2)
+                time.sleep(0.05)  # Reduce sleep time for faster update
 
-            pygame.draw.circle(
-                self.screen,
-                self.section_colors[rand - 1],
-                [self.center_x, self.center_y],
-                self.radius,
+            # Continue spinning for random time within 1 second
+            additional_time = random.uniform(0.1, 2.0)
+            end_time = time.time() + additional_time
+
+            while time.time() < end_time:
+                for event in pygame.event.get():
+                    if event.type == QUIT:
+                        running = False
+
+                clear_rect = pygame.Rect(
+                    self.center_x - self.radius - 20,
+                    self.center_y - self.radius - 20,
+                    (self.radius + 20) * 2,
+                    (self.radius + 20) * 2,
+                )
+                pygame.draw.rect(self.screen, pygame.Color("white"), clear_rect)
+                pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect, 10)
+
+                self.draw_roulette(current_angle)
+                self.draw_pointer()
+
+                # Increment the angle to simulate rotation
+                current_angle += 10  # Adjust this value for faster/slower spinning
+                current_angle %= 360
+
+                pygame.display.update()
+                time.sleep(0.05)  # Reduce sleep time for faster update
+
+            # Calculate the final stopping section
+            final_section = int(
+                (current_angle // (360 / self.sections)) % self.sections
             )
-            text_surface = self.font.render(
-                str(self.values[rand - 1]), True, pygame.Color("white")
+
+            # Blink the final value for 1.5 seconds
+            blink_duration = 1.5
+            blink_interval = 0.25  # Blinking interval
+            end_blink_time = time.time() + blink_duration
+
+            while time.time() < end_blink_time:
+                for event in pygame.event.get():
+                    if event.type == QUIT:
+                        running = False
+
+                clear_rect = pygame.Rect(
+                    self.center_x - self.radius - 20,
+                    self.center_y - self.radius - 20,
+                    (self.radius + 20) * 2,
+                    (self.radius + 20) * 2,
+                )
+                pygame.draw.rect(self.screen, pygame.Color("white"), clear_rect)
+                pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect, 10)
+
+                # Draw the final state of the roulette
+                self.draw_roulette(current_angle)
+                self.draw_pointer()
+
+                # Blink the final value in the inner circle
+                if int(time.time() * 2) % 2 == 0:
+                    final_value_text = self.roulette_font.render(
+                        str(self.values[final_section]), True, pygame.Color("black")
+                    )
+                    final_value_rect = final_value_text.get_rect(
+                        center=(self.center_x, self.center_y)
+                    )
+                    self.screen.blit(final_value_text, final_value_rect)
+
+                pygame.display.update()
+                time.sleep(blink_interval / 2)  # Half interval to control the blink
+
+            # Display the final value in the center
+            clear_rect = pygame.Rect(
+                self.center_x - self.radius - 20,
+                self.center_y - self.radius - 20,
+                (self.radius + 20) * 2,
+                (self.radius + 20) * 2,
             )
-            text_rect = text_surface.get_rect(center=(self.center_x, self.center_y))
-            self.screen.blit(text_surface, text_rect)
+            pygame.draw.rect(self.screen, pygame.Color("white"), clear_rect)
+            pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect, 10)
+
             final_value_text = self.roulette_font.render(
-                str(self.values[rand - 1]), True, pygame.Color("yellow")
+                str(self.values[final_section]), True, pygame.Color("black")
             )
             final_value_rect = final_value_text.get_rect(
-                center=(self.screen.get_width() // 2, self.screen.get_height() // 2)
+                center=(self.center_x, self.center_y)
             )
             self.screen.blit(final_value_text, final_value_rect)
-
             pygame.display.update()
-            time.sleep(2)
 
-            return self.values[rand - 1]
+            return self.values[final_section]

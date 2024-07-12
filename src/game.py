@@ -9,6 +9,14 @@ from src.constants import (
     PIN_UP,
     PIN_LEFT,
     PIN_RIGHT,
+    PIN_H20,
+    PIN_H25,
+    PIN_H40,
+    PIN_H50,
+    PIN_H100,
+    PIN_HBOTTLE,
+    PIN_HLFROG,
+    PIN_HSFROG,
     ACTION_COOLDOWN,
     FPS,
 )
@@ -73,17 +81,22 @@ class Game:
             self.gamelogic.selecting_mode = False  # Transition to the game
 
     def play(self):
+
         logging.debug("Starting game...")
         self.display.play_intro()
         self.update_game_display()
 
         while not self.gamelogic.game_ended:
+            pin = None
             for event in pygame.event.get():
                 logging.debug(f"Event detected: {event}")
                 if event.type == pygame.QUIT:
                     self.cleanup()
+                elif event.type == pygame.KEYDOWN:
+                    pin = self.keyboard_input(event.key)
 
-            pin = self.pin.read_pin_states("game")
+            # pin = self.pin.read_pin_states("game")
+
             self.handle_turn(pin)
             self.gamelogic.check_game_end(self.display)
             if self.gamelogic.draw_game:
@@ -139,6 +152,28 @@ class Game:
             self.gamelogic.penalty = self.menu.get_penalty()
             self.gamelogic.setup_game(self.display)
             self.gamelogic.selecting_mode = False  # Transition to the game
+
+    def keyboard_input(self, key):
+        if key == pygame.K_q:
+            return PIN_H20
+        elif key == pygame.K_s:
+            return PIN_H25
+        elif key == pygame.K_d:
+            return PIN_H40
+        elif key == pygame.K_f:
+            return PIN_H50
+        elif key == pygame.K_g:
+            return PIN_H100
+        elif key == pygame.K_h:
+            return PIN_HBOTTLE
+        elif key == pygame.K_j:
+            return PIN_HSFROG
+        elif key == pygame.K_k:
+            return PIN_HLFROG
+        elif key == pygame.K_n:
+            return PIN_BNEXT
+
+        return None
 
     def update_game_display(self):
         self.display.draw_game(

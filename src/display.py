@@ -32,7 +32,8 @@ from PIL import Image
 class Display:
     def __init__(self):
         pygame.display.set_caption("Bolirana Game")
-        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        # self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((1024, 768))
         font_path = os.path.join(
             os.path.dirname(__file__), "..", "assets", "fonts", "AntonSC-Regular.ttf"
         )
@@ -50,6 +51,7 @@ class Display:
             self.game_background = self.load_image("images", "game3.jpg")
             self.menu_background = self.load_image("images", "intro.jpg")
             self.win_background = self.load_image("images", "win.jpg")
+            self.winner_banner = self.load_image("images", "winner.png")
             self.penalty_frames, self.penalty_duration = self.load_gif(
                 "gif", "fail.gif"
             )
@@ -150,6 +152,33 @@ class Display:
                 border_radius=border_radius - i if border_radius > i else 0,
                 width=1,
             )
+
+    def draw_text_with_outline(
+        self,
+        text,
+        font,
+        text_color,
+        outline_color,
+        position,
+        outline_width=2,
+        center=False,
+    ):
+        outline_font = pygame.font.Font(font, font.size + outline_width * 2)
+        outline_text = outline_font.render(text, True, outline_color)
+        outline_rect = outline_text.get_rect()
+        if center:
+            outline_rect.center = position
+        else:
+            outline_rect.topleft = position
+        self.screen.blit(outline_text, outline_rect)
+
+        actual_text = font.render(text, True, text_color)
+        actual_rect = actual_text.get_rect()
+        if center:
+            actual_rect.center = outline_rect.center
+        else:
+            actual_rect.topleft = outline_rect.topleft
+        self.screen.blit(actual_text, actual_rect)
 
     def draw_menu(self, menu):
         self.screen.blit(self.menu_background, (0, 0))  # Draw the background image
@@ -657,12 +686,97 @@ class Display:
         self.run_fireworks()
         self.screen.blit(self.win_background, (0, 0))
 
-        # Display the congratulatory message for the winner
-        winner = next((player for player in players if player.rank == 1), None)
-        message = f"Bravo {winner}!" if winner else "Game Over!"
-        text_surface = self.font_large.render(message, True, YELLOW)
-        text_rect = text_surface.get_rect(center=(self.screen.get_width() // 2, 50))
-        self.screen.blit(text_surface, text_rect)
+        # Load and scale the winner image
+        winner_image_path = os.path.join(
+            os.path.dirname(__file__), "..", "assets", "images", "winner.png"
+        )
+        self.winner_banner = pygame.image.load(winner_image_path)
+        self.winner_banner = pygame.transform.scale(
+            self.winner_banner, (50, 50)
+        )  # Adjust size as needed
+
+        if team_mode == "Equipe":
+            teams = {}
+            for player in players:
+                team_id = player.team
+                if team_id not in teams:
+                    teams[team_id] = []
+                teams[team_id].append(player)
+            groups = list(teams.values())
+        elif team_mode == "Duo":
+            pairs = {}
+            for player in players:
+                pair_id = player.team
+                if pair_id not in pairs:
+                    pairs[pair_id] = []
+                pairs[pair_id].append(player)
+            groups = list(pairs.values())
+        else:  # For "Seul" mode, treat all players as a single group
+            groups = [players]
+
+        # Determine the winner and message
+        if team_mode in ["Equipe", "Duo"]:
+            winner_group = next(
+                (
+                    group
+                    for group in groups
+                    if any(player.rank == 1 for player in group)
+                ),
+                None,
+            )
+            if team_mode == "Equipe":
+                winner_name = f"Team {next(player.team for player in winner_group)}"
+            else:
+                winner_name = f"Duo {next(player.team for player in winner_group)}"
+            message = f"Bravo {winner_name}" if winner_group else "Game Over!"
+        else:
+            winner = next((player for player in players if player.rank == 1), None)
+            message = f"Bravo {winner}" if winner else "Game Over!"
+
+        text_surface = self.font_large.render(message, True, DARK_ORANGE)
+        text_rect = text_surface.get_rect(
+            center=(self.screen.get_width() // 2, 70)
+        )  # Adjusted to be 20 from the top
+
+        # Calculate positions for the winner frame and images
+        frame_margin = 20
+        frame_rect = pygame.Rect(
+            text_rect.left - frame_margin,
+            text_rect.top - frame_margin,
+            text_rect.width + 2 * frame_margin,
+            text_rect.height + 2 * frame_margin,
+        )
+        left_image_rect = self.winner_banner.get_rect(
+            midright=(frame_rect.left - 10, frame_rect.centery)
+        )
+        right_image_rect = self.winner_banner.get_rect(
+            midleft=(frame_rect.right + 10, frame_rect.centery)
+        )
+
+        # Draw the winner frame
+        self.draw_chrome_rect(
+            frame_rect,
+            GOLD_COLORS,
+            10,
+            5,
+        )
+
+        # Draw the text with shadow centered within the frame
+        text_center_x = frame_rect.centerx
+        text_center_y = frame_rect.centery
+
+        self.draw_text_with_shadow(
+            message,
+            self.font_large,
+            DARK_ORANGE,
+            BLACK,
+            (text_center_x, text_center_y),
+            shadow_offset=(2, 2),
+            center=True,
+        )
+
+        self.screen.blit(self.winner_banner, left_image_rect)
+        self.screen.blit(self.winner_banner, right_image_rect)
 
         # Group players by team or pairs
         if team_mode == "Equipe":
@@ -682,7 +796,7 @@ class Display:
                 pairs[pair_id].append(player)
             groups = pairs.values()
         else:
-            groups = [players]
+            groups = [[player] for player in players]
 
         # Sort groups and players within groups by rank
         sorted_groups = sorted(
@@ -699,24 +813,51 @@ class Display:
         }
 
         # Calculate positions for displaying player groups
-        margin_left, margin_top, gap_between_boxes = self.screen.get_width() / 4, 150, 2
+        margin_left, margin_top, gap_between_boxes = self.screen.get_width() / 4, 150, 20
         box_width, box_height = self.screen.get_width() / 2, 40
 
         # Calculate total height required for all groups
         num_rows = sum(len(group) for group in sorted_groups)  # Number of rows needed
         total_height = num_rows * (box_height + gap_between_boxes) - gap_between_boxes
 
-        # Calculate vertical offset to center the player groups
-        vertical_offset = (self.screen.get_height() - total_height - margin_top) // 2
+        # Check if total height exceeds 70% of the screen height
+        screen_height = self.screen.get_height()
+        if total_height > screen_height * 0.7:
+            columns = 2
+        else:
+            columns = 1
+
+        column_width = self.screen.get_width() / columns
+        x_positions = [(i * column_width + (column_width - box_width) / 2) for i in range(columns)]
+
+        vertical_offset = (screen_height - total_height // columns - margin_top) // 2
 
         y = margin_top + vertical_offset
         for group in sorted_groups:
             group_color = group_color_map[id(group)]
-            for i, player in enumerate(group):
-                x = margin_left
+            group_height = (
+                len(group) * (box_height + gap_between_boxes) - gap_between_boxes
+            )
 
-                # Draw the player box with the group's color
-                bg_color = group_color
+            # Calculate the column index
+            col = sorted_groups.index(group) % columns
+            x = x_positions[col]
+
+            # Draw a chrome border around each team or duo
+            group_rect = pygame.Rect(
+                x - 10, y - 10, box_width + 20, group_height + 20
+            )
+            self.draw_chrome_rect(group_rect, CHROME_COLORS, 10, 5)
+
+            for i, player in enumerate(group):
+                # Determine the background color for alternating rows in "Seul" mode
+                if team_mode == "Seul":
+                    row_color = DARK_BLUE if i % 2 == 0 else DARK_GREY
+                else:
+                    row_color = group_color
+
+                # Draw the player box with the group's color or alternating row color
+                bg_color = row_color
                 border_color = MAGENTA if player.won else BLACK
 
                 # Draw the background
@@ -727,16 +868,34 @@ class Display:
                     border_radius=0,
                 )
 
+                # Draw the chrome border around the player box
+                self.draw_chrome_rect(
+                    (x, y, box_width, box_height), CHROME_COLORS, 10, 5
+                )
+
                 # Player information
                 player_label = self.font_small.render(str(player), True, WHITE)
                 score_text = self.font_medium.render(f"{player.score}", True, WHITE)
                 rank_text = self.font_small.render(f"{player.rank}", True, YELLOW)
 
-                self.screen.blit(player_label, (x + 10, y + 10))
-                self.screen.blit(score_text, (x + box_width // 2, y + 10))
-                self.screen.blit(rank_text, (x + box_width - 50, y + 10))
+                # Calculate text_y for each text element to center them vertically
+                player_label_y = y + (box_height - player_label.get_height()) // 2
+                score_text_y = y + (box_height - score_text.get_height()) // 2
+                rank_text_y = y + (box_height - rank_text.get_height()) // 2
+
+                self.screen.blit(player_label, (x + 10, player_label_y))
+                self.screen.blit(
+                    score_text,
+                    (
+                        x + (box_width // 2) - (score_text.get_width() // 2),
+                        score_text_y,
+                    ),
+                )
+                self.screen.blit(rank_text, (x + box_width - 50, rank_text_y))
 
                 y += box_height + gap_between_boxes
+
+            y += gap_between_boxes  # Add a gap between groups
 
         pygame.display.flip()
 
@@ -747,6 +906,7 @@ class Display:
                 if event.type == pygame.KEYDOWN or event.type == pygame.QUIT:
                     waiting = False
                     break
+
 
     def draw_end_menu(self, players):
         dark_green, dark_red = DARK_GREEN, DARK_RED

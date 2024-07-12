@@ -45,6 +45,22 @@ RED_COLORS = [
     pygame.Color(139, 0, 0),  # Dark red (DarkRed)
 ]
 
+GOLD_SOLID = [
+    (255, 215, 0),  # Gold
+    (255, 223, 34),
+    (255, 231, 68),
+    (255, 239, 102),
+    (255, 247, 136)
+]
+
+CHROME_SOLID = [
+    (169, 169, 169),  # Dark gray
+    (192, 192, 192),  # Silver
+    (211, 211, 211),  # Light gray
+    (220, 220, 220),
+    (230, 230, 230)
+]
+
 # Define pin
 
 PIN_H20 = 4
