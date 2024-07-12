@@ -161,6 +161,9 @@ class RouletteAnimation:
                 if event.type == QUIT:
                     running = False
 
+            self.screen.fill(
+                pygame.Color("white")
+            )  # Clear the screen with white before starting
             self.draw_roulette()
             self.draw_pointer()
 

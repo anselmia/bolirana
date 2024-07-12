@@ -3,6 +3,7 @@ import os
 import time
 import logging
 import sys
+import math
 from src.constants import (
     HOLE_RADIUS,
     CHROME_COLORS,
@@ -813,8 +814,10 @@ class Display:
         }
 
         # Calculate positions for displaying player groups
-        margin_left, margin_top, gap_between_boxes = self.screen.get_width() / 4, 150, 20
-        box_width, box_height = self.screen.get_width() / 2, 40
+        margin_top = 200
+
+        box_height = 40
+        gap_between_boxes = 20
 
         # Calculate total height required for all groups
         num_rows = sum(len(group) for group in sorted_groups)  # Number of rows needed
@@ -822,31 +825,31 @@ class Display:
 
         # Check if total height exceeds 70% of the screen height
         screen_height = self.screen.get_height()
-        if total_height > screen_height * 0.7:
+        if total_height > screen_height - margin_top:
             columns = 2
         else:
             columns = 1
 
-        column_width = self.screen.get_width() / columns
-        x_positions = [(i * column_width + (column_width - box_width) / 2) for i in range(columns)]
+        if columns == 1:
+            start_x = self.screen_width / 4
+            box_width = self.screen.get_width() / 2
+            hor_gap = 0
+        else:
+            start_x = self.screen_width / 6
+            box_width = self.screen.get_width() / 3 - 10
+            hor_gap = 20
 
-        vertical_offset = (screen_height - total_height // columns - margin_top) // 2
+        x = start_x
+        y = margin_top
 
-        y = margin_top + vertical_offset
-        for group in sorted_groups:
+        for z, group in enumerate(sorted_groups):
             group_color = group_color_map[id(group)]
             group_height = (
                 len(group) * (box_height + gap_between_boxes) - gap_between_boxes
             )
 
-            # Calculate the column index
-            col = sorted_groups.index(group) % columns
-            x = x_positions[col]
-
             # Draw a chrome border around each team or duo
-            group_rect = pygame.Rect(
-                x - 10, y - 10, box_width + 20, group_height + 20
-            )
+            group_rect = pygame.Rect(x - 10, y - 10, box_width + 20, group_height + 20)
             self.draw_chrome_rect(group_rect, CHROME_COLORS, 10, 5)
 
             for i, player in enumerate(group):
@@ -858,7 +861,6 @@ class Display:
 
                 # Draw the player box with the group's color or alternating row color
                 bg_color = row_color
-                border_color = MAGENTA if player.won else BLACK
 
                 # Draw the background
                 pygame.draw.rect(
@@ -897,6 +899,10 @@ class Display:
 
             y += gap_between_boxes  # Add a gap between groups
 
+            if columns > 1 and z + 1 >= math.ceil(len(groups) / 2):
+                x += hor_gap + box_width
+                y = margin_top
+
         pygame.display.flip()
 
         # Add a condition to exit the loop
@@ -906,7 +912,6 @@ class Display:
                 if event.type == pygame.KEYDOWN or event.type == pygame.QUIT:
                     waiting = False
                     break
-
 
     def draw_end_menu(self, players):
         dark_green, dark_red = DARK_GREEN, DARK_RED
