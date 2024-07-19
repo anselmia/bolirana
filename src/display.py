@@ -312,15 +312,13 @@ class Display:
 
             # Calculate center positions for the texts within the rectangle
             name_text_rect = name_text.get_rect(
-                center=(x + box_width // 2, y + box_height // 2 - 20)
+                center=(x + box_width // 2, y + box_height // 2)
             )
-
 
             # Blit centered text
             self.screen.blit(name_text, name_text_rect)
 
         pygame.display.flip()
-
 
     def play_intro(self):
         sound = self.load_sound("sounds", "intro.mp3")
