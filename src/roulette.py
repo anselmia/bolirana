@@ -48,6 +48,15 @@ class RouletteAnimation:
                 "roulette.mp3",
             )
         )
+        self.roulette_end_sound = pygame.mixer.Sound(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "assets",
+                "sounds",
+                "roulette_end.mp3",
+            )
+        )
 
     def draw_circle_with_border(self, center, radius, border_color, border_width):
         """Draws a circle with a border effect."""
@@ -173,6 +182,8 @@ class RouletteAnimation:
 
             current_angle = 0
             start_time = time.time()
+            
+            self.roulette_sound.play(loops=-1)
 
             while time.time() - start_time < 3:
                 # Clear only the area behind the roulette
@@ -231,6 +242,9 @@ class RouletteAnimation:
             blink_duration = 1.5
             blink_interval = 0.25  # Blinking interval
             end_blink_time = time.time() + blink_duration
+            
+            self.roulette_sound.stop()
+            self.roulette_end_sound.play()
 
             while time.time() < end_blink_time:
                 for event in pygame.event.get():

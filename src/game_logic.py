@@ -1,6 +1,5 @@
 from src.holes import Hole
 from src.constants import (
-    HOLE_RADIUS,
     PIN_H20,
     PIN_H25,
     PIN_H40,
@@ -15,7 +14,6 @@ from src.player import Player
 
 class GameLogic:
     def __init__(self):
-        self.next_game = False
         self.num_players = 1  # Default number of players
         self.team_mode = "Seul"  # Default team mode
         self.game_mode = "Normal"  # Default game mode
@@ -27,14 +25,12 @@ class GameLogic:
         self.selecting_mode = True
         self.game_ended = False
         self.penalty = False
-        self.winner = 0
         self.score = 0
         self.holes = []
         self.draw_game = True
 
     def reset_game(self):
         # Initialize game state
-        self.next_game = False
         self.num_players = 1  # Default number of players
         self.team_mode = "Seul"  # Default team mode
         self.game_mode = "Normal"  # Default game mode
@@ -46,10 +42,20 @@ class GameLogic:
         self.selecting_mode = True
         self.game_ended = False
         self.penalty = False
-        self.winner = 0
         self.score = 0
         self.holes = []
         self.draw_game = True
+
+    def restart_game(self):
+        # Initialize game state
+        for player in self.players:
+            player.reset()
+        self.current_player = None
+        self.game_ended = False
+        self.draw_game = True
+        self.current_player = self.players[0] if self.players else None
+        if self.current_player:
+            self.current_player.activate()
 
     def setup_game(self, display):
         self.setup_players()
@@ -256,9 +262,11 @@ class GameLogic:
         for player in self.players:
             if player.score >= self.score and not player.won:
                 player.won = True
+                display.draw_player_win(player)
                 player.rank = self.find_next_available_rank()
-                self.next_player(display)
+                self.next_player(display)                
                 self.draw_game = True
+                break
 
     def update_group_status(self, groups, display):
         for group in groups:
@@ -315,9 +323,9 @@ class GameLogic:
         points = 0
         if hole is not None:
             points = hole.value
-            display.draw_goal_animation(hole)
             if hole.type == "bottle":
                 display.animation_bottle()
+            display.draw_goal_animation(hole)            
             if hole.type == "little_frog":
                 display.animation_little_frog()
             if hole.type == "large_frog":
