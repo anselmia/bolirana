@@ -77,6 +77,8 @@ class GameLogic:
         player_id = 1
         if self.team_mode == "Seul":
             self.players = [Player(player_id + i) for i in range(self.num_players)]
+            for i, player in enumerate(self.players):
+                player.order = i + 1
         else:
             self.setup_team_players(player_id)
 
@@ -158,7 +160,7 @@ class GameLogic:
         for player in self.players:
             if player.score >= self.score and not player.won:
                 player.won = True
-                display.draw_player_win(player)
+                display.draw_player_win(str(player))
                 player.rank = self.find_next_available_rank()
                 self.next_player(display)
                 self.draw_game = True
@@ -170,6 +172,11 @@ class GameLogic:
                 player.won for player in group
             ):
                 next_rank = self.find_next_available_rank()
+                team_id = next(player.team for player in group)
+                if self.team_mode == "Duo":
+                    display.draw_player_win(f"Duo {team_id}")
+                else:
+                    display.draw_player_win(f"Team {team_id}")
                 for player in group:
                     player.won = True
                     player.rank = next_rank
@@ -177,6 +184,7 @@ class GameLogic:
                 self.next_player(display)
                 self.adjust_player_order_after_win()
                 self.draw_game = True
+                break
 
     def adjust_player_order_after_win(self):
         active_players = sorted(

@@ -747,13 +747,13 @@ class Display:
 
         return points
 
-    def draw_player_win(self, player):
+    def draw_player_win(self, winner):
         # Determine the winner and message
         self.aplause.play()
         BLINK_INTERVAL = 0.5  # Interval in seconds
 
         # Message and font
-        message = f"Bravo {str(player)}"
+        message = f"Bravo {winner}"
         text_surface = self.font_large.render(message, True, DARK_ORANGE)
         text_rect = text_surface.get_rect(
             center=(self.screen.get_width() // 2, self.screen.get_height() // 2)
@@ -847,22 +847,11 @@ class Display:
         self.run_fireworks()
         self.screen.blit(self.win_background, (0, 0))
 
+        # Group players by team or pairs
         if team_mode == "Equipe":
-            teams = {}
-            for player in players:
-                team_id = player.team
-                if team_id not in teams:
-                    teams[team_id] = []
-                teams[team_id].append(player)
-            groups = list(teams.values())
+            groups = self.group_players(players, "team")
         elif team_mode == "Duo":
-            pairs = {}
-            for player in players:
-                pair_id = player.team
-                if pair_id not in pairs:
-                    pairs[pair_id] = []
-                pairs[pair_id].append(player)
-            groups = list(pairs.values())
+            groups = self.group_players(players, "team")
         else:  # For "Seul" mode, treat all players as a single group
             groups = [players]
 
@@ -876,21 +865,19 @@ class Display:
                 ),
                 None,
             )
-            if team_mode == "Equipe":
-                winner_name = f"Team {next(player.team for player in winner_group)}"
-            else:
-                winner_name = f"Duo {next(player.team for player in winner_group)}"
+            winner_name = (
+                f"Team {next(player.team for player in winner_group)}"
+                if team_mode == "Equipe"
+                else f"Duo {next(player.team for player in winner_group)}"
+            )
             message = f"Bravo {winner_name}" if winner_group else "Game Over!"
         else:
             winner = next((player for player in players if player.rank == 1), None)
             message = f"Bravo {winner}" if winner else "Game Over!"
 
         text_surface = self.font_large.render(message, True, DARK_ORANGE)
-        text_rect = text_surface.get_rect(
-            center=(self.screen.get_width() // 2, 70)
-        )  # Adjusted to be 20 from the top
+        text_rect = text_surface.get_rect(center=(self.screen.get_width() // 2, 70))
 
-        # Calculate positions for the winner frame and images
         frame_margin = 20
         frame_rect = pygame.Rect(
             text_rect.left - frame_margin,
@@ -905,7 +892,6 @@ class Display:
             midleft=(frame_rect.right + 10, frame_rect.centery)
         )
 
-        # Draw the winner frame
         self.draw_chrome_rect(
             frame_rect,
             GOLD_COLORS,
@@ -913,7 +899,6 @@ class Display:
             5,
         )
 
-        # Draw the text with shadow centered within the frame
         text_center_x = frame_rect.centerx
         text_center_y = frame_rect.centery
 
@@ -930,26 +915,6 @@ class Display:
         self.screen.blit(self.winner_banner, left_image_rect)
         self.screen.blit(self.winner_banner, right_image_rect)
 
-        # Group players by team or pairs
-        if team_mode == "Equipe":
-            teams = {}
-            for player in players:
-                team_id = player.team
-                if team_id not in teams:
-                    teams[team_id] = []
-                teams[team_id].append(player)
-            groups = teams.values()
-        elif team_mode == "Duo":
-            pairs = {}
-            for player in players:
-                pair_id = player.team
-                if pair_id not in pairs:
-                    pairs[pair_id] = []
-                pairs[pair_id].append(player)
-            groups = pairs.values()
-        else:
-            groups = [[player] for player in players]
-
         # Sort groups and players within groups by rank
         sorted_groups = sorted(
             groups, key=lambda group: min(player.rank for player in group)
@@ -964,22 +929,14 @@ class Display:
             for i, group in enumerate(sorted_groups)
         }
 
-        # Calculate positions for displaying player groups
         margin_top = 200
-
         box_height = 40
         gap_between_boxes = 20
-
-        # Calculate total height required for all groups
-        num_rows = sum(len(group) for group in sorted_groups)  # Number of rows needed
+        num_rows = sum(len(group) for group in sorted_groups)
         total_height = num_rows * (box_height + gap_between_boxes) - gap_between_boxes
 
-        # Check if total height exceeds 70% of the screen height
         screen_height = self.screen.get_height()
-        if total_height > screen_height - margin_top - 50:
-            columns = 2
-        else:
-            columns = 1
+        columns = 2 if total_height > screen_height - margin_top - 50 else 1
 
         if columns == 1:
             start_x = self.screen_width / 4
@@ -995,25 +952,14 @@ class Display:
 
         for z, group in enumerate(sorted_groups):
             group_color = group_color_map[id(group)]
-            group_height = (
-                len(group) * (box_height + gap_between_boxes) - gap_between_boxes
-            )
-
-            # Draw a chrome border around each team or duo
-            group_rect = pygame.Rect(x - 10, y - 10, box_width + 20, group_height + 20)
-            self.draw_chrome_rect(group_rect, CHROME_COLORS, 10, 5)
 
             for i, player in enumerate(group):
-                # Determine the background color for alternating rows in "Seul" mode
-                if team_mode == "Seul":
-                    row_color = DARK_BLUE if i % 2 == 0 else DARK_GREY
-                else:
-                    row_color = group_color
+                bg_color = (
+                    group_color
+                    if team_mode != "Seul"
+                    else DARK_BLUE if i % 2 == 0 else DARK_GREY
+                )
 
-                # Draw the player box with the group's color or alternating row color
-                bg_color = row_color
-
-                # Draw the background
                 pygame.draw.rect(
                     self.screen,
                     bg_color,
@@ -1021,17 +967,14 @@ class Display:
                     border_radius=0,
                 )
 
-                # Draw the chrome border around the player box
                 self.draw_chrome_rect(
                     (x, y, box_width, box_height), CHROME_COLORS, 10, 5
                 )
 
-                # Player information
                 player_label = self.font_small.render(str(player), True, WHITE)
                 score_text = self.font_medium.render(f"{player.score}", True, WHITE)
                 rank_text = self.font_small.render(f"{player.rank}", True, WHITE)
 
-                # Calculate text_y for each text element to center them vertically
                 player_label_y = y + (box_height - player_label.get_height()) // 2
                 score_text_y = y + (box_height - score_text.get_height()) // 2
                 rank_text_y = y + (box_height - rank_text.get_height()) // 2
@@ -1048,13 +991,22 @@ class Display:
 
                 y += box_height + gap_between_boxes
 
-            y += gap_between_boxes  # Add a gap between groups
+            y += gap_between_boxes
 
             if columns > 1 and z + 1 == math.ceil(len(groups) / 2):
                 x += hor_gap + box_width
                 y = margin_top
 
         pygame.display.flip()
+
+    def group_players(self, players, attribute):
+        groups = {}
+        for player in players:
+            key = getattr(player, attribute)
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(player)
+        return list(groups.values())
 
     def animation_bottle(self):
         sound = self.load_sound("sounds", "bouteille.mp3")

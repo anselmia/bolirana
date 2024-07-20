@@ -27,7 +27,6 @@ from src.end_menu import EndMenu
 from src.display import Display
 from src.game_logic import GameLogic
 
-
 class Game:
     def __init__(self, debug=False):
         logging.basicConfig(level=logging.DEBUG)
