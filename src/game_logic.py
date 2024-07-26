@@ -130,7 +130,9 @@ class GameLogic:
 
     def handle_seul_mode(self, display):
         remaining_players = [p for p in self.players if not p.won]
-        if len(remaining_players) == 1:
+        if (len(remaining_players) == 1 and not len(self.players) == 1) or (
+            len(self.players) == 1 and self.players[0].score >= self.score
+        ):
             remaining_players[0].won = True
             remaining_players[0].rank = self.find_next_available_rank()
             self.game_ended = True
