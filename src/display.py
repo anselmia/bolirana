@@ -18,11 +18,10 @@ from src.constants import (
     DARK_GREY,
     LIGHT_GREY,
     BLACK,
-    MAGENTA,
     RED,
-    DARK_RED,
     GROUP_COLORS,
     BLINK_INTERVAL,
+    PLAYER_OPTION_COLOR
 )
 import random
 from src.firework import Firework
@@ -356,38 +355,60 @@ class Display:
         self.display_grouped_players(players, team_mode, player_in_team)
         pygame.display.flip()
 
-    def draw_static_elements(self, current_player, score, game_mode, team_mode, holes):
+    def draw_score(
+        self,
+        players,
+        current_player,
+        holes,
+        score,
+        game_mode,
+        team_mode,
+        player_in_team=0,
+    ):
+        self.display_grouped_players(
+            players, team_mode, player_in_team, only_score=True
+        )
+        self.draw_static_elements(current_player, score, game_mode, team_mode, holes, only_score=True)
+        pygame.display.flip()
+
+    def draw_static_elements(
+        self, current_player, score, game_mode, team_mode, holes, only_score=False
+    ):
         """Draws static elements like scores and game info."""
-        current_player_score = f"Score: {current_player.score}"
-        remaining_points_text = f"Points Restants: {score - current_player.score}"
-
-        current_player_name_text = str(current_player)
-        current_player_score_text = current_player_score
-        remaining_points_text_rendered = remaining_points_text
-
         # Define the area for the current player info and add chrome border
-        current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)
-        self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
-
+        current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)        
+        
         # Calculate center positions for the texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = current_player_rect
-        name_text_position = (rect_x + rect_width / 2, rect_y + 40)
         score_text_position = (rect_x + rect_width / 2, rect_y + 100)
         remaining_points_text_position = (rect_x + rect_width / 2, rect_y + 160)
 
-        # Draw the current player name with shadow
+        # Define text strings
+        current_player_score = f"Score: {current_player.score}"
+        remaining_points_text = f"Points Restants: {score - current_player.score}"
+
+        if only_score:
+            # Render the text to get the dimensions
+            score_surface = self.font_medium.render(current_player_score, True, DARK_ORANGE)
+            remaining_points_surface = self.font_verysmall.render(remaining_points_text, True, DARK_GREEN)
+
+            # Calculate rectangle positions and sizes
+            score_rect = score_surface.get_rect(center=score_text_position)
+            remaining_points_rect = remaining_points_surface.get_rect(center=remaining_points_text_position)
+
+            # Add padding around the text for the rectangle
+            padding = 10
+            score_rect.inflate_ip(padding, padding)  # Inflate the rectangle by padding
+            remaining_points_rect.inflate_ip(padding, padding)
+
+            rectangle_color = PLAYER_OPTION_COLOR  # Color of the rectangle border
+
+            pygame.draw.rect(self.screen, rectangle_color, score_rect)
+            pygame.draw.rect(self.screen, rectangle_color, remaining_points_rect)
+
+        # Draw the text with shadow
         self.draw_text_with_shadow(
-            current_player_name_text,
-            self.font_large,
-            DARK_GREEN,
-            BLACK,
-            name_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-        # Draw the current player score with shadow
-        self.draw_text_with_shadow(
-            current_player_score_text,
+            current_player_score,
             self.font_medium,
             DARK_ORANGE,
             BLACK,
@@ -395,9 +416,9 @@ class Display:
             shadow_offset=(2, 2),
             center=True,
         )
-        # Draw the remaining points with shadow
+
         self.draw_text_with_shadow(
-            remaining_points_text_rendered,
+            remaining_points_text,
             self.font_verysmall,
             DARK_GREEN,
             BLACK,
@@ -406,71 +427,88 @@ class Display:
             center=True,
         )
 
-        # Define the area for the holes and add chrome border
-        holes_area_rect = (
-            self.screen_width // 3,
-            20,
-            self.screen_width // 3,
-            self.screen_height // 2.4,
-        )
-        self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
+        if not only_score:
+            self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
 
-        # Draw holes
-        for hole in holes:
-            x1, y1 = hole.position[0], hole.position[1]
+            current_player_name_text = str(current_player)
+            name_text_position = (rect_x + rect_width / 2, rect_y + 40)       
 
-            pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
-            pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 2)
-            font = self.font_medium if hole.type != "large_frog" else self.font_small
-            points_text = font.render(hole.text, True, LIGHT_GREY)
-            text_rect = points_text.get_rect(center=(x1, y1))
-            self.screen.blit(points_text, text_rect)
+            # Draw the current player name with shadow
+            self.draw_text_with_shadow(
+                current_player_name_text,
+                self.font_large,
+                DARK_GREEN,
+                BLACK,
+                name_text_position,
+                shadow_offset=(2, 2),
+                center=True,
+            )
+            
+            # Define the area for the holes and add chrome border
+            holes_area_rect = (
+                self.screen_width // 3,
+                20,
+                self.screen_width // 3,
+                self.screen_height // 2.4,
+            )
+            self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
 
-            if hole.type == "side" or hole.type == "bottle":
-                x2, y2 = hole.position2[0], hole.position2[1]
+            # Draw holes
+            for hole in holes:
+                x1, y1 = hole.position[0], hole.position[1]
 
-                pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
-                pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 2)
-                text_rect = points_text.get_rect(center=(x2, y2))
+                pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
+                pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
+                font = self.font_medium if hole.type != "large_frog" else self.font_small
+                points_text = font.render(hole.text, True, LIGHT_GREY)
+                text_rect = points_text.get_rect(center=(x1, y1))
                 self.screen.blit(points_text, text_rect)
 
-        # Define the area for the game options and add chrome border
-        game_mode_rect = (
-            self.screen_width - (self.screen_width / 3 - 20),
-            20,
-            self.screen_width / 3 - 40,
-            200,
-        )
-        self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
+                if hole.type == "side" or hole.type == "bottle":
+                    x2, y2 = hole.position2[0], hole.position2[1]
 
-        # Calculate center positions for the game options texts within the rectangle
-        rect_x, rect_y, rect_width, rect_height = game_mode_rect
-        game_mode_text_position = (rect_x + rect_width / 2, rect_y + 40)
-        score_text_position = (rect_x + rect_width / 2, rect_y + 100)
-        team_mode_text_position = (rect_x + rect_width / 2, rect_y + 160)
+                    pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
+                    pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
+                    text_rect = points_text.get_rect(center=(x2, y2))
+                    self.screen.blit(points_text, text_rect)
 
-        # Draw the game mode with shadow
-        self.draw_text_with_shadow(
-            game_mode,
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            game_mode_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-        # Draw the game score with shadow
-        self.draw_text_with_shadow(
-            str(score) + " points",
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            score_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-        # Draw the team mode with shadow
-        self.draw_text_with_shadow(
+            # Define the area for the game options and add chrome border
+            game_mode_rect = (
+                self.screen_width - (self.screen_width / 3 - 20),
+                20,
+                self.screen_width / 3 - 40,
+                200,
+            )
+            self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
+
+            # Calculate center positions for the game options texts within the rectangle
+            rect_x, rect_y, rect_width, rect_height = game_mode_rect
+            game_mode_text_position = (rect_x + rect_width / 2, rect_y + 40)
+            score_text_position = (rect_x + rect_width / 2, rect_y + 100)
+            team_mode_text_position = (rect_x + rect_width / 2, rect_y + 160)
+
+            # Draw the game mode with shadow
+            self.draw_text_with_shadow(
+                game_mode,
+                self.font_medium,
+                DARK_ORANGE,
+                BLACK,
+                game_mode_text_position,
+                shadow_offset=(2, 2),
+                center=True,
+            )
+            # Draw the game score with shadow
+            self.draw_text_with_shadow(
+                str(score) + " points",
+                self.font_medium,
+                DARK_ORANGE,
+                BLACK,
+                score_text_position,
+                shadow_offset=(2, 2),
+                center=True,
+            )
+            # Draw the team mode with shadow
+            self.draw_text_with_shadow(
             team_mode,
             self.font_medium,
             DARK_ORANGE,
@@ -480,7 +518,9 @@ class Display:
             center=True,
         )
 
-    def display_grouped_players(self, players, team_mode, player_in_team):
+    def display_grouped_players(
+        self, players, team_mode, player_in_team, only_score=False
+    ):
         """Handles the display of player groups on the screen."""
         if team_mode == "Equipe":
             teams = {}
@@ -554,64 +594,70 @@ class Display:
             # Layout players within the group
             for player in group:
                 # Draw player box
-                border_color = (
-                    GOLD_COLORS
-                    if player.won
-                    else (RED_COLORS if player.is_active else CHROME_COLORS)
-                )
-
-                self.draw_chrome_rect(
-                    (x, y + height_score, box_width, box_height),
-                    border_color,
-                    border_radius,
-                    border_width,
-                )
-                pygame.draw.rect(
-                    self.screen,
-                    group_color,
-                    (x + 5, y + 5 + height_score, box_width - 10, box_height - 10),
-                    border_radius=5,
-                )
-
-                square_x = x + box_width - rank_square_size - 5
-                square_y = y + 5 + height_score
-                pygame.draw.rect(
-                    self.screen,
-                    group_color,
-                    (square_x, square_y, rank_square_size, rank_square_size),
-                )
-
-                rank_text = self.font_verysmall.render(f"{player.rank}", True, WHITE)
-                rank_text_rect = rank_text.get_rect(
-                    center=(
-                        square_x + rank_square_size / 2,
-                        square_y + rank_square_size / 2,
+                if only_score == False or player.is_active:
+                    border_color = (
+                        GOLD_COLORS
+                        if player.won
+                        else (RED_COLORS if player.is_active else CHROME_COLORS)
                     )
-                )
-                self.screen.blit(rank_text, rank_text_rect)
+                    self.draw_chrome_rect(
+                        (x, y + height_score, box_width, box_height),
+                        border_color,
+                        border_radius,
+                        border_width,
+                    )
+                    pygame.draw.rect(
+                        self.screen,
+                        group_color,
+                        (x + 5, y + 5 + height_score, box_width - 10, box_height - 10),
+                        border_radius=5,
+                    )
 
-                # Player details
-                player_label = self.font_small.render(str(player), True, DARK_GREY)
-                player_label_pos = (
-                    x + 10,
-                    y + height_score + (box_height - player_label.get_height()) // 2,
-                )
-                self.draw_text_with_shadow(
-                    str(player), self.font_small, DARK_GREY, WHITE, player_label_pos
-                )
+                    square_x = x + box_width - rank_square_size - 5
+                    square_y = y + 5 + height_score
+                    pygame.draw.rect(
+                        self.screen,
+                        group_color,
+                        (square_x, square_y, rank_square_size, rank_square_size),
+                    )
 
-                # Calculate the position for the score text
-                score_text_pos = (
-                    player_label_pos[0] + player_label.get_width() + 40,
-                    y + height_score + (box_height - player_label.get_height()) // 2,
-                )
-                self.draw_text_with_shadow(
-                    str(player.score),
-                    self.font_small,
-                    DARK_GREY,
-                    WHITE,
-                    score_text_pos,
-                )
+                    rank_text = self.font_verysmall.render(
+                        f"{player.rank}", True, WHITE
+                    )
+                    rank_text_rect = rank_text.get_rect(
+                        center=(
+                            square_x + rank_square_size / 2,
+                            square_y + rank_square_size / 2,
+                        )
+                    )
+                    self.screen.blit(rank_text, rank_text_rect)
+
+                    # Player details
+                    player_label = self.font_small.render(str(player), True, DARK_GREY)
+                    player_label_pos = (
+                        x + 10,
+                        y
+                        + height_score
+                        + (box_height - player_label.get_height()) // 2,
+                    )
+                    self.draw_text_with_shadow(
+                        str(player), self.font_small, DARK_GREY, WHITE, player_label_pos
+                    )
+
+                    # Calculate the position for the score text
+                    score_text_pos = (
+                        player_label_pos[0] + player_label.get_width() + 40,
+                        y
+                        + height_score
+                        + (box_height - player_label.get_height()) // 2,
+                    )
+                    self.draw_text_with_shadow(
+                        str(player.score),
+                        self.font_small,
+                        DARK_GREY,
+                        WHITE,
+                        score_text_pos,
+                    )
 
                 if team_mode in ["Seul", "Duo"] or (
                     team_mode == "Equipe" and len(group) == 2
@@ -735,6 +781,8 @@ class Display:
         start_time = time.time()
         current_color = WHITE
         last_blink_time = start_time
+        x1, y1 = hole.position
+        x2, y2 = hole.position2
 
         while time.time() - start_time < 1.5:
             current_time = time.time()
@@ -743,17 +791,22 @@ class Display:
                 current_color = RED if current_color == DARK_ORANGE else DARK_ORANGE
                 last_blink_time = current_time
 
-            # Draw the circle with the current color
-            x1, y1 = hole.position
             # Draw the border with specified thickness
             pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 5)
-            if hole.type in ["side", "bottle"]:
-                x2, y2 = hole.position2
+            if hole.type in ["side", "bottle"]:                
                 # Draw the border with specified thickness
                 pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS, 5)
 
             # Update the display
             pygame.display.flip()
+        
+        pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
+        if hole.type in ["side", "bottle"]:                
+            # Draw the border with specified thickness
+            pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
+
+        # Update the display
+        pygame.display.flip()
 
     def draw_penalty(self):
         self.penalty_sound.play()

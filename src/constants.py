@@ -26,6 +26,7 @@ GROUP_COLORS = [
     pygame.Color(250, 250, 85),
     pygame.Color(250, 85, 250),
 ]
+PLAYER_OPTION_COLOR = pygame.Color(245, 237, 214)
 
 
 CHROME_COLORS = [
