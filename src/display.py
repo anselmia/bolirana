@@ -34,6 +34,7 @@ class Display:
         pygame.display.set_caption("Bolirana Game")
         # self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        
         # Optionally, you can also set the window title
         pygame.display.set_caption("Bolirana")
         font_path = os.path.join(
