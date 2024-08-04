@@ -2,6 +2,7 @@ class Player:
     def __init__(self, id, team=None):
         self.id = id
         self.team = team
+        self.order = 0
         self.reset()
 
     def __str__(self):
@@ -16,7 +17,7 @@ class Player:
         self.won = False
         self.rank = 0
         self.turn_score = 0
-        self.is_active = False
+        self.is_active = False        
 
     def activate(self):
         self.is_active = True
