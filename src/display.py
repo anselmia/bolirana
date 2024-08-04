@@ -322,6 +322,21 @@ class Display:
 
         pygame.display.flip()
 
+    def draw_initial_game_screen(
+        self,
+        players,
+        current_player,
+        holes,
+        score,
+        game_mode,
+        team_mode,
+        player_in_team=0,
+    ):
+        self.screen.blit(self.game_background, (0, 0))
+        self.draw_static_elements(current_player, score, game_mode, team_mode, holes)
+        self.display_grouped_players(players, team_mode, player_in_team)
+        pygame.display.flip()
+
     def play_intro(self):
         sound = self.load_sound("sounds", "intro.mp3")
         sound.play()

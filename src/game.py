@@ -110,7 +110,6 @@ class Game:
                 self.update_game_display()
                 self.gamelogic.draw_game = False
 
-            pygame.display.flip()
             pygame.time.Clock().tick(FPS)
 
         self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
