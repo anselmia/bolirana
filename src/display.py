@@ -21,7 +21,7 @@ from src.constants import (
     RED,
     GROUP_COLORS,
     BLINK_INTERVAL,
-    PLAYER_OPTION_COLOR
+    PLAYER_OPTION_COLOR,
 )
 import random
 from src.firework import Firework
@@ -32,9 +32,9 @@ from PIL import Image
 class Display:
     def __init__(self):
         pygame.display.set_caption("Bolirana Game")
-        # self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        
+        self.screen = pygame.display.set_mode((1024, 768))
+        #self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+
         # Optionally, you can also set the window title
         pygame.display.set_caption("Bolirana")
         font_path = os.path.join(
@@ -322,21 +322,6 @@ class Display:
 
         pygame.display.flip()
 
-    def draw_initial_game_screen(
-        self,
-        players,
-        current_player,
-        holes,
-        score,
-        game_mode,
-        team_mode,
-        player_in_team=0,
-    ):
-        self.screen.blit(self.game_background, (0, 0))
-        self.draw_static_elements(current_player, score, game_mode, team_mode, holes)
-        self.display_grouped_players(players, team_mode, player_in_team)
-        pygame.display.flip()
-
     def play_intro(self):
         sound = self.load_sound("sounds", "intro.mp3")
         sound.play()
@@ -354,7 +339,6 @@ class Display:
         self.screen.blit(self.game_background, (0, 0))
         self.draw_static_elements(current_player, score, game_mode, team_mode, holes)
         self.display_grouped_players(players, team_mode, player_in_team)
-        pygame.display.flip()
 
     def draw_score(
         self,
@@ -369,16 +353,48 @@ class Display:
         self.display_grouped_players(
             players, team_mode, player_in_team, only_score=True
         )
-        self.draw_static_elements(current_player, score, game_mode, team_mode, holes, only_score=True)
-        pygame.display.flip()
+        self.draw_static_elements(
+            current_player, score, game_mode, team_mode, holes, only_score=True
+        )
+
+    def draw_holes(self, holes):
+        # Define the area for the holes and add chrome border
+            holes_area_rect = (
+                self.screen_width // 3,
+                20,
+                self.screen_width // 3,
+                self.screen_height // 2.4,
+            )
+            self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
+
+            # Draw holes
+            for hole in holes:
+                x1, y1 = hole.position[0], hole.position[1]
+
+                pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
+                pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
+                font = (
+                    self.font_medium if hole.type != "large_frog" else self.font_small
+                )
+                points_text = font.render(hole.text, True, LIGHT_GREY)
+                text_rect = points_text.get_rect(center=(x1, y1))
+                self.screen.blit(points_text, text_rect)
+
+                if hole.type == "side" or hole.type == "bottle":
+                    x2, y2 = hole.position2[0], hole.position2[1]
+
+                    pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
+                    pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
+                    text_rect = points_text.get_rect(center=(x2, y2))
+                    self.screen.blit(points_text, text_rect)
 
     def draw_static_elements(
         self, current_player, score, game_mode, team_mode, holes, only_score=False
     ):
         """Draws static elements like scores and game info."""
         # Define the area for the current player info and add chrome border
-        current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)        
-        
+        current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)
+
         # Calculate center positions for the texts within the rectangle
         rect_x, rect_y, rect_width, rect_height = current_player_rect
         score_text_position = (rect_x + rect_width / 2, rect_y + 100)
@@ -390,12 +406,18 @@ class Display:
 
         if only_score:
             # Render the text to get the dimensions
-            score_surface = self.font_medium.render(current_player_score, True, DARK_ORANGE)
-            remaining_points_surface = self.font_verysmall.render(remaining_points_text, True, DARK_GREEN)
+            score_surface = self.font_medium.render(
+                current_player_score, True, DARK_ORANGE
+            )
+            remaining_points_surface = self.font_verysmall.render(
+                remaining_points_text, True, DARK_GREEN
+            )
 
             # Calculate rectangle positions and sizes
             score_rect = score_surface.get_rect(center=score_text_position)
-            remaining_points_rect = remaining_points_surface.get_rect(center=remaining_points_text_position)
+            remaining_points_rect = remaining_points_surface.get_rect(
+                center=remaining_points_text_position
+            )
 
             # Add padding around the text for the rectangle
             padding = 10
@@ -432,7 +454,7 @@ class Display:
             self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
 
             current_player_name_text = str(current_player)
-            name_text_position = (rect_x + rect_width / 2, rect_y + 40)       
+            name_text_position = (rect_x + rect_width / 2, rect_y + 40)
 
             # Draw the current player name with shadow
             self.draw_text_with_shadow(
@@ -444,34 +466,8 @@ class Display:
                 shadow_offset=(2, 2),
                 center=True,
             )
-            
-            # Define the area for the holes and add chrome border
-            holes_area_rect = (
-                self.screen_width // 3,
-                20,
-                self.screen_width // 3,
-                self.screen_height // 2.4,
-            )
-            self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
 
-            # Draw holes
-            for hole in holes:
-                x1, y1 = hole.position[0], hole.position[1]
-
-                pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
-                pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
-                font = self.font_medium if hole.type != "large_frog" else self.font_small
-                points_text = font.render(hole.text, True, LIGHT_GREY)
-                text_rect = points_text.get_rect(center=(x1, y1))
-                self.screen.blit(points_text, text_rect)
-
-                if hole.type == "side" or hole.type == "bottle":
-                    x2, y2 = hole.position2[0], hole.position2[1]
-
-                    pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
-                    pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
-                    text_rect = points_text.get_rect(center=(x2, y2))
-                    self.screen.blit(points_text, text_rect)
+            self.draw_holes(holes)
 
             # Define the area for the game options and add chrome border
             game_mode_rect = (
@@ -510,14 +506,16 @@ class Display:
             )
             # Draw the team mode with shadow
             self.draw_text_with_shadow(
-            team_mode,
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            team_mode_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
+                team_mode,
+                self.font_medium,
+                DARK_ORANGE,
+                BLACK,
+                team_mode_text_position,
+                shadow_offset=(2, 2),
+                center=True,
+            )
+
+        pygame.display.flip()
 
     def display_grouped_players(
         self, players, team_mode, player_in_team, only_score=False
@@ -701,6 +699,8 @@ class Display:
                     x = start_x
                     y += box_height + gap_between_boxes + height_score
 
+        pygame.display.flip()
+
     def draw_text_with_shadow(
         self,
         text,
@@ -794,15 +794,15 @@ class Display:
 
             # Draw the border with specified thickness
             pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 5)
-            if hole.type in ["side", "bottle"]:                
+            if hole.type in ["side", "bottle"]:
                 # Draw the border with specified thickness
                 pygame.draw.circle(self.screen, current_color, (x2, y2), HOLE_RADIUS, 5)
 
             # Update the display
             pygame.display.flip()
-        
+
         pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
-        if hole.type in ["side", "bottle"]:                
+        if hole.type in ["side", "bottle"]:
             # Draw the border with specified thickness
             pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
 
@@ -1116,7 +1116,12 @@ class Display:
         frame_index = 0
         running = True
 
+        # Get screen dimensions
         screen_width, screen_height = self.screen.get_size()
+
+        # Get the maximum width and height based on the hole radius and holes_area_rect
+        max_width = screen_width // 3
+        max_height = screen_height // 2.4
 
         while running and frame_index < len(frames):
             for event in pygame.event.get():
@@ -1128,15 +1133,23 @@ class Display:
             mode, size = frame.mode, frame.size
             data = frame.tobytes()
 
-            surface = pygame.image.fromstring(
-                data, size, "RGBA" if mode == "RGBA" else "RGB"
-            )
-
-            # Calculate position to center the frame
+            # Resize the frame to fit within the maximum dimensions
             frame_width, frame_height = size
-            x, y = (screen_width - frame_width) // 2, (
-                screen_height - frame_height
-            ) // 2
+            if frame_width > max_width or frame_height > max_height:
+                scale = min(max_width / frame_width, max_height / frame_height)
+                frame = frame.resize(
+                    (int(frame_width * scale), int(frame_height * scale)),
+                    Image.ANTIALIAS,
+                )
+                frame_width, frame_height = frame.size
+            data = frame.tobytes()
+            surface = pygame.image.fromstring(data, frame.size, mode)
+
+            # Calculate position to center the frame in the hole area
+            x, y = (
+                max_width + (max_width / 2) - frame_width / 2,
+                20 + max_height / 2 - frame_height / 2,
+            )
 
             # Define the rectangle area for the GIF
             padding = 10
@@ -1146,6 +1159,9 @@ class Display:
                 frame_width + 2 * padding,
                 frame_height + 2 * padding,
             )
+
+            # Clear the previous frame area
+            self.screen.fill((0, 0, 0), (rect_x, rect_y, rect_width, rect_height))
 
             # Draw the white rectangle with a black border
             pygame.draw.rect(
@@ -1165,6 +1181,10 @@ class Display:
 
             frame_index += 1
             clock.tick(1000 // duration)
+
+        # Draw the final frame
+        self.screen.blit(surface, (x, y))
+        pygame.display.flip()
 
     def create_fireworks(self, num_fireworks):
         for _ in range(num_fireworks):

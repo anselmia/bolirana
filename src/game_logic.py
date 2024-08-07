@@ -216,6 +216,7 @@ class GameLogic:
     def next_player(self, display):
         if self.current_player.turn_score == 0 and self.penalty:
             points = display.draw_penalty()
+            display.draw_holes(self.holes)
             self.current_player.score -= points
 
         self.current_player = Player.activate_next_player(
@@ -229,10 +230,44 @@ class GameLogic:
             display.draw_goal_animation(hole)
             if hole.type == "bottle":
                 display.animation_bottle()
+                self.current_player.score += points
+                self.current_player.turn_score += points
+                display.draw_score(
+                    self.players,
+                    self.current_player,
+                    self.holes,
+                    self.score,
+                    self.game_mode,
+                    self.team_mode,
+                    (
+                        len(self.players)
+                        if self.team_mode == "Seul"
+                        else self.players_per_team
+                    ),
+                )
             elif hole.type == "little_frog":
                 display.animation_little_frog()
+                self.current_player.turn_score += points
+                self.current_player.score += points
+                self.draw_game = True
             elif hole.type == "large_frog":
                 points = display.animation_large_frog()
-
-            self.current_player.score += points
-            self.current_player.turn_score += points
+                self.current_player.score += points
+                self.current_player.turn_score += points
+                self.draw_game = True
+            else:
+                self.current_player.turn_score += points
+                self.current_player.score += points
+                display.draw_score(
+                    self.players,
+                    self.current_player,
+                    self.holes,
+                    self.score,
+                    self.game_mode,
+                    self.team_mode,
+                    (
+                        len(self.players)
+                        if self.team_mode == "Seul"
+                        else self.players_per_team
+                    ),
+                )

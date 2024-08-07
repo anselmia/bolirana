@@ -48,7 +48,6 @@ class Game:
         while self.gamelogic.selecting_mode:
             self.process_events("menu")
             self.display.draw_menu(self.menu)
-            pygame.display.flip()
             pygame.time.Clock().tick(FPS)
 
         self.play()
@@ -105,19 +104,6 @@ class Game:
     def play(self):
         logging.debug("Starting game...")
         self.display.play_intro()
-        self.display.draw_initial_game_screen(
-            self.gamelogic.players,
-            self.gamelogic.current_player,
-            self.gamelogic.holes,
-            self.gamelogic.score,
-            self.gamelogic.game_mode,
-            self.gamelogic.team_mode,
-            (
-                len(self.gamelogic.players)
-                if self.gamelogic.team_mode == "Seul"
-                else self.gamelogic.players_per_team
-            ),
-        )
 
         while not self.gamelogic.game_ended:
             self.process_events("game")
@@ -155,19 +141,7 @@ class Game:
                 self.gamelogic.draw_game = True
             elif any(hole.pin == pin for hole in self.gamelogic.holes):
                 self.gamelogic.goal(pin, self.display)
-                self.display.draw_score(
-                    self.gamelogic.players,
-                    self.gamelogic.current_player,
-                    self.gamelogic.holes,
-                    self.gamelogic.score,
-                    self.gamelogic.game_mode,
-                    self.gamelogic.team_mode,
-                    (
-                        len(self.gamelogic.players)
-                        if self.gamelogic.team_mode == "Seul"
-                        else self.gamelogic.players_per_team
-                    ),
-                )
+                
 
     def handle_key_event(self, key):
         key_map = {
