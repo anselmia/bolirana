@@ -33,7 +33,7 @@ class Display:
     def __init__(self):
         pygame.display.set_caption("Bolirana Game")
         self.screen = pygame.display.set_mode((1024, 768))
-        #self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        # self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
         # Optionally, you can also set the window title
         pygame.display.set_caption("Bolirana")
@@ -359,34 +359,32 @@ class Display:
 
     def draw_holes(self, holes):
         # Define the area for the holes and add chrome border
-            holes_area_rect = (
-                self.screen_width // 3,
-                20,
-                self.screen_width // 3,
-                self.screen_height // 2.4,
-            )
-            self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
+        holes_area_rect = (
+            self.screen_width // 3,
+            20,
+            self.screen_width // 3,
+            self.screen_height // 2.4,
+        )
+        self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
 
-            # Draw holes
-            for hole in holes:
-                x1, y1 = hole.position[0], hole.position[1]
+        # Draw holes
+        for hole in holes:
+            x1, y1 = hole.position[0], hole.position[1]
 
-                pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
-                pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
-                font = (
-                    self.font_medium if hole.type != "large_frog" else self.font_small
-                )
-                points_text = font.render(hole.text, True, LIGHT_GREY)
-                text_rect = points_text.get_rect(center=(x1, y1))
+            pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
+            pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
+            font = self.font_medium if hole.type != "large_frog" else self.font_small
+            points_text = font.render(hole.text, True, LIGHT_GREY)
+            text_rect = points_text.get_rect(center=(x1, y1))
+            self.screen.blit(points_text, text_rect)
+
+            if hole.type == "side" or hole.type == "bottle":
+                x2, y2 = hole.position2[0], hole.position2[1]
+
+                pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
+                pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
+                text_rect = points_text.get_rect(center=(x2, y2))
                 self.screen.blit(points_text, text_rect)
-
-                if hole.type == "side" or hole.type == "bottle":
-                    x2, y2 = hole.position2[0], hole.position2[1]
-
-                    pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
-                    pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
-                    text_rect = points_text.get_rect(center=(x2, y2))
-                    self.screen.blit(points_text, text_rect)
 
     def draw_static_elements(
         self, current_player, score, game_mode, team_mode, holes, only_score=False
@@ -1139,7 +1137,7 @@ class Display:
                 scale = min(max_width / frame_width, max_height / frame_height)
                 frame = frame.resize(
                     (int(frame_width * scale), int(frame_height * scale)),
-                    Image.ANTIALIAS,
+                    Image.Resampling.LANCZOS,
                 )
                 frame_width, frame_height = frame.size
             data = frame.tobytes()
