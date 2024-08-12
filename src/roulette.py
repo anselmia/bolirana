@@ -236,6 +236,7 @@ class RouletteAnimation:
 
                 pygame.display.update()
                 time.sleep(0.05)
+                self.clock.tick(30)
 
             additional_section = random.randint(0, self.sections - 1)
             current_section = 0
