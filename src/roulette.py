@@ -73,12 +73,10 @@ class RouletteAnimation:
         steps = 100
         for i in range(steps):
             angle = start_angle + (end_angle - start_angle) * (i / steps)
-            r = int(color1.r + (color2.r - color1.r) * (i / steps))
-            g = int(color1.g + (color2.g - color1.g) * (i / steps))
-            b = int(color1.b + (color2.b - color1.b) * (i / steps))
+
             pygame.draw.polygon(
                 self.screen,
-                (r, g, b),
+                color1,
                 [
                     (self.center_x, self.center_y),
                     (
