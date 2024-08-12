@@ -233,8 +233,7 @@ class RouletteAnimation:
                     actual_turns += 1
 
                 pygame.display.update()
-                time.sleep(0.05)
-                self.clock.tick(30)
+                self.clock.tick(30)  # Control frame rate consistently
 
             additional_section = random.randint(0, self.sections - 1)
             current_section = 0
@@ -263,7 +262,7 @@ class RouletteAnimation:
                 self.draw_pointer()
 
                 pygame.display.update()
-                time.sleep(0.05)
+                self.clock.tick(30)  # Control frame rate consistently
 
             # Blink the final value for 1.5 seconds
             blink_duration = 1.5
@@ -305,7 +304,7 @@ class RouletteAnimation:
                     self.screen.blit(final_value_text, final_value_rect)
 
                 pygame.display.update()
-                time.sleep(blink_interval / 2)
+                self.clock.tick(30)  # Control frame rate consistently
 
             # Display the final value in the center
             clear_rect = pygame.Rect(
