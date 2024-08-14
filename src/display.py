@@ -51,10 +51,10 @@ class Display:
 
     def load_ressources(self):
         try:
-            self.game_background = self.load_image("images", "game3.jpg")
-            self.menu_background = self.load_image("images", "intro.jpg")
-            self.win_background = self.load_image("images", "win.jpg")
-            self.winner_banner = self.load_image("images", "winner.png")
+            self.game_background = self.load_image("images", "game3.bmp")
+            self.menu_background = self.load_image("images", "intro.bmp")
+            self.win_background = self.load_image("images", "win.bmp")
+            self.winner_banner = self.load_image("images", "winner.bmp")
             self.winner_banner = pygame.transform.scale(self.winner_banner, (50, 50))
             self.penalty_frames, self.penalty_duration = self.load_gif(
                 "gif", "fail.gif"
