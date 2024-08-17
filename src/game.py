@@ -141,7 +141,6 @@ class Game:
                 self.gamelogic.draw_game = True
             elif any(hole.pin == pin for hole in self.gamelogic.holes):
                 self.gamelogic.goal(pin, self.display)
-                
 
     def handle_key_event(self, key):
         key_map = {
