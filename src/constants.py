@@ -64,20 +64,20 @@ CHROME_SOLID = [
 
 # Define pin
 
-PIN_H20 = 4
-PIN_H25 = 5
-PIN_H40 = 13
-PIN_H50 = 14
-PIN_H100 = 17
-PIN_HBOTTLE = 18
-PIN_HSFROG = 19
-PIN_HLFROG = 21
-PIN_BNEXT = 22
-PIN_BENTER = 23
-PIN_UP = 25
-PIN_DOWN = 26
-PIN_LEFT = 27
-PIN_RIGHT = 32
+PIN_H20 = 25
+PIN_H25 = 26
+PIN_H40 = 32
+PIN_H50 = 33
+PIN_H100 = 34
+PIN_HBOTTLE = 35
+PIN_HSFROG = 36
+PIN_HLFROG = 39
+PIN_BNEXT = 4
+PIN_BENTER = 5
+PIN_UP = 13
+PIN_DOWN = 14
+PIN_LEFT = 18
+PIN_RIGHT = 19
 PIN_STATES_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "pin_states.json")
 
 # Defines Holes
