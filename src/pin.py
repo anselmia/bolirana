@@ -16,7 +16,7 @@ from src.constants import (
 )
 import time
 import logging
-from smbus2 import SMBus
+from smbus2 import SMBus, i2c_msg
 
 I2C_BUS = 1  # I2C bus number (usually 1 on Raspberry Pi)
 I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
@@ -30,6 +30,29 @@ logging.basicConfig(
 class PIN:
     def __init__(self):
         self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
+        while True:
+            try:
+                logging.debug("Attempting to send data to I2C slave...")
+                write = i2c_msg.write(I2C_ADDRESS, "Hello")
+                self.bus.i2c_rdwr(write)
+                logging.info("Data sent successfully.")
+
+                # Attempt to read back a response
+                read = i2c_msg.read(I2C_ADDRESS, 5)
+                self.bus.i2c_rdwr(read)
+                response = list(read)
+
+                logging.info(f"Received response: {response}")
+
+                if response:  # If a response is received, break the loop
+                    break
+
+            except Exception as e:
+                logging.error(f"Failed to send data: {e}")
+                logging.info("Retrying...")
+                time.sleep(1)  # Wait before retrying
+
+        logging.info("Communication with the I2C slave was successful.")
 
     def read_pin_states(self, game_action):
         try:
