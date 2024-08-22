@@ -97,14 +97,12 @@ class PIN:
 
     def read_pin_states(self, game_action):
         try:
-            logging.debug("Attempting to read pin states from I2C bus...")
+
             # Request data from the ESP32, assuming 2 bytes are needed
             raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
-            logging.debug(f"Raw data received: {raw_data}")
-
             # Parse the received data into pin states
             pin = self._parse_i2c_data(raw_data, game_action)
-            logging.info(f"Pin state processed: {pin}")
+
             return pin
         except Exception as e:
             logging.error(f"Failed to read from I2C bus: {e}")
@@ -115,7 +113,6 @@ class PIN:
         # Convert the raw I2C data into a dictionary of pin states
         pin_number = data[0]
         if pin_number == 0xFF:
-            logging.debug("Neutral signal received, no action required.")
             return None  # Neutral signal, nothing to process
 
         state = "LOW" if data[1] == 0 else "HIGH"
