@@ -1,7 +1,5 @@
 import pygame
 import random
-import sys
-import math
 
 
 class FireworkParticle:
@@ -16,6 +14,7 @@ class FireworkParticle:
         self.lifespan = 255
 
     def update(self):
+
         self.velocity_y += self.gravity
         self.x += self.velocity_x
         self.y += self.velocity_y
@@ -43,4 +42,5 @@ class Firework:
             particle.draw(screen)
 
     def is_dead(self):
-        return all(particle.lifespan <= 0 for particle in self.particles)
+        dead = all(particle.lifespan <= 0 for particle in self.particles)
+        return dead

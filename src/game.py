@@ -30,10 +30,19 @@ from src.game_logic import GameLogic
 
 class Game:
     def __init__(self, debug=False):
-        logging.basicConfig(level=logging.DEBUG)
+        log_file_path = "/etc/var/bolirana.log"
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s - %(levelname)s - %(message)s",  # Include the timestamp
+            datefmt="%Y-%m-%d %H:%M:%S",  # Specify the format for the timestamp
+            handlers=[logging.FileHandler(log_file_path), logging.StreamHandler()],
+        )
+
         pygame.init()
         pygame.mixer.init()
         pygame.display.set_caption("Bolirana Game")
+        logging.info("Initializing game components...")
         self.display = Display()
         self.menu = Menu()
         self.end_menu = EndMenu()
@@ -43,8 +52,10 @@ class Game:
         self.last_next_action_time = time.time()
         self.in_end_menu = False
         self.debug = debug
+        logging.info("Game initialized successfully.")
 
     def run(self):
+        logging.info("Game run loop started.")
         while self.gamelogic.selecting_mode:
             self.process_events("menu")
             self.display.draw_menu(self.menu)
@@ -52,8 +63,10 @@ class Game:
 
         self.play()
         self.display.draw_end_menu(self.end_menu)
+        logging.info("Game run loop ended.")
 
     def process_events(self, mode):
+        logging.debug(f"Processing events for mode: {mode}")
         if self.debug:
             for event in pygame.event.get():
                 if self.debug:
@@ -70,6 +83,7 @@ class Game:
         else:
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
+                logging.debug(f"Pin state read: {pin}")
                 if mode == "menu":
                     self.handle_menu_button(pin)
                 elif mode == "game":
@@ -78,6 +92,7 @@ class Game:
                     self.handle_end_menu_key_event(pin)
 
     def handle_menu_button(self, pin):
+        logging.info(f"Handling menu button press for pin: {pin}")
         if pin in [PIN_UP, PIN_DOWN, PIN_LEFT, PIN_RIGHT]:
             direction = {
                 PIN_UP: "UP",
@@ -91,6 +106,7 @@ class Game:
             self.gamelogic.selecting_mode = False
 
     def setup_game_from_menu(self):
+        logging.info("Setting up game from menu selections.")
         self.gamelogic.num_players = self.menu.get_num_players()
         self.gamelogic.team_mode = self.menu.get_team_mode()
         self.gamelogic.score = self.menu.get_score()
@@ -100,9 +116,10 @@ class Game:
         self.gamelogic.players_per_team = self.menu.get_players_per_team()
         self.gamelogic.penalty = self.menu.get_penalty()
         self.gamelogic.setup_game(self.display)
+        logging.info("Game setup complete.")
 
     def play(self):
-        logging.debug("Starting game...")
+        logging.info("Game play started.")
         self.display.play_intro()
 
         while not self.gamelogic.game_ended:
@@ -115,6 +132,7 @@ class Game:
             pygame.time.Clock().tick(FPS)
 
         self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
+        logging.info("Game play ended.")
         time.sleep(5)
         self.in_end_menu = True
         while self.in_end_menu:
@@ -143,6 +161,7 @@ class Game:
                 self.gamelogic.goal(pin, self.display)
 
     def handle_key_event(self, key):
+        logging.debug(f"Handling key event: {key}")
         key_map = {
             pygame.K_UP: "UP",
             pygame.K_DOWN: "DOWN",
@@ -158,6 +177,7 @@ class Game:
             self.gamelogic.selecting_mode = False
 
     def handle_end_menu_key_event(self, key):
+        logging.debug(f"Handling end menu key event: {key}")
         if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
             key_map = {
                 pygame.K_UP: "UP",
@@ -172,6 +192,7 @@ class Game:
                 self.end_menu.handle_button_press(action)
 
     def execute_end_menu_option(self):
+        logging.info("Executing end menu option.")
         option = self.end_menu.options[self.end_menu.selected_option]
         if option == "Continuer":
             pass
@@ -200,6 +221,7 @@ class Game:
         return key_map.get(key, None)
 
     def update_game_display(self):
+        logging.debug("Updating game display.")
         self.display.draw_game(
             self.gamelogic.players,
             self.gamelogic.current_player,
@@ -215,10 +237,7 @@ class Game:
         )
 
     def cleanup(self):
+        logging.info("Cleaning up and shutting down the game.")
         pygame.quit()
         os.system("sudo shutdown now")
         sys.exit()
-
-
-if __name__ == "__main__":
-    Game().run()
