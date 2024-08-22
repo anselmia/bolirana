@@ -109,7 +109,6 @@ class PIN:
             return None
 
     def _parse_i2c_data(self, data, game_action):
-        logging.debug(f"Parsing I2C data: {data} for game action: {game_action}")
         # Convert the raw I2C data into a dictionary of pin states
         pin_number = data[0]
         if pin_number == 0xFF:
