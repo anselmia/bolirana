@@ -1,6 +1,32 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from smbus2 import SMBus, i2c_msg
+import platform
+import os
+
+if platform.system() != "Windows":
+    from smbus2 import SMBus
+else:
+    # Mock classes for Windows development
+    class SMBus:
+        def __init__(self, bus):
+            print(f"Mock SMBus initialized on bus {bus}")
+
+        def write_i2c_block_data(self, *args):
+            print("Mock write called with", args)
+
+        def read_i2c_block_data(self, address, register, length):
+            print(
+                f"Mock read_i2c_block_data: address={address}, register={register}, length={length}"
+            )
+            return [0] * length  # Return dummy data
+
+    class i2c_msg:
+        @staticmethod
+        def write(address, data):
+            print(f"Mock i2c_msg.write called: address={address}, data={data}")
+            return None
+
+
 import time
 from src.constants import (
     PIN_BENTER,
@@ -22,16 +48,25 @@ from src.constants import (
 I2C_BUS = 1  # I2C bus number (usually 1 on Raspberry Pi)
 I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
 
-# Configure logging
-log_path = "/var/log/bolirana.log"
+
+# Determine log file path based on platform
+if platform.system() == "Windows":
+    log_path = os.path.join(os.getenv("APPDATA"), "bolirana", "bolirana.log")
+else:
+    log_path = "/var/log/bolirana.log"
+
+# Ensure the log directory exists
+log_dir = os.path.dirname(log_path)
+os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         RotatingFileHandler(log_path, maxBytes=1000000, backupCount=3),
-        logging.StreamHandler()
-    ]
+        logging.StreamHandler(),
+    ],
 )
+
 
 class PIN:
     def __init__(self):
@@ -41,8 +76,7 @@ class PIN:
         while True:
             try:
                 logging.debug("Attempting to send data to I2C slave...")
-                write = i2c_msg.write(I2C_ADDRESS, b"Hello")
-                self.bus.i2c_rdwr(write)
+                self.bus.write_i2c_block_data(I2C_ADDRESS, 0, b"Hello")
                 logging.info("Data sent successfully.")
 
                 # Attempt to read back a response

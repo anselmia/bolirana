@@ -31,10 +31,11 @@ from PIL import Image
 
 class Display:
     def __init__(self):
-        logging.info("Initializing Display...")
         pygame.display.set_caption("Bolirana Game")
+        # self.screen = pygame.display.set_mode((1024, 768))
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
+        # Optionally, you can also set the window title
         font_path = os.path.join(
             os.path.dirname(__file__), "..", "assets", "fonts", "AntonSC-Regular.ttf"
         )
@@ -45,9 +46,7 @@ class Display:
         self.screen_width = self.screen.get_width()
         self.screen_height = self.screen.get_height()
 
-        logging.info("Loading resources...")
         self.load_ressources()
-        logging.info("Display initialized successfully.")
 
     def load_ressources(self):
         try:
@@ -68,7 +67,6 @@ class Display:
             self.little_frog_frames, self.little_frog_duration = self.load_gif(
                 "gif", "small_frog_animation.gif"
             )
-            logging.info("All resources loaded successfully.")
         except Exception as e:
             logging.error(f"Failed to load resources: {e}")
             self.display_error_message("Failed to load resources. Exiting...")
@@ -76,27 +74,13 @@ class Display:
             sys.exit()
 
     def load_image(self, folder, filename):
-        try:
-            path = os.path.join(
-                os.path.dirname(__file__), "..", "assets", folder, filename
-            )
-            logging.debug(f"Loading image from {path}.")
-            image = pygame.image.load(path)
-            return pygame.transform.scale(image, self.screen.get_size())
-        except Exception as e:
-            logging.error(f"Error loading image {filename}: {e}")
-            raise
+        path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+        image = pygame.image.load(path)
+        return pygame.transform.scale(image, self.screen.get_size())
 
     def load_sound(self, folder, filename):
-        try:
-            path = os.path.join(
-                os.path.dirname(__file__), "..", "assets", folder, filename
-            )
-            logging.debug(f"Loading sound from {path}.")
-            return pygame.mixer.Sound(path)
-        except Exception as e:
-            logging.error(f"Error loading sound {filename}: {e}")
-            raise
+        path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+        return pygame.mixer.Sound(path)
 
     def display_error_message(self, message):
         self.screen.fill((0, 0, 0))
@@ -111,10 +95,93 @@ class Display:
         pygame.display.flip()
         time.sleep(3)  # Display the message for 3 seconds
 
+    def get_hole_position(self, hole_value, position):
+        # Adjust the function to handle all cases and default return None
+        if hole_value == "20":
+            return (
+                [(self.screen_width / 2) - 160, 255]
+                if position == 1
+                else [(self.screen_width / 2) + 160, 255]
+            )
+        elif hole_value == "25":
+            return (
+                [(self.screen_width / 2) - 160, 150]
+                if position == 1
+                else [(self.screen_width / 2) + 160, 155]
+            )
+        elif hole_value == "40":
+            return (
+                [(self.screen_width / 2) - 80, 205]
+                if position == 1
+                else [(self.screen_width / 2) + 80, 205]
+            )
+        elif hole_value == "50":
+            return (
+                [(self.screen_width / 2) - 80, 105]
+                if position == 1
+                else [(self.screen_width / 2) + 80, 105]
+            )
+        elif hole_value == "100":
+            return (
+                [(self.screen_width / 2) - 80, 305]
+                if position == 1
+                else [(self.screen_width / 2) + 80, 305]
+            )
+        elif hole_value == "150":
+            return (
+                [(self.screen_width / 2) - 160, 55]
+                if position == 1
+                else [(self.screen_width / 2) + 160, 55]
+            )
+        elif hole_value == "200":
+            return [(self.screen_width / 2), 155]
+        elif hole_value == "ROUL":
+            return [(self.screen_width / 2), 55]
+        return None
+
+    def draw_chrome_rect(self, rect, colors, border_radius, width):
+        """Draws a rounded rectangle with a chrome effect."""
+        x, y, w, h = rect
+        for i in range(width):
+            pygame.draw.rect(
+                self.screen,
+                colors[i % len(colors)],
+                (x - i, y - i, w + 2 * i, h + 2 * i),
+                border_radius=border_radius - i if border_radius > i else 0,
+                width=1,
+            )
+
+    def draw_text_with_outline(
+        self,
+        text,
+        font,
+        text_color,
+        outline_color,
+        position,
+        outline_width=2,
+        center=False,
+    ):
+        outline_font = pygame.font.Font(font, font.size + outline_width * 2)
+        outline_text = outline_font.render(text, True, outline_color)
+        outline_rect = outline_text.get_rect()
+        if center:
+            outline_rect.center = position
+        else:
+            outline_rect.topleft = position
+        self.screen.blit(outline_text, outline_rect)
+
+        actual_text = font.render(text, True, text_color)
+        actual_rect = actual_text.get_rect()
+        if center:
+            actual_rect.center = outline_rect.center
+        else:
+            actual_rect.topleft = outline_rect.topleft
+        self.screen.blit(actual_text, actual_rect)
+
     def draw_menu(self, menu):
         self.screen.blit(self.menu_background, (0, 0))  # Draw the background image
 
-        # Menu options dimensions and settings
+        # Menu options dimensions
         box_width, box_height, margin_x, margin_y = 400, 100, 20, 20
         border_radius, border_width = 15, 5
 
@@ -122,9 +189,13 @@ class Display:
         semi_transparent_blue, semi_transparent_darkblue = BLUE, DARK_BLUE
         semi_transparent_blue.a, semi_transparent_darkblue.a = 128, 128
 
-        # Calculate the number of rows and positions
+        # Calculate the number of rows needed
         num_rows = (len(menu.options) + 1) // 2
+
+        # Calculate total height of the menu
         total_height = num_rows * box_height + (num_rows - 1) * margin_y
+
+        # Calculate starting positions to center the menu
         start_x = (self.screen.get_width() - (2 * box_width + margin_x)) // 2
         start_y = (self.screen.get_height() - total_height) // 2
 
@@ -249,7 +320,7 @@ class Display:
             self.screen.blit(name_text, name_text_rect)
 
         pygame.display.flip()
- 
+
     def play_intro(self):
         sound = self.load_sound("sounds", "intro.mp3")
         sound.play()
@@ -278,7 +349,6 @@ class Display:
         team_mode,
         player_in_team=0,
     ):
-
         self.display_grouped_players(
             players, team_mode, player_in_team, only_score=True
         )
@@ -669,6 +739,42 @@ class Display:
             )
         self.screen.blit(actual_text, actual_position)
 
+    def draw_player(self, x, y, player, box_width, box_height, group_color):
+        """Draws individual player boxes and details."""
+        border_color = DARK_ORANGE if player.is_active else BLACK
+        pygame.draw.rect(
+            self.screen,
+            border_color,
+            (x, y, box_width, box_height),
+            border_radius=5,
+            width=5,
+        )
+        pygame.draw.rect(
+            self.screen,
+            group_color,
+            (x + 5, y + 5, box_width - 10, box_height - 10),
+            border_radius=5,
+        )
+
+        player_label = self.font_small.render(str(player), True, DARK_GREY)
+        score_text = self.font_medium.render(str(player.score), True, DARK_GREY)
+        self.screen.blit(player_label, (x + 10, y + 10))
+        self.screen.blit(score_text, (x + 10, y + 30))
+
+    def calculate_group_layout(self, team_mode, group):
+        """Determines layout settings based on team mode and group size."""
+        if team_mode == "Seul":
+            return 4
+        elif team_mode == "Duo":
+            return 4
+        elif team_mode == "Equipe":
+            if len(group) == 3:
+                return 1
+            elif len(group) > 4:
+                return 2
+            return len(group)
+        return 4
+
     def draw_goal_animation(self, hole):
         start_time = time.time()
         current_color = WHITE
@@ -706,6 +812,7 @@ class Display:
         self.play_gif(self.penalty_frames, self.penalty_duration)
         roulette_animation = RouletteAnimation(self.screen, "null")
         points = roulette_animation.run()
+
         return points
 
     def draw_player_win(self, winner):
@@ -724,6 +831,7 @@ class Display:
         frame_margin = 20
         banner_margin = 10
         banner_width = self.winner_banner.get_width()
+        banner_height = self.winner_banner.get_height()
 
         frame_rect = pygame.Rect(
             text_rect.left - frame_margin - banner_width - banner_margin,
@@ -910,10 +1018,10 @@ class Display:
         x = start_x
         y = margin_top
 
-        for z, group in sorted_groups:
+        for z, group in enumerate(sorted_groups):
             group_color = group_color_map[id(group)]
 
-            for i, player in group:
+            for i, player in enumerate(group):
                 bg_color = (
                     group_color
                     if team_mode != "Seul"
@@ -985,7 +1093,6 @@ class Display:
         return roulette_animation.run()
 
     def load_gif(self, folder, filename):
-        logging.debug(f"Loading GIF: {filename} from {folder}...")
         # Load GIF using PIL
         gif_path = os.path.join(
             os.path.dirname(__file__), "..", "assets", folder, filename
@@ -998,8 +1105,7 @@ class Display:
                 frames.append(frame)
                 gif.seek(len(frames))  # Move to the next frame
         except EOFError:
-            logging.error(f"Failed to Load {filename}.")
-        logging.info(f"Loaded {len(frames)} frames from {filename}.")
+            pass
         return frames, gif.info["duration"]
 
     def play_gif(self, frames, duration):
