@@ -38,9 +38,8 @@ class PIN:
                 logging.info("Data sent successfully.")
 
                 # Attempt to read back a response
-                read = i2c_msg.read(I2C_ADDRESS, 5)
-                self.bus.i2c_rdwr(read)
-                response = list(read)
+                raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 5)
+                response = list(raw_data)
 
                 logging.info(f"Received response: {response}")
 
