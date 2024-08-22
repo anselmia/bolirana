@@ -75,10 +75,6 @@ class PIN:
 
         while True:
             try:
-                logging.debug("Attempting to send data to I2C slave...")
-                self.bus.write_i2c_block_data(I2C_ADDRESS, 0, b"Hello")
-                logging.info("Data sent successfully.")
-
                 # Attempt to read back a response
                 raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
                 response = list(raw_data)
@@ -89,7 +85,7 @@ class PIN:
                     break
 
             except Exception as e:
-                logging.error(f"Failed to send data: {e}")
+                logging.error(f"Failed to receive data: {e}")
                 logging.info("Retrying in 1 second...")
                 time.sleep(1)  # Wait before retrying
 
