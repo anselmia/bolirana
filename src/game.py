@@ -85,18 +85,17 @@ class Game:
         self.display.draw_end_menu(self.end_menu)
 
     def process_events(self, mode):
-        if self.debug:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.cleanup()
-                elif event.type == pygame.KEYDOWN:
-                    if mode == "menu":
-                        self.handle_key_event(event.key)
-                    elif mode == "game":
-                        self.handle_turn(self.keyboard_input(event.key))
-                    elif mode == "end_menu":
-                        self.handle_end_menu_key_event(event.key)
-        else:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.cleanup()
+            elif event.type == pygame.KEYDOWN:
+                if mode == "menu":
+                    self.handle_key_event(event.key)
+                elif mode == "game":
+                    self.handle_turn(self.keyboard_input(event.key))
+                elif mode == "end_menu":
+                    self.handle_end_menu_key_event(event.key)
+        if not self.debug:
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
                 logging.info(f"process event for pin {pin}")
@@ -210,7 +209,6 @@ class Game:
                 self.end_menu.handle_button_press("UP")
             elif key == PIN_DOWN:
                 self.end_menu.handle_button_press("DOWN")
-
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
