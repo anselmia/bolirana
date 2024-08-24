@@ -201,18 +201,14 @@ class Game:
                 else:
                     self.end_menu.handle_button_press(action)
         else:
-            if key in [PIN_UP, PIN_DOWN, PIN_BENTER]:
-                key_map = {
-                    PIN_UP: "UP",
-                    PIN_DOWN: "DOWN",
-                    PIN_BENTER: self.execute_end_menu_option,
-                }
-                action = key_map[key]
-                if callable(action):
-                    action()
-                    self.in_end_menu = False
-                else:
-                    self.end_menu.handle_button_press(action)
+            logging.info("handling pin end menu")
+            if key == PIN_BENTER:
+                self.execute_end_menu_option()
+            elif key == PIN_UP:
+                self.end_menu.handle_button_press("UP")
+            elif key == PIN_DOWN:
+                self.end_menu.handle_button_press("DOWN")
+
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
