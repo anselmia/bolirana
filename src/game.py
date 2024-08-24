@@ -97,9 +97,9 @@ class Game:
                     elif mode == "end_menu":
                         self.handle_end_menu_key_event(event.key)
         else:
-            logging.info("process event")
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
+                logging.info(f"process event for pin {pin}")
                 if mode == "menu":
                     self.handle_menu_button(pin)
                 elif mode == "game":
