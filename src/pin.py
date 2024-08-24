@@ -93,7 +93,6 @@ class PIN:
 
     def read_pin_states(self, game_action):
         try:
-
             # Request data from the ESP32, assuming 2 bytes are needed
             raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
             # Parse the received data into pin states

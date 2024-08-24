@@ -187,18 +187,32 @@ class Game:
             self.gamelogic.selecting_mode = False
 
     def handle_end_menu_key_event(self, key):
-        if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
-            key_map = {
-                pygame.K_UP: "UP",
-                pygame.K_DOWN: "DOWN",
-                pygame.K_RETURN: self.execute_end_menu_option,
-            }
-            action = key_map[key]
-            if callable(action):
-                action()
-                self.in_end_menu = False
-            else:
-                self.end_menu.handle_button_press(action)
+        if self.debug:
+            if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
+                key_map = {
+                    pygame.K_UP: "UP",
+                    pygame.K_DOWN: "DOWN",
+                    pygame.K_RETURN: self.execute_end_menu_option,
+                }
+                action = key_map[key]
+                if callable(action):
+                    action()
+                    self.in_end_menu = False
+                else:
+                    self.end_menu.handle_button_press(action)
+        else:
+            if key in [PIN_UP, PIN_DOWN, PIN_BENTER]:
+                key_map = {
+                    PIN_UP: "UP",
+                    PIN_DOWN: "DOWN",
+                    PIN_BENTER: self.execute_end_menu_option,
+                }
+                action = key_map[key]
+                if callable(action):
+                    action()
+                    self.in_end_menu = False
+                else:
+                    self.end_menu.handle_button_press(action)
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
