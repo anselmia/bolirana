@@ -97,6 +97,7 @@ class Game:
                     elif mode == "end_menu":
                         self.handle_end_menu_key_event(event.key)
         else:
+            logging.info("process event")
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
                 if mode == "menu":
@@ -104,6 +105,7 @@ class Game:
                 elif mode == "game":
                     self.handle_turn(pin)
                 elif mode == "end_menu":
+                    logging.info("process end menu")
                     self.handle_end_menu_key_event(pin)
 
     def handle_menu_button(self, pin):
@@ -164,6 +166,7 @@ class Game:
             elif pin == PIN_BENTER:
                 self.in_end_menu = True
                 while self.in_end_menu:
+                    logging.info("process end menu handle turn")
                     self.process_events("end_menu")
                     self.display.draw_end_menu(self.end_menu)
                     pygame.time.Clock().tick(FPS)
