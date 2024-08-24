@@ -166,7 +166,6 @@ class Game:
             elif pin == PIN_BENTER:
                 self.in_end_menu = True
                 while self.in_end_menu:
-                    logging.info("process end menu handle turn")
                     self.process_events("end_menu")
                     self.display.draw_end_menu(self.end_menu)
                     pygame.time.Clock().tick(FPS)
