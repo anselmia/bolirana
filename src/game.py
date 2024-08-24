@@ -168,7 +168,7 @@ class Game:
                     self.display.draw_end_menu(self.end_menu)
                     pygame.time.Clock().tick(FPS)
                 self.gamelogic.draw_game = True
-            elif any(hole.pin == pin for hole in self.gamelogic.holes):
+            elif any(hole.pin in pin for hole in self.gamelogic.holes):
                 self.gamelogic.goal(pin, self.display)
 
     def handle_key_event(self, key):
