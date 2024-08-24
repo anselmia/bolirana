@@ -76,7 +76,6 @@ class Game:
         logging.info("Game initialized successfully.")
 
     def run(self):
-        logging.info("Game run loop started.")
         while self.gamelogic.selecting_mode:
             self.process_events("menu")
             self.display.draw_menu(self.menu)
@@ -84,13 +83,10 @@ class Game:
 
         self.play()
         self.display.draw_end_menu(self.end_menu)
-        logging.info("Game run loop ended.")
 
     def process_events(self, mode):
         if self.debug:
             for event in pygame.event.get():
-                if self.debug:
-                    logging.debug(f"Event detected: {event}")
                 if event.type == pygame.QUIT:
                     self.cleanup()
                 elif event.type == pygame.KEYDOWN:
@@ -103,7 +99,6 @@ class Game:
         else:
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
-                logging.debug(f"Pin state read: {pin}")
                 if mode == "menu":
                     self.handle_menu_button(pin)
                 elif mode == "game":
@@ -112,7 +107,6 @@ class Game:
                     self.handle_end_menu_key_event(pin)
 
     def handle_menu_button(self, pin):
-        logging.info(f"Handling menu button press for pin: {pin}")
         if pin in [PIN_UP, PIN_DOWN, PIN_LEFT, PIN_RIGHT]:
             direction = {
                 PIN_UP: "UP",
@@ -139,7 +133,6 @@ class Game:
         logging.info("Game setup complete.")
 
     def play(self):
-        logging.info("Game play started.")
         self.display.play_intro()
 
         while not self.gamelogic.game_ended:
@@ -152,7 +145,6 @@ class Game:
             pygame.time.Clock().tick(FPS)
 
         self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
-        logging.info("Game play ended.")
         time.sleep(5)
         self.in_end_menu = True
         while self.in_end_menu:
@@ -163,7 +155,6 @@ class Game:
 
     def handle_turn(self, pin):
         if pin is not None:
-            logging.debug(f"Handling turn for pin: {pin}")
             current_time = time.time()
             if pin == PIN_BNEXT:
                 if current_time - self.last_next_action_time >= ACTION_COOLDOWN:
@@ -181,7 +172,6 @@ class Game:
                 self.gamelogic.goal(pin, self.display)
 
     def handle_key_event(self, key):
-        logging.debug(f"Handling key event: {key}")
         key_map = {
             pygame.K_UP: "UP",
             pygame.K_DOWN: "DOWN",
@@ -197,7 +187,6 @@ class Game:
             self.gamelogic.selecting_mode = False
 
     def handle_end_menu_key_event(self, key):
-        logging.debug(f"Handling end menu key event: {key}")
         if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
             key_map = {
                 pygame.K_UP: "UP",
@@ -212,7 +201,6 @@ class Game:
                 self.end_menu.handle_button_press(action)
 
     def execute_end_menu_option(self):
-        logging.info("Executing end menu option.")
         option = self.end_menu.options[self.end_menu.selected_option]
         if option == "Continuer":
             pass
@@ -241,7 +229,6 @@ class Game:
         return key_map.get(key, None)
 
     def update_game_display(self):
-        logging.debug("Updating game display.")
         self.display.draw_game(
             self.gamelogic.players,
             self.gamelogic.current_player,

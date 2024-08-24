@@ -86,7 +86,6 @@ class GameLogic:
         self.selecting_mode = False
 
     def setup_normal_mode(self, display):
-        logging.info("Setting up normal mode...")
         self.holes = [
             Hole(display, "side", 20, PIN_H20, "20"),
             Hole(display, "side", 25, PIN_H25, "25"),
@@ -97,23 +96,17 @@ class GameLogic:
             Hole(display, "little_frog", 200, PIN_HSFROG, "200"),
             Hole(display, "large_frog", 0, PIN_HLFROG, "ROUL"),
         ]
-        logging.info("Normal mode setup complete.")
 
     def setup_grenouille_mode(self, display):
-        logging.info("Setting up grenouille mode...")
         self.holes = [
             Hole(display, "little_frog", 200, PIN_HSFROG, "200"),
             Hole(display, "large_frog", 0, PIN_HLFROG, "ROUL"),
         ]
-        logging.info("Grenouille mode setup complete.")
 
     def setup_bouteille_mode(self, display):
-        logging.info("Setting up bouteille mode...")
         self.holes = [Hole(display, "bottle", 150, PIN_HBOTTLE, "150")]
-        logging.info("Bouteille mode setup complete.")
 
     def setup_players(self):
-        logging.info("Setting up players...")
         player_id = 1
         if self.team_mode == "Seul":
             self.players = [Player(player_id + i) for i in range(self.num_players)]
@@ -126,10 +119,8 @@ class GameLogic:
         self.current_player = self.players[0] if self.players else None
         if self.current_player:
             self.current_player.activate()
-        logging.info(f"{len(self.players)} players set up.")
 
     def setup_team_players(self, player_id):
-        logging.info("Setting up team players...")
         temp_teams = {}
         num_members = 2 if self.team_mode == "Duo" else self.players_per_team
         num_teams = self.num_pairs if self.team_mode == "Duo" else self.num_teams
@@ -150,10 +141,7 @@ class GameLogic:
         for index, player in enumerate(self.players):
             player.order = index + 1
 
-        logging.info("Team players setup complete.")
-
     def interleave_players(self, temp_teams):
-        logging.debug("Interleaving players...")
         max_team_size = max(len(team) for team in temp_teams.values())
         return [
             player
@@ -164,7 +152,6 @@ class GameLogic:
         ]
 
     def check_game_end(self, display):
-        logging.info("Checking if the game has ended...")
         check_methods = {
             "Seul": self.handle_seul_mode,
             "Duo": lambda display: self.handle_duo_or_team_mode(display, is_team=False),
@@ -179,7 +166,6 @@ class GameLogic:
             logging.error(f"Unknown team mode: {self.team_mode}")
 
     def handle_seul_mode(self, display):
-        logging.debug("Handling 'Seul' mode...")
         remaining_players = [p for p in self.players if not p.won]
         if (len(remaining_players) == 1 and not len(self.players) == 1) or (
             len(self.players) == 1 and self.players[0].score >= self.score
@@ -193,7 +179,6 @@ class GameLogic:
 
     def handle_duo_or_team_mode(self, display, is_team):
         mode = "Equipe" if is_team else "Duo"
-        logging.debug(f"Handling '{mode}' mode...")
         groups = self.group_players_by_duo_or_team(is_team)
         remaining_groups = [group for group in groups if not any(p.won for p in group)]
 
@@ -216,7 +201,6 @@ class GameLogic:
         ]
 
     def update_player_status(self, display):
-        logging.debug("Updating player status...")
         for player in self.players:
             if player.score >= self.score and not player.won:
                 player.won = True
@@ -224,11 +208,9 @@ class GameLogic:
                 player.rank = self.find_next_available_rank()
                 self.next_player(display)
                 self.draw_game = True
-                logging.info(f"Player {player.id} won their round.")
                 break
 
     def update_group_status(self, groups, display):
-        logging.debug("Updating group status...")
         for group in groups:
             if sum(player.score for player in group) >= self.score and not any(
                 player.won for player in group
@@ -246,11 +228,9 @@ class GameLogic:
                 self.next_player(display)
                 self.adjust_player_order_after_win()
                 self.draw_game = True
-                logging.info(f"Group {team_id} won their round.")
                 break
 
     def adjust_player_order_after_win(self):
-        logging.debug("Adjusting player order after win...")
         active_players = sorted(
             [p for p in self.players if not p.won], key=lambda p: p.order
         )
@@ -271,40 +251,26 @@ class GameLogic:
         for i, player in enumerate(active_players):
             player.order = i + 1
 
-        logging.debug("Player order adjusted.")
-
     def find_next_available_rank(self):
         used_ranks = {player.rank for player in self.players if player.rank != 0}
         next_rank = max(used_ranks, default=0) + 1
-        logging.debug(f"Next available rank is {next_rank}.")
         return next_rank
 
     def next_player(self, display):
-        logging.info(
-            f"Moving to the next player after {self.current_player.id}'s turn."
-        )
         if self.current_player.turn_score == 0 and self.penalty:
             points = display.draw_penalty()
             display.draw_holes(self.holes)
             self.current_player.score -= points
-            logging.debug(
-                f"Penalty applied to player {self.current_player.id}. Score deducted by {points}."
-            )
 
         self.current_player = Player.activate_next_player(
             self.current_player, self.players
         )
-        logging.info(
-            f"Next player is {self.current_player.id if self.current_player else 'None'}."
-        )
 
     def goal(self, pin, display):
-        logging.info(f"Player {self.current_player.id} scored with pin {pin}.")
         hole = next((hole for hole in self.holes if pin == hole.pin), None)
         if hole is not None:
             points = hole.value
             display.draw_goal_animation(hole)
-            logging.debug(f"Points for hole type '{hole.type}': {points}")
 
             if hole.type == "bottle":
                 display.animation_bottle()
@@ -349,8 +315,5 @@ class GameLogic:
                         else self.players_per_team
                     ),
                 )
-            logging.info(
-                f"Player {self.current_player.id} now has a score of {self.current_player.score}."
-            )
         else:
             logging.warning(f"No matching hole found for pin {pin}.")

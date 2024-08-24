@@ -51,7 +51,7 @@ GOLD_SOLID = [
     (255, 223, 34),
     (255, 231, 68),
     (255, 239, 102),
-    (255, 247, 136)
+    (255, 247, 136),
 ]
 
 CHROME_SOLID = [
@@ -59,23 +59,23 @@ CHROME_SOLID = [
     (192, 192, 192),  # Silver
     (211, 211, 211),  # Light gray
     (220, 220, 220),
-    (230, 230, 230)
+    (230, 230, 230),
 ]
 
 # Define pin
 
-PIN_H20 = 25
-PIN_H25 = 26
-PIN_H40 = 32
-PIN_H50 = 33
-PIN_H100 = 34
-PIN_HBOTTLE = 35
-PIN_HSFROG = 36
-PIN_HLFROG = 39
-PIN_BNEXT = 4
-PIN_BENTER = 5
-PIN_UP = 13
-PIN_DOWN = 14
+PIN_H20 = [4, 5]
+PIN_H25 = [18, 32]
+PIN_H40 = [13, 14]
+PIN_H50 = [15, 16]
+PIN_H100 = [17, 25]
+PIN_HBOTTLE = [23, 26]
+PIN_HSFROG = [27]
+PIN_HLFROG = [33]
+PIN_BNEXT = 34
+PIN_BENTER = 35
+PIN_UP = 39
+PIN_DOWN = 19
 PIN_LEFT = 18
 PIN_RIGHT = 19
 PIN_STATES_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "pin_states.json")
