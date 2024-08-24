@@ -267,7 +267,7 @@ class GameLogic:
         )
 
     def goal(self, pin, display):
-        hole = next((hole for hole in self.holes if pin == hole.pin), None)
+        hole = next((hole for hole in self.holes if pin in hole.pin), None)
         if hole is not None:
             points = hole.value
             display.draw_goal_animation(hole)

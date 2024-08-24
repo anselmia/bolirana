@@ -126,17 +126,18 @@ class PIN:
             PIN_RIGHT,
         }:
             return int(pin)
-        elif game_action == "game" and int(pin) in {
-            PIN_BNEXT,
-            PIN_BENTER,
-            PIN_H20,
-            PIN_H25,
-            PIN_H40,
-            PIN_H50,
-            PIN_H100,
-            PIN_HBOTTLE,
-            PIN_HSFROG,
-            PIN_HLFROG,
-        }:
-            return int(pin)
+        elif game_action == "game":
+            if (
+                int(pin) in PIN_H20
+                or int(pin) in PIN_H25
+                or int(pin) in PIN_H40
+                or int(pin) in PIN_H50
+                or int(pin) in PIN_H100
+                or int(pin) in PIN_HBOTTLE
+                or int(pin) in PIN_HSFROG
+                or int(pin) in PIN_HLFROG
+                or int(pin) == PIN_BNEXT
+                or int(pin) == PIN_BENTER
+            ):
+                return int(pin)
         return None
