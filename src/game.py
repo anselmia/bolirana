@@ -96,7 +96,6 @@ class Game:
                 elif mode == "end_menu":
                     self.handle_end_menu_key_event(event.key)
 
-        # Handle pin input if not in debug mode
         if not self.debug:
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
@@ -110,6 +109,9 @@ class Game:
                     logging.debug(
                         f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
                     )
+                    if not self.in_end_menu:
+                        logging.debug("Exiting end menu after handling event.")
+                        break  # Break the loop if we've exited the end menu
 
     def handle_menu_button(self, pin):
         if pin in [PIN_UP, PIN_DOWN, PIN_LEFT, PIN_RIGHT]:
