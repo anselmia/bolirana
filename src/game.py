@@ -114,19 +114,20 @@ class Game:
 
             pygame.time.Clock().tick(FPS)
 
-        while not self.in_end_menu:
-            self.process_events("game")  # Process events to check for input
-            pygame.time.Clock().tick(FPS)
+        self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
+        time.sleep(10)
+        self.enter_end_menu()
 
     def enter_end_menu(self):
         self.in_end_menu = True
         logging.debug("Entering end menu...")
         while self.in_end_menu:
-            self.process_events("end_menu")
             self.display.draw_end_menu(self.end_menu)
+            self.process_events("end_menu")
             pygame.display.flip()
             pygame.time.Clock().tick(FPS)
         logging.debug("Exiting end menu...")
+        self.gamelogic.draw_game = True
 
     def handle_turn(self, pin):
         if pin is not None:
@@ -199,14 +200,14 @@ class Game:
 
     def keyboard_input(self, key):
         key_map = {
-            pygame.K_q: PIN_H20,
-            pygame.K_s: PIN_H25,
-            pygame.K_d: PIN_H40,
-            pygame.K_f: PIN_H50,
-            pygame.K_g: PIN_H100,
-            pygame.K_h: PIN_HBOTTLE,
-            pygame.K_j: PIN_HSFROG,
-            pygame.K_k: PIN_HLFROG,
+            pygame.K_q: PIN_H20[0],
+            pygame.K_s: PIN_H25[0],
+            pygame.K_d: PIN_H40[0],
+            pygame.K_f: PIN_H50[0],
+            pygame.K_g: PIN_H100[0],
+            pygame.K_h: PIN_HBOTTLE[0],
+            pygame.K_j: PIN_HSFROG[0],
+            pygame.K_k: PIN_HLFROG[0],
             pygame.K_n: PIN_BNEXT,
             pygame.K_RETURN: PIN_BENTER,
         }
