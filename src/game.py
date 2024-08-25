@@ -157,10 +157,10 @@ class Game:
 
     def handle_end_menu_key_event(self, key):
         logging.info(f"handling pin end menu for pin {key}")
-            if key == PIN_BENTER:
-                self.execute_end_menu_option()
-            elif key == PIN_DOWN:
-                self.end_menu.handle_button_press("DOWN")
+        if key == PIN_BENTER:
+            self.execute_end_menu_option()
+        elif key == PIN_DOWN:
+            self.end_menu.handle_button_press("DOWN")
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
