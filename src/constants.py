@@ -76,7 +76,6 @@ PIN_BNEXT = 35
 PIN_BENTER = 19
 PIN_DOWN = 34
 PIN_RIGHT = 39
-PIN_STATES_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "pin_states.json")
 
 # Defines Holes
 
