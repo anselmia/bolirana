@@ -215,7 +215,7 @@ class Game:
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
         if option == "Continuer":
-            pass
+            self.in_end_menu = False  # Exit the menu and continue the game
         elif option == "Nouveau":
             self.gamelogic.reset_game()
             self.run()
@@ -224,6 +224,7 @@ class Game:
             self.play()
         elif option == "Quitter":
             self.cleanup()
+        self.in_end_menu = False  # Ensure we exit the menu after executing an option
 
     def keyboard_input(self, key):
         key_map = {
