@@ -28,11 +28,6 @@ class EndMenu:
 
     def handle_button_press(self, button):
         self.frog_sound.play()
-
-        if button == "UP":
-            previous_option = self.selected_option
-            self.selected_option = (self.selected_option - 1) % len(self.options)
-
-        elif button == "DOWN":
+        if button == "DOWN":
             previous_option = self.selected_option
             self.selected_option = (self.selected_option + 1) % len(self.options)

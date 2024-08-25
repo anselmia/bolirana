@@ -72,12 +72,10 @@ PIN_H100 = [17, 25]
 PIN_HBOTTLE = [23, 26]
 PIN_HSFROG = [27]
 PIN_HLFROG = [33]
-PIN_BNEXT = 34
+PIN_BNEXT = 35
 PIN_BENTER = 19
-PIN_UP = 39
-PIN_DOWN = 2
-PIN_LEFT = 18
-PIN_RIGHT = 12
+PIN_DOWN = 34
+PIN_RIGHT = 39
 PIN_STATES_FILE = os.path.join(os.path.dirname(__file__), "..", "..", "pin_states.json")
 
 # Defines Holes

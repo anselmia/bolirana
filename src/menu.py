@@ -38,27 +38,8 @@ class Menu:
     def handle_button_press(self, button):
         option = self.options[self.selected_option]
         self.frog_sound.play()
-        if button == "UP":
-            self.selected_option = (self.selected_option - 1) % len(self.options)
-        elif button == "DOWN":
+        if button == "DOWN":
             self.selected_option = (self.selected_option + 1) % len(self.options)
-        elif button == "LEFT":
-            if "values" in option:
-                current_index = option["values"].index(option["value"])
-                option["value"] = option["values"][
-                    (current_index - 1) % len(option["values"])
-                ]
-            else:
-                option["value"] = max(option["min"], option["value"] - option["step"])
-
-            if option["name"] == "Equipe":
-                self.update_player_selection(option)
-            elif (
-                option["name"] == "Nombre d'équipes"
-                or option["name"] == "Joueurs / équipe"
-            ):
-                self.set_max_plaxer_in_team(option)
-
         elif button == "RIGHT":
             if "values" in option:
                 current_index = option["values"].index(option["value"])

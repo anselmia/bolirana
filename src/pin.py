@@ -32,8 +32,6 @@ from src.constants import (
     PIN_BENTER,
     PIN_BNEXT,
     PIN_DOWN,
-    PIN_UP,
-    PIN_LEFT,
     PIN_RIGHT,
     PIN_H20,
     PIN_H25,
@@ -123,7 +121,7 @@ class PIN:
         last_time = self.last_pin_time.get(pin, 0)
 
         # Apply cooldown only for specific pins
-        if pin in {PIN_BENTER, PIN_DOWN, PIN_UP, PIN_LEFT, PIN_RIGHT}:
+        if pin in {PIN_BENTER, PIN_DOWN, PIN_RIGHT}:
             if current_time - last_time < self.COOLDOWN_MS:
                 logging.debug(f"Pin {pin} ignored due to cooldown.")
                 return None
@@ -134,8 +132,6 @@ class PIN:
         if game_action == "menu" and int(pin) in {
             PIN_BENTER,
             PIN_DOWN,
-            PIN_UP,
-            PIN_LEFT,
             PIN_RIGHT,
         }:
             return int(pin)

@@ -9,8 +9,6 @@ from src.constants import (
     PIN_BENTER,
     PIN_BNEXT,
     PIN_DOWN,
-    PIN_UP,
-    PIN_LEFT,
     PIN_RIGHT,
     PIN_H20,
     PIN_H25,
@@ -109,16 +107,11 @@ class Game:
                     logging.debug(
                         f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
                     )
-                    if not self.in_end_menu:
-                        logging.debug("Exiting end menu after handling event.")
-                        break  # Break the loop if we've exited the end menu
 
     def handle_menu_button(self, pin):
-        if pin in [PIN_UP, PIN_DOWN, PIN_LEFT, PIN_RIGHT]:
+        if pin in [PIN_DOWN, PIN_RIGHT]:
             direction = {
-                PIN_UP: "UP",
                 PIN_DOWN: "DOWN",
-                PIN_LEFT: "LEFT",
                 PIN_RIGHT: "RIGHT",
             }[pin]
             self.menu.handle_button_press(direction)
@@ -182,9 +175,7 @@ class Game:
 
     def handle_key_event(self, key):
         key_map = {
-            pygame.K_UP: "UP",
             pygame.K_DOWN: "DOWN",
-            pygame.K_LEFT: "LEFT",
             pygame.K_RIGHT: "RIGHT",
             pygame.K_RETURN: self.setup_game_from_menu,
         }
@@ -200,7 +191,6 @@ class Game:
         if self.debug:
             if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
                 key_map = {
-                    pygame.K_UP: "UP",
                     pygame.K_DOWN: "DOWN",
                     pygame.K_RETURN: self.execute_end_menu_option,
                 }
@@ -215,8 +205,6 @@ class Game:
             if key == PIN_BENTER:
                 self.execute_end_menu_option()
                 self.in_end_menu = False
-            elif key == PIN_UP:
-                self.end_menu.handle_button_press("UP")
             elif key == PIN_DOWN:
                 self.end_menu.handle_button_press("DOWN")
 
