@@ -53,30 +53,19 @@ class Game:
         self.play()
 
     def process_events(self, mode):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.cleanup()
-            elif event.type == pygame.KEYDOWN:
-                if mode == "menu":
-                    self.handle_key_event(event.key)
-                elif mode == "game":
-                    self.handle_turn(self.keyboard_input(event.key))
-                elif mode == "end_menu":
-                    self.handle_end_menu_key_event(event.key)
 
-        if not self.debug:
-            pin = self.pin.read_pin_states(mode)
-            if pin is not None:
-                logging.info(f"Processing event for pin {pin}")
-                if mode == "menu":
-                    self.handle_menu_button(pin)
-                elif mode == "game":
-                    self.handle_turn(pin)
-                elif mode == "end_menu":
-                    self.handle_end_menu_key_event(pin)
-                    logging.debug(
-                        f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
-                    )
+        pin = self.pin.read_pin_states(mode)
+        if pin is not None:
+            logging.info(f"Processing event for pin {pin} {self.in_end_menu} {mode}")
+            if mode == "menu":
+                self.handle_menu_button(pin)
+            elif mode == "game":
+                self.handle_turn(pin)
+            elif mode == "end_menu":
+                self.handle_end_menu_key_event(pin)
+                logging.debug(
+                    f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
+                )
 
     def handle_menu_button(self, pin):
         if pin in [PIN_DOWN, PIN_RIGHT]:
@@ -156,11 +145,25 @@ class Game:
             self.gamelogic.selecting_mode = False
 
     def handle_end_menu_key_event(self, key):
-        logging.info(f"handling pin end menu for pin {key}")
-        if key == PIN_BENTER:
-            self.execute_end_menu_option()
-        elif key == PIN_DOWN:
-            self.end_menu.handle_button_press("DOWN")
+        logging.info(f"handle_end_menu_key_event for pin {key}")
+        if self.debug:
+            if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
+                key_map = {
+                    pygame.K_DOWN: "DOWN",
+                    pygame.K_RETURN: self.execute_end_menu_option,
+                }
+                action = key_map[key]
+                if callable(action):
+                    action()
+                    self.in_end_menu = False
+                else:
+                    self.end_menu.handle_button_press(action)
+        else:
+            logging.info(f"handling pin end menu for pin {key}")
+            if key == PIN_BENTER:
+                self.execute_end_menu_option()
+            elif key == PIN_DOWN:
+                self.end_menu.handle_button_press("DOWN")
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
