@@ -206,6 +206,7 @@ class Game:
             logging.info(f"handling pin end menu for pin {key}")
             if key == PIN_BENTER:
                 self.execute_end_menu_option()
+                self.in_end_menu = False
             elif key == PIN_UP:
                 self.end_menu.handle_button_press("UP")
             elif key == PIN_DOWN:
