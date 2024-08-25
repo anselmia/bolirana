@@ -3,7 +3,6 @@ import sys
 import logging
 import time
 import os
-import platform
 
 from src.constants import (
     PIN_BENTER,
@@ -26,38 +25,10 @@ from src.menu import Menu
 from src.end_menu import EndMenu
 from src.display import Display
 from src.game_logic import GameLogic
-from logging.handlers import RotatingFileHandler
-
-# Determine log file path based on platform
-if platform.system() == "Windows":
-    log_path = os.path.join(os.getenv("APPDATA"), "bolirana", "bolirana.log")
-else:
-    log_path = "/var/log/bolirana.log"
-
-# Ensure the log directory exists
-log_dir = os.path.dirname(log_path)
-os.makedirs(log_dir, exist_ok=True)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        RotatingFileHandler(log_path, maxBytes=1000000, backupCount=3),
-        logging.StreamHandler(),
-    ],
-)
 
 
 class Game:
     def __init__(self, debug=False):
-        log_file_path = "/etc/var/bolirana.log"
-        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s - %(levelname)s - %(message)s",  # Include the timestamp
-            datefmt="%Y-%m-%d %H:%M:%S",  # Specify the format for the timestamp
-            handlers=[logging.FileHandler(log_file_path), logging.StreamHandler()],
-        )
-
         pygame.init()
         pygame.mixer.init()
         pygame.display.set_caption("Bolirana Game")
@@ -80,7 +51,6 @@ class Game:
             pygame.time.Clock().tick(FPS)
 
         self.play()
-        self.display.draw_end_menu(self.end_menu)
 
     def process_events(self, mode):
         for event in pygame.event.get():
@@ -144,8 +114,11 @@ class Game:
 
             pygame.time.Clock().tick(FPS)
 
-        self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
-        time.sleep(5)
+        while not self.in_end_menu:
+            self.process_events("game")  # Process events to check for input
+            pygame.time.Clock().tick(FPS)
+
+    def enter_end_menu(self):
         self.in_end_menu = True
         logging.debug("Entering end menu...")
         while self.in_end_menu:
@@ -153,7 +126,7 @@ class Game:
             self.display.draw_end_menu(self.end_menu)
             pygame.display.flip()
             pygame.time.Clock().tick(FPS)
-        logging.debug("Exiting end menu loop...")
+        logging.debug("Exiting end menu...")
 
     def handle_turn(self, pin):
         if pin is not None:
@@ -164,12 +137,7 @@ class Game:
                     self.gamelogic.draw_game = True
                     self.last_next_action_time = current_time
             elif pin == PIN_BENTER:
-                self.in_end_menu = True
-                while self.in_end_menu:
-                    self.process_events("end_menu")
-                    self.display.draw_end_menu(self.end_menu)
-                    pygame.time.Clock().tick(FPS)
-                self.gamelogic.draw_game = True
+                self.enter_end_menu()  # Directly call the end menu when needed
             elif any(pin in hole.pin for hole in self.gamelogic.holes):
                 self.gamelogic.goal(pin, self.display)
 
@@ -204,7 +172,6 @@ class Game:
             logging.info(f"handling pin end menu for pin {key}")
             if key == PIN_BENTER:
                 self.execute_end_menu_option()
-                self.in_end_menu = False
             elif key == PIN_DOWN:
                 self.end_menu.handle_button_press("DOWN")
 

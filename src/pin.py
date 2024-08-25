@@ -1,7 +1,5 @@
 import logging
-from logging.handlers import RotatingFileHandler
 import platform
-import os
 
 if platform.system() != "Windows":
     from smbus2 import SMBus
@@ -45,25 +43,6 @@ from src.constants import (
 
 I2C_BUS = 1  # I2C bus number (usually 1 on Raspberry Pi)
 I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
-
-
-# Determine log file path based on platform
-if platform.system() == "Windows":
-    log_path = os.path.join(os.getenv("APPDATA"), "bolirana", "bolirana.log")
-else:
-    log_path = "/var/log/bolirana.log"
-
-# Ensure the log directory exists
-log_dir = os.path.dirname(log_path)
-os.makedirs(log_dir, exist_ok=True)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        RotatingFileHandler(log_path, maxBytes=1000000, backupCount=3),
-        logging.StreamHandler(),
-    ],
-)
 
 
 class PIN:
@@ -120,14 +99,13 @@ class PIN:
         current_time = time.time() * 1000  # Convert to milliseconds
         last_time = self.last_pin_time.get(pin, 0)
 
-        # Apply cooldown only for specific pins
-        if pin in {PIN_BENTER, PIN_DOWN, PIN_RIGHT}:
-            if current_time - last_time < self.COOLDOWN_MS:
-                logging.debug(f"Pin {pin} ignored due to cooldown.")
-                return None
+        # Apply cooldown
+        if current_time - last_time < self.COOLDOWN_MS:
+            logging.debug(f"Pin {pin} ignored due to cooldown.")
+            return None
 
-            # Update last detection time for the pin
-            self.last_pin_time[pin] = current_time
+        # Update last detection time for the pin
+        self.last_pin_time[pin] = current_time
 
         if game_action == "menu" and int(pin) in {
             PIN_BENTER,
