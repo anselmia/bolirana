@@ -49,9 +49,7 @@ class PIN:
     def __init__(self):
         self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
-        self.button_states = {}  # Dictionary to track the state of each button pin
-        self.COOLDOWN_MS = 500  # General cooldown period in milliseconds
-        self.BUTTON_COOLDOWN_MS = 300  # Cooldown period for buttons in milliseconds
+        self.COOLDOWN_MS = 500  # Cooldown period in milliseconds
         logging.info("Initializing communication with the I2C slave...")
 
         while True:
@@ -101,43 +99,32 @@ class PIN:
         current_time = time.time() * 1000  # Convert to milliseconds
         last_time = self.last_pin_time.get(pin, 0)
 
-        # Determine the cooldown period
-        cooldown_ms = (
-            self.BUTTON_COOLDOWN_MS
-            if pin in {PIN_BENTER, PIN_DOWN, PIN_RIGHT, PIN_BNEXT}
-            else self.COOLDOWN_MS
-        )
-
-        # Check if the cooldown period has passed
-        if current_time - last_time < cooldown_ms:
+        # Apply cooldown
+        if current_time - last_time < self.COOLDOWN_MS:
             logging.debug(f"Pin {pin} ignored due to cooldown.")
-            return self.button_states.get(
-                pin, None
-            )  # Return the last known state during cooldown
+            return None
 
-        # If cooldown has passed, update the last detection time and read the new state
+        # Update last detection time for the pin
         self.last_pin_time[pin] = current_time
 
-        # Store the current state in the button_states dictionary
-        if game_action == "menu" and int(pin) in {PIN_BENTER, PIN_DOWN, PIN_RIGHT}:
-            self.button_states[pin] = int(pin)
-        elif game_action == "game" and int(pin) in {
-            PIN_H20,
-            PIN_H25,
-            PIN_H40,
-            PIN_H50,
-            PIN_H100,
-            PIN_HBOTTLE,
-            PIN_HSFROG,
-            PIN_HLFROG,
-            PIN_BNEXT,
+        if game_action == "menu" and int(pin) in {
             PIN_BENTER,
+            PIN_DOWN,
+            PIN_RIGHT,
         }:
-            self.button_states[pin] = int(pin)
-        else:
-            self.button_states[pin] = None
-
-        # After the cooldown, reset the button state to LOW before the next read
-        self.button_states[pin] = None
-
-        return self.button_states[pin]
+            return int(pin)
+        elif game_action == "game":
+            if (
+                int(pin) in PIN_H20
+                or int(pin) in PIN_H25
+                or int(pin) in PIN_H40
+                or int(pin) in PIN_H50
+                or int(pin) in PIN_H100
+                or int(pin) in PIN_HBOTTLE
+                or int(pin) in PIN_HSFROG
+                or int(pin) in PIN_HLFROG
+                or int(pin) == PIN_BNEXT
+                or int(pin) == PIN_BENTER
+            ):
+                return int(pin)
+        return None
