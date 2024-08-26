@@ -30,10 +30,12 @@ from PIL import Image
 
 
 class Display:
-    def __init__(self):
+    def __init__(self, debug):
         pygame.display.set_caption("Bolirana Game")
-        self.screen = pygame.display.set_mode((1024, 768))
-        #self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        if debug:
+            self.screen = pygame.display.set_mode((1024, 768))
+        else:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
         # Optionally, you can also set the window title
         font_path = os.path.join(

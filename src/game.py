@@ -32,7 +32,7 @@ class Game:
         pygame.mixer.init()
         pygame.display.set_caption("Bolirana Game")
         logging.info("Initializing game components...")
-        self.display = Display()
+        self.display = Display(debug)
         self.menu = Menu()
         self.end_menu = EndMenu()
         self.pin = PIN()
