@@ -1,8 +1,20 @@
+import signal
+import sys
 from src.game import Game
 import logging
 import platform
 import os
 from logging.handlers import RotatingFileHandler
+
+
+# Define the signal handler
+def signal_handler(sig, frame):
+    print("SIGTERM received, exiting gracefully...")
+    sys.exit(0)
+
+
+# Register the signal handler for SIGTERM
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Determine log file path based on platform
 if platform.system() == "Windows":
@@ -22,10 +34,9 @@ logging.basicConfig(
     ],
 )
 
-
 if __name__ == "__main__":
     try:
         game = Game(debug=True)
         game.run()
     except Exception as e:
-        logging.error(f": {e}")
+        logging.error(f"An error occurred: {e}")
