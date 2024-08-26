@@ -53,19 +53,34 @@ class Game:
         self.play()
 
     def process_events(self, mode):
-
-        pin = self.pin.read_pin_states(mode)
-        if pin is not None:
+        if self.debug:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                elif event.type == pygame.KEYDOWN:
+                    if mode == "menu":
+                        self.handle_key_event(event.key)
+                    elif mode == "game":
+                        self.handle_turn(self.keyboard_input(event.key))
+                    elif mode == "end_menu":
+                        self.handle_end_menu_key_event(event.key)
+        else:
+            logging.info("Processing event")
+            pin = self.pin.read_pin_states(mode)
             logging.info(f"Processing event for pin {pin} {self.in_end_menu} {mode}")
-            if mode == "menu":
-                self.handle_menu_button(pin)
-            elif mode == "game":
-                self.handle_turn(pin)
-            elif mode == "end_menu":
-                self.handle_end_menu_key_event(pin)
-                logging.debug(
-                    f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
+            if pin is not None:
+                logging.info(
+                    f"Processing event for pin {pin} {self.in_end_menu} {mode}"
                 )
+                if mode == "menu":
+                    self.handle_menu_button(pin)
+                elif mode == "game":
+                    self.handle_turn(pin)
+                elif mode == "end_menu":
+                    self.handle_end_menu_key_event(pin)
+                    logging.debug(
+                        f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
+                    )
 
     def handle_menu_button(self, pin):
         if pin in [PIN_DOWN, PIN_RIGHT]:

@@ -13,10 +13,7 @@ else:
             print("Mock write called with", args)
 
         def read_i2c_block_data(self, address, register, length):
-            print(
-                f"Mock read_i2c_block_data: address={address}, register={register}, length={length}"
-            )
-            return [0] * length  # Return dummy data
+            return [0xff, 0]  # Return dummy data
 
     class i2c_msg:
         @staticmethod
