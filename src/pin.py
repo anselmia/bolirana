@@ -13,7 +13,7 @@ else:
             print("Mock write called with", args)
 
         def read_i2c_block_data(self, address, register, length):
-            return [0xff, 0]  # Return dummy data
+            return [0xFF, 0]  # Return dummy data
 
     class i2c_msg:
         @staticmethod
@@ -123,5 +123,8 @@ class PIN:
                 or int(pin) == PIN_BNEXT
                 or int(pin) == PIN_BENTER
             ):
+                return int(pin)
+        elif game_action == "end_menu":
+            if int(pin) in PIN_BENTER or int(pin) in PIN_DOWN:
                 return int(pin)
         return None
