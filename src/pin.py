@@ -125,6 +125,6 @@ class PIN:
             ):
                 return int(pin)
         elif game_action == "end_menu":
-            if int(pin) in PIN_BENTER or int(pin) in PIN_DOWN:
+            if int(pin) == PIN_BENTER or int(pin) == PIN_DOWN:
                 return int(pin)
         return None
