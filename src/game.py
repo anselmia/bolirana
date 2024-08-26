@@ -7,7 +7,6 @@ import os
 from src.constants import (
     PIN_BENTER,
     PIN_BNEXT,
-    PIN_DOWN,
     PIN_RIGHT,
     PIN_H20,
     PIN_H25,
@@ -83,9 +82,9 @@ class Game:
                     )
 
     def handle_menu_button(self, pin):
-        if pin in [PIN_DOWN, PIN_RIGHT]:
+        if pin in [PIN_BNEXT, PIN_RIGHT]:
             direction = {
-                PIN_DOWN: "DOWN",
+                PIN_BNEXT: "DOWN",
                 PIN_RIGHT: "RIGHT",
             }[pin]
             self.menu.handle_button_press(direction)
@@ -177,7 +176,7 @@ class Game:
             logging.info(f"handling pin end menu for pin {key}")
             if key == PIN_BENTER:
                 self.execute_end_menu_option()
-            elif key == PIN_DOWN:
+            elif key == PIN_BNEXT:
                 self.end_menu.handle_button_press("DOWN")
 
     def execute_end_menu_option(self):

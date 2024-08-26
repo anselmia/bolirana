@@ -74,8 +74,8 @@ PIN_HSFROG = [27]
 PIN_HLFROG = [33]
 PIN_BNEXT = 35
 PIN_BENTER = 19
-PIN_DOWN = 34
 PIN_RIGHT = 12
+
 
 # Defines Holes
 

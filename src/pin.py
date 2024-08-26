@@ -26,7 +26,6 @@ import time
 from src.constants import (
     PIN_BENTER,
     PIN_BNEXT,
-    PIN_DOWN,
     PIN_RIGHT,
     PIN_H20,
     PIN_H25,
@@ -106,8 +105,8 @@ class PIN:
 
         if game_action == "menu" and int(pin) in {
             PIN_BENTER,
-            PIN_DOWN,
             PIN_RIGHT,
+            PIN_BNEXT,
         }:
             return int(pin)
         elif game_action == "game":
@@ -125,6 +124,6 @@ class PIN:
             ):
                 return int(pin)
         elif game_action == "end_menu":
-            if int(pin) == PIN_BENTER or int(pin) == PIN_DOWN:
+            if int(pin) == PIN_BENTER or int(pin) == PIN_BNEXT:
                 return int(pin)
         return None
