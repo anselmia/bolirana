@@ -64,22 +64,14 @@ class Game:
                     elif mode == "end_menu":
                         self.handle_end_menu_key_event(event.key)
         else:
-            logging.info("Processing event")
             pin = self.pin.read_pin_states(mode)
-            logging.info(f"Processing event for pin {pin} {self.in_end_menu} {mode}")
             if pin is not None:
-                logging.info(
-                    f"Processing event for pin {pin} {self.in_end_menu} {mode}"
-                )
                 if mode == "menu":
                     self.handle_menu_button(pin)
                 elif mode == "game":
                     self.handle_turn(pin)
                 elif mode == "end_menu":
                     self.handle_end_menu_key_event(pin)
-                    logging.debug(
-                        f"Handled end menu event for pin {pin}, in_end_menu = {self.in_end_menu}"
-                    )
 
     def handle_menu_button(self, pin):
         if pin in [PIN_BNEXT, PIN_RIGHT]:
@@ -159,7 +151,6 @@ class Game:
             self.gamelogic.selecting_mode = False
 
     def handle_end_menu_key_event(self, key):
-        logging.info(f"handle_end_menu_key_event for pin {key}")
         if self.debug:
             if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
                 key_map = {
@@ -173,7 +164,6 @@ class Game:
                 else:
                     self.end_menu.handle_button_press(action)
         else:
-            logging.info(f"handling pin end menu for pin {key}")
             if key == PIN_BENTER:
                 self.execute_end_menu_option()
             elif key == PIN_BNEXT:
@@ -181,24 +171,18 @@ class Game:
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
-        logging.debug(f"Selected end menu option: {option}")
 
         if option == "Continuer":
-            logging.debug("Continuing the game...")
             self.in_end_menu = False  # Exit the menu and continue the game
         elif option == "Nouveau":
-            logging.debug("Starting a new game...")
             self.gamelogic.reset_game()
             self.run()
         elif option == "Recommencer":
-            logging.debug("Restarting the game...")
             self.gamelogic.restart_game()
             self.play()
         elif option == "Quitter":
-            logging.debug("Quitting the game...")
             self.cleanup()
 
-        logging.debug("Exiting the end menu...")
         self.in_end_menu = False  # Ensure we exit the menu after executing an option
 
     def keyboard_input(self, key):

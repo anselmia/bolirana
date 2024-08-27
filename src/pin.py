@@ -45,7 +45,14 @@ class PIN:
     def __init__(self):
         self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
-        self.COOLDOWN_MS = 500  # Cooldown period in milliseconds
+        self.COOLDOWN_MS_PIN = 1200  # Cooldown period in milliseconds
+        self.COOLDOWN_MS_Button = 500  # Cooldown period in milliseconds
+        self.pin_hole = (
+            PIN_H20 + PIN_H25 + PIN_H40 + PIN_H50 + 
+            PIN_H100 + PIN_HBOTTLE + PIN_HSFROG + 
+            PIN_HLFROG
+        )
+        self.button_pin = [PIN_BNEXT, PIN_BENTER, PIN_RIGHT]
         logging.info("Initializing communication with the I2C slave...")
 
         while True:
@@ -95,8 +102,12 @@ class PIN:
         current_time = time.time() * 1000  # Convert to milliseconds
         last_time = self.last_pin_time.get(pin, 0)
 
+        if int(pin) in self.pin_hole:
+            cooldown = self.COOLDOWN_MS_PIN
+        else:
+            cooldown = self.COOLDOWN_MS_Button
         # Apply cooldown
-        if current_time - last_time < self.COOLDOWN_MS:
+        if current_time - last_time < cooldown:
             logging.debug(f"Pin {pin} ignored due to cooldown.")
             return None
 
