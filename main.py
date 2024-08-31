@@ -36,7 +36,7 @@ logging.basicConfig(
 
 if __name__ == "__main__":
     try:
-        game = Game(debug=False)
+        game = Game(debug=True)
         game.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")

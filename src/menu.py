@@ -1,6 +1,20 @@
 import os
 import pygame
 
+from src.constants import (
+    ACTION_NEXT,
+    ACTION_RIGHT,
+    MODE_NORMAL,
+    MODE_FROG,
+    MODE_BOTTLE,
+    TEAM_MODE_SOLO,
+    TEAM_MODE_DUO,
+    TEAM_MODE_TEAM,
+    OFF,
+    ON,
+)
+
+
 class Menu:
     def __init__(self):
 
@@ -8,16 +22,20 @@ class Menu:
         self.options = [
             {
                 "name": "Mode de jeu",
-                "value": "Normal",
-                "values": ["Normal", "Grenouille", "Bouteille"],
+                "value": MODE_NORMAL,
+                "values": [MODE_NORMAL, MODE_FROG, MODE_BOTTLE],
             },
             {"name": "Score", "value": 400, "min": 400, "max": 10000, "step": 200},
             {
                 "name": "Pénalité",
-                "value": "Sans",
-                "values": ["Sans", "Avec"],
+                "value": OFF,
+                "values": [OFF, ON],
             },
-            {"name": "Equipe", "value": "Seul", "values": ["Seul", "Duo", "Equipe"]},
+            {
+                "name": TEAM_MODE_TEAM,
+                "value": TEAM_MODE_SOLO,
+                "values": [TEAM_MODE_SOLO, TEAM_MODE_DUO, TEAM_MODE_TEAM],
+            },
             {
                 "name": "Nombre de joueurs",
                 "value": 1,
@@ -27,10 +45,8 @@ class Menu:
             },
         ]
 
-        self.frog_sound = self.load_sound(
-                "sounds", "frog.mp3"
-            )
-        
+        self.frog_sound = self.load_sound("sounds", "frog.mp3")
+
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
         return pygame.mixer.Sound(path)
@@ -38,9 +54,9 @@ class Menu:
     def handle_button_press(self, button):
         option = self.options[self.selected_option]
         self.frog_sound.play()
-        if button == "DOWN":
+        if button == ACTION_NEXT:
             self.selected_option = (self.selected_option + 1) % len(self.options)
-        elif button == "RIGHT":
+        elif button == ACTION_RIGHT:
             if "values" in option:
                 current_index = option["values"].index(option["value"])
                 option["value"] = option["values"][
@@ -49,7 +65,7 @@ class Menu:
             else:
                 option["value"] = min(option["max"], option["value"] + option["step"])
 
-            if option["name"] == "Equipe":
+            if option["name"] == TEAM_MODE_TEAM:
                 self.update_player_selection(option)
             elif (
                 option["name"] == "Nombre d'équipes"
@@ -64,7 +80,7 @@ class Menu:
                 break
 
     def update_player_selection(self, option):
-        if option["value"] == "Seul":
+        if option["value"] == TEAM_MODE_SOLO:
             self.options.append(
                 {
                     "name": "Nombre de joueurs",
@@ -77,7 +93,7 @@ class Menu:
             self.remove_menu_option("Nombre d'équipes")
             self.remove_menu_option("Joueurs / équipe")
             self.remove_menu_option("Nombre de Duo")
-        elif option["value"] == "Duo":
+        elif option["value"] == TEAM_MODE_DUO:
             self.options.append(
                 {
                     "name": "Nombre de Duo",
@@ -90,7 +106,7 @@ class Menu:
             self.remove_menu_option("Nombre d'équipes")
             self.remove_menu_option("Joueurs / équipe")
             self.remove_menu_option("Nombre de joueurs")
-        elif option["value"] == "Equipe":
+        elif option["value"] == TEAM_MODE_TEAM:
             self.options.append(
                 {
                     "name": "Nombre d'équipes",

@@ -48,9 +48,14 @@ class PIN:
         self.COOLDOWN_MS_PIN = 1200  # Cooldown period in milliseconds
         self.COOLDOWN_MS_Button = 500  # Cooldown period in milliseconds
         self.pin_hole = (
-            PIN_H20 + PIN_H25 + PIN_H40 + PIN_H50 + 
-            PIN_H100 + PIN_HBOTTLE + PIN_HSFROG + 
-            PIN_HLFROG
+            PIN_H20
+            + PIN_H25
+            + PIN_H40
+            + PIN_H50
+            + PIN_H100
+            + PIN_HBOTTLE
+            + PIN_HSFROG
+            +    PIN_HLFROG
         )
         self.button_pin = [PIN_BNEXT, PIN_BENTER, PIN_RIGHT]
         logging.info("Initializing communication with the I2C slave...")
@@ -121,7 +126,7 @@ class PIN:
         }:
             return int(pin)
         elif game_action == "game":
-            if (
+            if (    
                 int(pin) in PIN_H20
                 or int(pin) in PIN_H25
                 or int(pin) in PIN_H40

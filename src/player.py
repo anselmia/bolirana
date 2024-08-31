@@ -8,16 +8,18 @@ class Player:
     def __str__(self):
         return f"Joueur {self.id}"
 
-    def add_score(self, points):
+    def goal(self, points, win_threshold):
         self.score += points
-        return self.score
+        self.turn_score += points
+        if self.score >= win_threshold:
+            self.won = True
 
     def reset(self):
         self.score = 0
         self.won = False
         self.rank = 0
         self.turn_score = 0
-        self.is_active = False        
+        self.is_active = False
 
     def activate(self):
         self.is_active = True

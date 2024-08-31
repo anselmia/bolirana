@@ -1,5 +1,4 @@
 import pygame
-import os
 
 # Define colors
 DARK_GREEN = pygame.Color(34, 139, 34)  # Dark green
@@ -76,6 +75,45 @@ PIN_BNEXT = 0
 PIN_BENTER = 19
 PIN_RIGHT = 12
 
+KEY_TO_PIN_MAP = {
+    pygame.K_DOWN: PIN_BNEXT,
+    pygame.K_RIGHT: PIN_RIGHT,
+    pygame.K_RETURN: PIN_BENTER,
+    pygame.K_q: PIN_H20[0],
+    pygame.K_s: PIN_H25[0],
+    pygame.K_d: PIN_H40[0],
+    pygame.K_f: PIN_H50[0],
+    pygame.K_g: PIN_H100[0],
+    pygame.K_h: PIN_HBOTTLE[0],
+    pygame.K_j: PIN_HSFROG[0],
+    pygame.K_k: PIN_HLFROG[0],
+    pygame.K_w: PIN_H20[1],
+    pygame.K_x: PIN_H25[1],
+    pygame.K_c: PIN_H40[1],
+    pygame.K_v: PIN_H50[1],
+    pygame.K_b: PIN_H100[1],
+    pygame.K_n: PIN_HBOTTLE[1],
+}
+
+ACTION_NEXT = "NEXT"
+ACTION_RIGHT = "RIGHT"
+ACTION_ENTER = "ENTER"
+
+PIN_TO_ACTION_MAP = {
+    PIN_BNEXT: ACTION_NEXT,
+    PIN_RIGHT: ACTION_RIGHT,
+    PIN_BENTER: ACTION_ENTER,
+}
+
+MODE_NORMAL = "NORMAL"
+MODE_FROG = "FROG"
+MODE_BOTTLE = "BOTTLE"
+TEAM_MODE_SOLO = "SOLO"
+TEAM_MODE_DUO = "DUO"
+TEAM_MODE_TEAM = "TEAM"
+
+ON = "ON"
+OFF = "OFF"
 
 # Defines Holes
 

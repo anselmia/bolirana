@@ -2,6 +2,8 @@ import os
 import pygame
 import logging
 
+from src.constants import ACTION_NEXT
+
 
 class EndMenu:
     def __init__(self):
@@ -28,6 +30,6 @@ class EndMenu:
 
     def handle_button_press(self, button):
         self.frog_sound.play()
-        if button == "DOWN":
+        if button == ACTION_NEXT:
             previous_option = self.selected_option
             self.selected_option = (self.selected_option + 1) % len(self.options)

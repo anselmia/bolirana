@@ -7,17 +7,13 @@ import os
 from src.constants import (
     PIN_BENTER,
     PIN_BNEXT,
-    PIN_RIGHT,
-    PIN_H20,
-    PIN_H25,
-    PIN_H40,
-    PIN_H50,
-    PIN_H100,
-    PIN_HBOTTLE,
-    PIN_HLFROG,
-    PIN_HSFROG,
+    ACTION_NEXT,
+    ACTION_RIGHT,
     ACTION_COOLDOWN,
     FPS,
+    PIN_TO_ACTION_MAP,
+    KEY_TO_PIN_MAP,
+    TEAM_MODE_SOLO,
 )
 from src.pin import PIN
 from src.menu import Menu
@@ -57,32 +53,57 @@ class Game:
                 if event.type == pygame.QUIT:
                     self.cleanup()
                 elif event.type == pygame.KEYDOWN:
-                    if mode == "menu":
-                        self.handle_key_event(event.key)
-                    elif mode == "game":
-                        self.handle_turn(self.keyboard_input(event.key))
-                    elif mode == "end_menu":
-                        self.handle_end_menu_key_event(event.key)
+                    if event.key in KEY_TO_PIN_MAP:
+                        pin = KEY_TO_PIN_MAP[event.key]
+                        self.handle_event(mode, pin)
         else:
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
-                if mode == "menu":
-                    self.handle_menu_button(pin)
-                elif mode == "game":
-                    self.handle_turn(pin)
-                elif mode == "end_menu":
-                    self.handle_end_menu_key_event(pin)
+                self.handle_event(mode, pin)
 
-    def handle_menu_button(self, pin):
-        if pin in [PIN_BNEXT, PIN_RIGHT]:
-            direction = {
-                PIN_BNEXT: "DOWN",
-                PIN_RIGHT: "RIGHT",
-            }[pin]
-            self.menu.handle_button_press(direction)
+    def handle_event(self, mode, pin):
+        if mode == "menu" and pin in PIN_TO_ACTION_MAP:
+            action = PIN_TO_ACTION_MAP[pin]
+            if action in [ACTION_NEXT, ACTION_RIGHT]:
+                self.menu.handle_button_press(action)
+            else:
+                self.setup_game_from_menu()
+                self.gamelogic.selecting_mode = False
+        elif mode == "game":
+            self.handle_game_event(pin)
+        elif mode == "end_menu":
+            if pin == PIN_BENTER:
+                self.execute_end_menu_option()
+            elif pin == PIN_BNEXT:
+                self.end_menu.handle_button_press(ACTION_NEXT)
+
+    def handle_game_event(self, pin):
+        current_time = time.time()
+        if pin == PIN_BNEXT:
+            if current_time - self.last_next_action_time >= ACTION_COOLDOWN:
+                self.gamelogic.next_player(self.display)
+                self.gamelogic.draw_game = True
+                self.last_next_action_time = current_time
         elif pin == PIN_BENTER:
-            self.setup_game_from_menu()
-            self.gamelogic.selecting_mode = False
+            self.enter_end_menu()  # Directly call the end menu when needed
+        elif any(pin in hole.pin for hole in self.gamelogic.holes):
+            self.gamelogic.goal(pin, self.display)
+
+    def execute_end_menu_option(self):
+        option = self.end_menu.options[self.end_menu.selected_option]
+
+        if option == "Continuer":
+            self.in_end_menu = False  # Exit the menu and continue the game
+        elif option == "Nouveau":
+            self.gamelogic.reset_game()
+            self.run()
+        elif option == "Recommencer":
+            self.gamelogic.restart_game()
+            self.play()
+        elif option == "Quitter":
+            self.cleanup()
+
+        self.in_end_menu = False  # Ensure we exit the menu after executing an option
 
     def setup_game_from_menu(self):
         logging.info("Setting up game from menu selections.")
@@ -106,6 +127,9 @@ class Game:
             if self.gamelogic.draw_game:
                 self.update_game_display()
                 self.gamelogic.draw_game = False
+            if self.gamelogic.draw_score:
+                self.draw_score()
+                self.gamelogic.draw_score = False
 
             pygame.time.Clock().tick(FPS)
 
@@ -115,93 +139,32 @@ class Game:
 
     def enter_end_menu(self):
         self.in_end_menu = True
-        logging.debug("Entering end menu...")
         while self.in_end_menu:
             self.display.draw_end_menu(self.end_menu)
             self.process_events("end_menu")
             pygame.display.flip()
             pygame.time.Clock().tick(FPS)
-        logging.debug("Exiting end menu...")
         self.gamelogic.draw_game = True
 
-    def handle_turn(self, pin):
-        if pin is not None:
-            current_time = time.time()
-            if pin == PIN_BNEXT:
-                if current_time - self.last_next_action_time >= ACTION_COOLDOWN:
-                    self.gamelogic.next_player(self.display)
-                    self.gamelogic.draw_game = True
-                    self.last_next_action_time = current_time
-            elif pin == PIN_BENTER:
-                self.enter_end_menu()  # Directly call the end menu when needed
-            elif any(pin in hole.pin for hole in self.gamelogic.holes):
-                self.gamelogic.goal(pin, self.display)
-
-    def handle_key_event(self, key):
-        key_map = {
-            pygame.K_DOWN: "DOWN",
-            pygame.K_RIGHT: "RIGHT",
-            pygame.K_RETURN: self.setup_game_from_menu,
-        }
-        action = key_map.get(key)
-        if isinstance(action, str):
-            self.menu.handle_button_press(action)
-        elif callable(action):
-            action()
-            self.gamelogic.selecting_mode = False
-
-    def handle_end_menu_key_event(self, key):
-        if self.debug:
-            if key in [pygame.K_UP, pygame.K_DOWN, pygame.K_RETURN]:
-                key_map = {
-                    pygame.K_DOWN: "DOWN",
-                    pygame.K_RETURN: self.execute_end_menu_option,
-                }
-                action = key_map[key]
-                if callable(action):
-                    action()
-                    self.in_end_menu = False
-                else:
-                    self.end_menu.handle_button_press(action)
-        else:
-            if key == PIN_BENTER:
-                self.execute_end_menu_option()
-            elif key == PIN_BNEXT:
-                self.end_menu.handle_button_press("DOWN")
-
-    def execute_end_menu_option(self):
-        option = self.end_menu.options[self.end_menu.selected_option]
-
-        if option == "Continuer":
-            self.in_end_menu = False  # Exit the menu and continue the game
-        elif option == "Nouveau":
-            self.gamelogic.reset_game()
-            self.run()
-        elif option == "Recommencer":
-            self.gamelogic.restart_game()
-            self.play()
-        elif option == "Quitter":
-            self.cleanup()
-
-        self.in_end_menu = False  # Ensure we exit the menu after executing an option
-
-    def keyboard_input(self, key):
-        key_map = {
-            pygame.K_q: PIN_H20[0],
-            pygame.K_s: PIN_H25[0],
-            pygame.K_d: PIN_H40[0],
-            pygame.K_f: PIN_H50[0],
-            pygame.K_g: PIN_H100[0],
-            pygame.K_h: PIN_HBOTTLE[0],
-            pygame.K_j: PIN_HSFROG[0],
-            pygame.K_k: PIN_HLFROG[0],
-            pygame.K_n: PIN_BNEXT,
-            pygame.K_RETURN: PIN_BENTER,
-        }
-        return key_map.get(key, None)
-
     def update_game_display(self):
+        num_active_players = (
+            len(self.gamelogic.players)
+            if self.gamelogic.team_mode == TEAM_MODE_SOLO
+            else self.gamelogic.players_per_team
+        )
+
         self.display.draw_game(
+            self.gamelogic.players,
+            self.gamelogic.current_player,
+            self.gamelogic.holes,
+            self.gamelogic.score,
+            self.gamelogic.game_mode,
+            self.gamelogic.team_mode,
+            num_active_players,
+        )
+
+    def draw_score(self):
+        self.display.draw_score(
             self.gamelogic.players,
             self.gamelogic.current_player,
             self.gamelogic.holes,
@@ -210,7 +173,7 @@ class Game:
             self.gamelogic.team_mode,
             (
                 len(self.gamelogic.players)
-                if self.gamelogic.team_mode == "Seul"
+                if self.gamelogic.team_mode == TEAM_MODE_SOLO
                 else self.gamelogic.players_per_team
             ),
         )

@@ -10,6 +10,13 @@ from src.constants import (
     PIN_HBOTTLE,
     PIN_HSFROG,
     PIN_HLFROG,
+    MODE_NORMAL,
+    MODE_FROG,
+    MODE_BOTTLE,
+    TEAM_MODE_SOLO,
+    TEAM_MODE_DUO,
+    TEAM_MODE_TEAM,
+    ON,
 )
 from src.player import Player
 
@@ -22,8 +29,8 @@ class GameLogic:
     def reset_game(self):
         logging.info("Resetting the game...")
         self.num_players = 1
-        self.team_mode = "Seul"
-        self.game_mode = "Normal"
+        self.team_mode = TEAM_MODE_SOLO
+        self.game_mode = MODE_NORMAL
         self.num_pairs = 1
         self.num_teams = 1
         self.players_per_team = 1
@@ -35,6 +42,7 @@ class GameLogic:
         self.score = 0
         self.holes = []
         self.draw_game = True
+        self.draw_score = False
         logging.info("Game reset complete.")
 
     def restart_game(self):
@@ -46,16 +54,17 @@ class GameLogic:
             self.current_player.activate()
         self.game_ended = False
         self.draw_game = True
+        self.draw_score = False
         logging.info("Game restarted.")
 
     def setup_game(self, display):
         logging.info("Setting up the game...")
         self.setup_players()
-        self.penalty = self.penalty == "Avec"
+        self.penalty = self.penalty == ON
         setup_methods = {
-            "Normal": self.setup_normal_mode,
-            "Grenouille": self.setup_grenouille_mode,
-            "Bouteille": self.setup_bouteille_mode,
+            MODE_NORMAL: self.setup_normal_mode,
+            MODE_FROG: self.setup_grenouille_mode,
+            MODE_BOTTLE: self.setup_bouteille_mode,
         }
         setup_method = setup_methods.get(self.game_mode, None)
         if setup_method:
@@ -88,7 +97,7 @@ class GameLogic:
 
     def setup_players(self):
         player_id = 1
-        if self.team_mode == "Seul":
+        if self.team_mode == TEAM_MODE_SOLO:
             self.players = [Player(player_id + i) for i in range(self.num_players)]
             for i, player in enumerate(self.players):
                 player.order = i + 1
@@ -102,8 +111,10 @@ class GameLogic:
 
     def setup_team_players(self, player_id):
         temp_teams = {}
-        num_members = 2 if self.team_mode == "Duo" else self.players_per_team
-        num_teams = self.num_pairs if self.team_mode == "Duo" else self.num_teams
+        num_members = 2 if self.team_mode == TEAM_MODE_DUO else self.players_per_team
+        num_teams = (
+            self.num_pairs if self.team_mode == TEAM_MODE_DUO else self.num_teams
+        )
 
         if num_teams == 0 or num_members == 0:
             logging.error("No teams or team members specified.")
@@ -132,33 +143,25 @@ class GameLogic:
         ]
 
     def check_game_end(self, display):
-        check_methods = {
-            "Seul": self.handle_seul_mode,
-            "Duo": lambda display: self.handle_duo_or_team_mode(display, is_team=False),
-            "Equipe": lambda display: self.handle_duo_or_team_mode(
-                display, is_team=True
-            ),
-        }
-        check_method = check_methods.get(self.team_mode, None)
-        if check_method:
-            check_method(display)
+        if self.team_mode == TEAM_MODE_SOLO:
+            self.handle_seul_mode(display)
+        elif self.team_mode == TEAM_MODE_DUO:
+            self.handle_duo_or_team_mode(display, is_team=False)
+        elif self.team_mode == TEAM_MODE_TEAM:
+            self.handle_duo_or_team_mode(display, is_team=True)
         else:
             logging.error(f"Unknown team mode: {self.team_mode}")
 
     def handle_seul_mode(self, display):
         remaining_players = [p for p in self.players if not p.won]
         if (len(remaining_players) == 1 and not len(self.players) == 1) or (
-            len(self.players) == 1 and self.players[0].score >= self.score
+            len(self.players) == 1 and self.players[0].won
         ):
-            remaining_players[0].won = True
             remaining_players[0].rank = self.find_next_available_rank()
             self.game_ended = True
-            logging.info(f"Game ended. Player {remaining_players[0].id} won.")
-        else:
-            self.update_player_status(display)
+            logging.info("Game ended.")
 
     def handle_duo_or_team_mode(self, display, is_team):
-        mode = "Equipe" if is_team else "Duo"
         groups = self.group_players_by_duo_or_team(is_team)
         remaining_groups = [group for group in groups if not any(p.won for p in group)]
 
@@ -171,44 +174,12 @@ class GameLogic:
             logging.info(
                 f"Game ended. {'Team' if is_team else 'Duo'} {remaining_groups[0][0].team} won."
             )
-        else:
-            self.update_group_status(groups, display)
 
     def group_players_by_duo_or_team(self, is_team):
         return [
             [player for player in self.players if player.team == team_id]
             for team_id in {player.team for player in self.players}
         ]
-
-    def update_player_status(self, display):
-        for player in self.players:
-            if player.score >= self.score and not player.won:
-                player.won = True
-                display.draw_player_win(str(player))
-                player.rank = self.find_next_available_rank()
-                self.next_player(display)
-                self.draw_game = True
-                break
-
-    def update_group_status(self, groups, display):
-        for group in groups:
-            if sum(player.score for player in group) >= self.score and not any(
-                player.won for player in group
-            ):
-                next_rank = self.find_next_available_rank()
-                team_id = next(player.team for player in group)
-                if self.team_mode == "Duo":
-                    display.draw_player_win(f"Duo {team_id}")
-                else:
-                    display.draw_player_win(f"Team {team_id}")
-                for player in group:
-                    player.won = True
-                    player.rank = next_rank
-
-                self.next_player(display)
-                self.adjust_player_order_after_win()
-                self.draw_game = True
-                break
 
     def adjust_player_order_after_win(self):
         active_players = sorted(
@@ -250,50 +221,46 @@ class GameLogic:
         hole = next((hole for hole in self.holes if pin in hole.pin), None)
         if hole is not None:
             points = hole.value
-            display.draw_goal_animation(hole)
+            display.draw_goal_animation(hole, pin)
 
             if hole.type == "bottle":
                 display.animation_bottle()
-                self.current_player.score += points
-                self.current_player.turn_score += points
-                display.draw_score(
-                    self.players,
-                    self.current_player,
-                    self.holes,
-                    self.score,
-                    self.game_mode,
-                    self.team_mode,
-                    (
-                        len(self.players)
-                        if self.team_mode == "Seul"
-                        else self.players_per_team
-                    ),
-                )
+                self.draw_score = True
             elif hole.type == "little_frog":
                 display.animation_little_frog()
-                self.current_player.turn_score += points
-                self.current_player.score += points
                 self.draw_game = True
             elif hole.type == "large_frog":
                 points = display.animation_large_frog()
-                self.current_player.score += points
-                self.current_player.turn_score += points
                 self.draw_game = True
             else:
-                self.current_player.turn_score += points
-                self.current_player.score += points
-                display.draw_score(
-                    self.players,
-                    self.current_player,
-                    self.holes,
-                    self.score,
-                    self.game_mode,
-                    self.team_mode,
-                    (
-                        len(self.players)
-                        if self.team_mode == "Seul"
-                        else self.players_per_team
-                    ),
-                )
+                self.draw_score = True
+            self.current_player.goal(points, self.score)
+            next_rank = self.find_next_available_rank()
+            if self.team_mode == TEAM_MODE_SOLO:
+                if self.current_player.won:
+                    self.current_player.rank = next_rank
+                    display.draw_player_win(str(self.current_player))
+                    self.next_player(display)
+                    self.draw_game = True
+            else:
+                group = [
+                    player
+                    for player in self.players
+                    if player.team == self.current_player.team
+                ]
+
+                if sum(player.score for player in group) >= self.score:
+                    for player in group:
+                        player.won = True
+                        player.rank = next_rank
+                    next_rank = self.find_next_available_rank()
+                    if self.team_mode == TEAM_MODE_DUO:
+                        display.draw_player_win(f"Duo {self.current_player.team}")
+                    else:
+                        display.draw_player_win(f"Team {self.current_player.team}")
+
+                    self.next_player(display)
+                    self.adjust_player_order_after_win()
+                    self.draw_game = True
         else:
             logging.warning(f"No matching hole found for pin {pin}.")

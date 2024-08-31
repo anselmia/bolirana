@@ -12,7 +12,7 @@ LIGHT_GOLD_COLOR = (255, 239, 153)
 
 
 class RouletteAnimation:
-    def __init__(self, screen, type):
+    def __init__(self, screen, roulette_sound, roulette_end_sound):
         self.screen = screen
         self.clock = pygame.time.Clock()
 
@@ -22,41 +22,69 @@ class RouletteAnimation:
         self.sections = 8
         self.radius = 250
         self.inner_radius = 50
-        self.section_colors = [
-            pygame.Color("red"),
-            pygame.Color("blue"),
-            pygame.Color("green"),
-            pygame.Color("yellow"),
-            pygame.Color("orange"),
-            pygame.Color("purple"),
-            pygame.Color("pink"),
-            pygame.Color("cyan"),
-        ]
-
-        if type == "frog":
-            self.values = [300, 350, 400, 450, 300, 350, 400, 450]
-        else:
-            self.values = [10, 50, 40, 20, 10, 50, 40, 20]
+        self.angular_speed = 15  # Initialize angular speed
+        self.turns = 2
 
         self.font = pygame.font.Font(None, 80)
-        self.roulette_sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "roulette.mp3",
-            )
-        )
-        self.roulette_end_sound = pygame.mixer.Sound(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "assets",
-                "sounds",
-                "roulette_end.mp3",
-            )
-        )
+        self.roulette_sound = roulette_sound
+        self.roulette_end_sound = roulette_end_sound
+        self.values = []
+
+        # Precompute angles, trigonometric values, and rotated positions for each section
+        self.precompute_positions()
+
+    def precompute_positions(self):
+        """Precompute angles, trigonometric values, and rotated positions for each section and angle."""
+        self.precomputed = {}
+        current_angle = -90
+        current_angle %= 360
+        actual_turns = 0
+        angle_in_turn = current_angle
+        while actual_turns < self.turns:
+            current_angle += self.angular_speed
+            angle_in_turn += self.angular_speed
+            current_angle %= 360
+            angle_in_turn %= 360
+            angle_values = {}
+
+            for i in range(self.sections):
+                start_angle = (
+                    (360 / self.sections) * i
+                    + current_angle
+                    - (360 / self.sections / 2)
+                )
+                end_angle = start_angle + (360 / self.sections)
+                angle_offset = start_angle + (360 / self.sections) / 2
+
+                x = self.center_x + (self.radius * 0.7) * math.cos(
+                    math.radians(angle_offset)
+                )
+                y = self.center_y + (self.radius * 0.7) * math.sin(
+                    math.radians(angle_offset)
+                )
+
+                line1 = (
+                    self.center_x + self.radius * math.cos(math.radians(start_angle)),
+                    self.center_y + self.radius * math.sin(math.radians(start_angle)),
+                )
+
+                line2 = (
+                    self.center_x + self.radius * math.cos(math.radians(end_angle)),
+                    self.center_y + self.radius * math.sin(math.radians(end_angle)),
+                )
+
+                angle_values[i + 1] = {
+                    "angle_offset": angle_offset,
+                    "x_text": x,
+                    "y_text": y,
+                    "line1": line1,
+                    "line2": line2,
+                }
+
+            self.precomputed[current_angle] = angle_values
+
+            if angle_in_turn == 0:
+                actual_turns += 1
 
     def draw_circle_with_border(self, center, radius, border_color, border_width):
         """Draws a circle with a border effect."""
@@ -111,51 +139,53 @@ class RouletteAnimation:
         angle -= 90
         angle %= 360
 
+        # Retrieve precomputed values for the current angle
+        precomputed_values = self.precomputed.get(angle, {})
+
         # Draw the main roulette sections with gradient shading
         for i in range(self.sections):
-            start_angle = (360 / self.sections) * i + angle - (360 / self.sections / 2)
-            end_angle = start_angle + (360 / self.sections)
+            section_values = precomputed_values.get(i + 1, {})
+
+            start_angle = section_values.get("start_angle", 0)
+            end_angle = section_values.get("end_angle", 0)
+            angle_offset = section_values.get("angle_offset", 0)
+
+            # Use precomputed line and text positions
+            line1 = section_values.get("line1", (0, 0))
+            line2 = section_values.get("line2", (0, 0))
+            x_text = section_values.get("x_text", 0)
+            y_text = section_values.get("y_text", 0)
+
+            # Draw the section with gradient
             self.draw_gradient_section(
                 start_angle,
                 end_angle,
                 pygame.Color("gold"),
                 pygame.Color("darkgoldenrod"),
             )
+
+            # Draw lines using precomputed start and end positions
             pygame.draw.line(
                 self.screen,
                 GOLD_COLOR,
                 (self.center_x, self.center_y),
-                (
-                    self.center_x + self.radius * math.cos(math.radians(start_angle)),
-                    self.center_y + self.radius * math.sin(math.radians(start_angle)),
-                ),
+                line1,
                 5,
             )
             pygame.draw.line(
                 self.screen,
                 GOLD_COLOR,
                 (self.center_x, self.center_y),
-                (
-                    self.center_x + self.radius * math.cos(math.radians(end_angle)),
-                    self.center_y + self.radius * math.sin(math.radians(end_angle)),
-                ),
+                line2,
                 5,
             )
 
-            angle_offset = angle + (360 / self.sections) * i
-            x = self.center_x + (self.radius * 0.7) * math.cos(
-                math.radians(angle_offset)
-            )
-            y = self.center_y + (self.radius * 0.7) * math.sin(
-                math.radians(angle_offset)
-            )
-
-            # Render the text
+            # Render the text at precomputed positions
             text_surface = self.font.render(
                 str(self.values[i]), True, pygame.Color("black")
             )
             text_surface_rotated = pygame.transform.rotate(text_surface, -angle_offset)
-            text_rect = text_surface_rotated.get_rect(center=(x, y))
+            text_rect = text_surface_rotated.get_rect(center=(x_text, y_text))
             self.screen.blit(text_surface_rotated, text_rect)
 
         # Draw the gold border around the main circle
@@ -185,37 +215,39 @@ class RouletteAnimation:
         pygame.draw.polygon(self.screen, pygame.Color("black"), pointer)
         pygame.draw.polygon(self.screen, pygame.Color("grey"), pointer, 1)
 
-    def run(self):
+    def run(self, type):
+        if type == "frog":
+            self.values = [300, 350, 400, 450, 300, 350, 400, 450]
+        else:
+            self.values = [10, 80, 50, 20, 10, 80, 50, 20]
+
         running = True
+        current_angle = 0  # Initialize current angle
+
         while running:
             for event in pygame.event.get():
-                if event.type == QUIT:
+                if event.type == pygame.QUIT:
                     running = False
 
-            self.screen.fill(
-                pygame.Color("black")
-            )  # Clear the screen with black before
-            current_angle = 0
+            self.screen.fill(pygame.Color("black"))  # Clear the screen with black
             self.draw_roulette(current_angle)
             self.draw_pointer()
 
             pygame.display.update()
             time.sleep(1)
             self.roulette_sound.play()
-            turns = 2
             actual_turns = 0
             angle_in_turn = current_angle
             self.roulette_sound.play(loops=-1)
-            angular_speed = 15
 
-            while actual_turns < turns:
-                current_angle += angular_speed
-                angle_in_turn += angular_speed
+            while actual_turns < self.turns:
+                current_angle += self.angular_speed
+                angle_in_turn += self.angular_speed
                 current_angle %= 360
                 angle_in_turn %= 360
 
                 for event in pygame.event.get():
-                    if event.type == QUIT:
+                    if event.type == pygame.QUIT:
                         running = False
 
                 clear_rect = pygame.Rect(
@@ -233,18 +265,20 @@ class RouletteAnimation:
                     actual_turns += 1
 
                 pygame.display.update()
-                self.clock.tick(30)  # Control frame rate consistently
+                self.clock.tick(30)  # Control frame rate
 
+            # Decelerate and stop at a random section
             additional_section = random.randint(0, self.sections - 1)
             current_section = 0
             i = 0
 
             while current_section < additional_section:
                 for event in pygame.event.get():
-                    if event.type == QUIT:
+                    if event.type == pygame.QUIT:
                         running = False
+
                 i += 1
-                current_angle += angular_speed
+                current_angle += self.angular_speed
                 current_angle %= 360
                 if i == 3:
                     current_section += 1
@@ -278,7 +312,7 @@ class RouletteAnimation:
 
             while time.time() < end_blink_time:
                 for event in pygame.event.get():
-                    if event.type == QUIT:
+                    if event.type == pygame.QUIT:
                         running = False
 
                 clear_rect = pygame.Rect(
