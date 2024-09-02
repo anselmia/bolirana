@@ -79,7 +79,7 @@ class PIN:
                 time.sleep(1)  # Wait before retrying
 
         logging.info("Communication with the I2C slave was successful.")
-        self.clear_popup()
+        self.clear_popup(screen)
 
     def display_waiting_popup(self, screen):
         font = pygame.font.Font(None, 36)
