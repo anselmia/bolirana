@@ -1,42 +1,73 @@
 import logging
 import platform
+import pygame
+
+if platform.system() != "Windows":
+    from smbus2 import SMBus
+else:
+    # Mock classes for Windows development
+    class SMBus:
+        def __init__(self, bus):
+            print(f"Mock SMBus initialized on bus {bus}")
+
+        def write_i2c_block_data(self, *args):
+            print("Mock write called with", args)
+
+        def read_i2c_block_data(self, address, register, length):
+            return [0xFF, 0]  # Return dummy data
+
+    class i2c_msg:
+        @staticmethod
+        def write(address, data):
+            print(f"Mock i2c_msg.write called: address={address}, data={data}")
+            return None
+
+
 import time
-from smbus2 import SMBus
-import tkinter as tk
+from src.constants import (
+    PIN_BENTER,
+    PIN_BNEXT,
+    PIN_RIGHT,
+    PIN_H20,
+    PIN_H25,
+    PIN_H40,
+    PIN_H50,
+    PIN_H100,
+    PIN_HBOTTLE,
+    PIN_HSFROG,
+    PIN_HLFROG,
+)
 
 I2C_BUS = 1  # I2C bus number (usually 1 on Raspberry Pi)
 I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
 
 
 class PIN:
-    def __init__(self):
+    def __init__(self, screen):
         self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
         self.COOLDOWN_MS_PIN = 1200  # Cooldown period in milliseconds
         self.COOLDOWN_MS_Button = 500  # Cooldown period in milliseconds
-        self.pin_hole = [
-            # Define your pin holes here, e.g., PIN_H20, PIN_H25, ...
-        ]
-        self.button_pin = [0]  # Example placeholder
-
-        # Initialize the Tkinter pop-up window
-        self.root = tk.Tk()
-        self.root.title("I2C Connection")
-        self.label = tk.Label(
-            self.root, text="Waiting for I2C slave to respond...", padx=20, pady=20
+        self.pin_hole = (
+            PIN_H20
+            + PIN_H25
+            + PIN_H40
+            + PIN_H50
+            + PIN_H100
+            + PIN_HBOTTLE
+            + PIN_HSFROG
+            + PIN_HLFROG
         )
-        self.label.pack()
-        self.root.update()
-
+        self.button_pin = [PIN_BNEXT, PIN_BENTER, PIN_RIGHT]
         logging.info("Initializing communication with the I2C slave...")
+
+        self.display_waiting_popup(screen)
 
         while True:
             try:
                 # Attempt to read back a response
                 raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
                 response = list(raw_data)
-
-                logging.info(f"Received response: {response}")
 
                 if response:  # If a response is received, break the loop
                     logging.info(f"I2C slave connected. Received response: {response}")
@@ -48,7 +79,20 @@ class PIN:
                 time.sleep(1)  # Wait before retrying
 
         logging.info("Communication with the I2C slave was successful.")
-        self.root.destroy()  # Close the pop-up window once communication is established
+        self.clear_popup()
+
+    def display_waiting_popup(self, screen):
+        font = pygame.font.Font(None, 36)
+        text = font.render("Waiting for I2C connection...", True, (255, 255, 255))
+        text_rect = text.get_rect(center=screen.get_rect().center)
+
+        screen.fill((0, 0, 0))  # Fill the screen with black
+        screen.blit(text, text_rect)
+        pygame.display.flip()
+
+    def clear_popup(self, screen):
+        screen.fill((0, 0, 0))  # Clear the screen
+        pygame.display.flip()
 
     def read_pin_states(self, game_action):
         try:
@@ -56,6 +100,7 @@ class PIN:
             raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
             # Parse the received data into pin states
             pin = self._parse_i2c_data(raw_data, game_action)
+
             return pin
         except Exception as e:
             logging.error(f"Failed to read from I2C bus: {e}")
@@ -90,4 +135,27 @@ class PIN:
         # Update last detection time for the pin
         self.last_pin_time[pin] = current_time
 
-        return pin if game_action == "game" else None
+        if game_action == "menu" and int(pin) in {
+            PIN_BENTER,
+            PIN_RIGHT,
+            PIN_BNEXT,
+        }:
+            return int(pin)
+        elif game_action == "game":
+            if (
+                int(pin) in PIN_H20
+                or int(pin) in PIN_H25
+                or int(pin) in PIN_H40
+                or int(pin) in PIN_H50
+                or int(pin) in PIN_H100
+                or int(pin) in PIN_HBOTTLE
+                or int(pin) in PIN_HSFROG
+                or int(pin) in PIN_HLFROG
+                or int(pin) == PIN_BNEXT
+                or int(pin) == PIN_BENTER
+            ):
+                return int(pin)
+        elif game_action == "end_menu":
+            if int(pin) == PIN_BENTER or int(pin) == PIN_BNEXT:
+                return int(pin)
+        return None
