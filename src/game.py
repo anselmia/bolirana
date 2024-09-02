@@ -31,7 +31,7 @@ class Game:
         self.display = Display(debug)
         self.menu = Menu()
         self.end_menu = EndMenu()
-        self.pin = PIN()
+        self.pin = PIN(self.display.screen)
         self.gamelogic = GameLogic()
         self.gamelogic.reset_game()
         self.last_next_action_time = time.time()
