@@ -20,7 +20,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 if platform.system() == "Windows":
     log_path = os.path.join(os.getenv("APPDATA"), "bolirana", "bolirana.log")
 else:
-    log_path = "/var/log/bolirana.log"
+    log_path = "/opt/bolirana/log/bolirana.log"
 
 # Ensure the log directory exists
 log_dir = os.path.dirname(log_path)
