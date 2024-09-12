@@ -21,10 +21,15 @@ if platform.system() == "Windows":
     log_path = os.path.join(os.getenv("APPDATA"), "bolirana", "bolirana.log")
 else:
     log_path = "/opt/bolirana/log/bolirana.log"
+    # Ensure the process is running as the correct user
+    if os.geteuid() == 0:  # If running as root
+        os.seteuid(os.getuid())  # Switch to the current user (pi)
 
 # Ensure the log directory exists
 log_dir = os.path.dirname(log_path)
 os.makedirs(log_dir, exist_ok=True)
+
+# Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
