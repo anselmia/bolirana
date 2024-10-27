@@ -57,18 +57,25 @@ class Display:
         self.hole_rect_height = self.screen_height // 2.4
         self.resources = {}  # Cache resources
         self.load_ressources()
-        self.roulette_animation = RouletteAnimation(
-            self.screen,
-            self.resources["roulette_sound"],
-            self.resources["roulette_end_sound"],
-        )
 
     def load_ressources(self):
         try:
-            self.resources["game_background"] = self.load_image("images", "game3.jpg")
-            self.resources["menu_background"] = self.load_image("images", "intro.jpg")
-            self.resources["win_background"] = self.load_image("images", "win.jpg")
-            self.resources["winner_banner"] = self.load_image("images", "winner.png")
+            self.resources["game_background"] = self.load_background(
+                "images", "game3.jpg"
+            )
+            self.resources["menu_background"] = self.load_background(
+                "images", "intro.jpg"
+            )
+            self.resources["win_background"] = self.load_background("images", "win.jpg")
+            self.resources["winner_banner"] = self.load_background(
+                "images", "winner.png"
+            )
+            self.resources["roulette_image"] = self.load_image(
+                "images", "roulette_image.png", scale=0.8
+            )
+            self.resources["roulette_pointer"] = self.load_image(
+                "images", "roulette_pointer.png", scale=0.1
+            )
             self.resources["penalty_frames"], self.resources["penalty_duration"] = (
                 self.load_gif("gif", "fail.gif")
             )
@@ -100,13 +107,28 @@ class Display:
             pygame.quit()
             sys.exit()
 
-    def load_image(self, folder, filename):
+    def load_background(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
-        if (folder, filename) not in self.resources:
-            self.resources[(folder, filename)] = pygame.transform.scale(
-                pygame.image.load(path), self.screen.get_size()
-            )
-        return self.resources[(folder, filename)]
+        return pygame.transform.scale(pygame.image.load(path), self.screen.get_size())
+
+    def load_image(self, folder, filename, scale=None):
+        path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+        if scale is not None:
+            original_image = pygame.image.load(path)
+            original_width, original_height = original_image.get_size()
+
+            # Calculate new height as 80% of the screen height
+            screen_width, screen_height = self.screen.get_size()
+            new_height = int(screen_height * scale)
+
+            # Calculate the new width to maintain the aspect ratio
+            aspect_ratio = original_width / original_height
+            new_width = int(new_height * aspect_ratio)
+
+            # Scale the image to the new dimensions
+            return pygame.transform.scale(original_image, (new_width, new_height))
+        else:
+            return pygame.image.load(path)
 
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
@@ -842,7 +864,14 @@ class Display:
         self.play_gif(
             self.resources["penalty_frames"], self.resources["penalty_duration"]
         )
-        points = self.roulette_animation.run("penalty")
+        roulette_animation = RouletteAnimation(
+            self.screen,
+            self.resources["roulette_sound"],
+            self.resources["roulette_end_sound"],
+            self.resources["roulette_image"],
+            self.resources["roulette_pointer"],
+        )
+        points = roulette_animation.run()
 
         return points
 
@@ -1124,7 +1153,15 @@ class Display:
             self.resources["large_frog_frames"], self.resources["large_frog_duration"]
         )
         self.resources["applause"].stop()
-        return self.roulette_animation.run("frog")
+        roulette_animation = RouletteAnimation(
+            self.screen,
+            self.resources["roulette_sound"],
+            self.resources["roulette_end_sound"],
+            self.resources["roulette_image"],
+            self.resources["roulette_pointer"],
+        )
+        points = roulette_animation.run()
+        return points
 
     def load_gif(self, folder, filename):
         # Load GIF using PIL

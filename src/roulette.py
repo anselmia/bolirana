@@ -1,364 +1,230 @@
 import pygame
 import random
 import time
-import os
-import math
 from pygame.locals import *
 
-# Define the solid gold color
-GOLD_COLOR = (255, 215, 0)
+
 DARK_GOLD_COLOR = (184, 134, 11)
 LIGHT_GOLD_COLOR = (255, 239, 153)
+VALUES = [400, 50, 350, 250, 300, 200, 450, 0, 400, 50, 350, 250, 300, 200, 450, 0]
 
 
 class RouletteAnimation:
-    def __init__(self, screen, roulette_sound, roulette_end_sound):
+    def __init__(
+        self,
+        screen,
+        roulette_sound,
+        roulette_end_sound,
+        roulette_image,
+        roulette_pointer,
+    ):
         self.screen = screen
         self.clock = pygame.time.Clock()
+        self.rotated_image = None
 
         screen_width, screen_height = self.screen.get_size()
         self.center_x, self.center_y = screen_width // 2, screen_height // 2
 
-        self.sections = 8
-        self.radius = 250
-        self.inner_radius = 50
-        self.angular_speed = 15  # Initialize angular speed
-        self.turns = 2
+        self.angular_speed = (
+            360 / len(VALUES)
+        ) / 2  # Initial angular speed (degrees per frame)
+        self.min_turns = 3  # Minimum number of full turns before slowing down
+        self.current_angle = 0  # Initial rotation angle
 
         self.font = pygame.font.Font(None, 80)
         self.roulette_sound = roulette_sound
         self.roulette_end_sound = roulette_end_sound
-        self.values = []
+        self.roulette_image = roulette_image
+        self.roulette_pointer = roulette_pointer
 
-        # Precompute angles, trigonometric values, and rotated positions for each section
-        self.precompute_positions()
+        # Calculate the angle per section
+        self.sections = len(VALUES)
+        self.angle_per_section = 360 / self.sections
 
-    def precompute_positions(self):
-        """Precompute angles, trigonometric values, and rotated positions for each section and angle."""
-        self.precomputed = {}
-        current_angle = -90
-        current_angle %= 360
-        actual_turns = 0
-        angle_in_turn = current_angle
-        while actual_turns < self.turns:
-            current_angle += self.angular_speed
-            angle_in_turn += self.angular_speed
-            current_angle %= 360
-            angle_in_turn %= 360
-            angle_values = {}
+    def rotate_roulette(self, angular_speed):
+        """Rotate the roulette image by the given angular speed."""
+        self.current_angle = (self.current_angle - angular_speed) % 360
 
-            for i in range(self.sections):
-                start_angle = (
-                    (360 / self.sections) * i
-                    + current_angle
-                    - (360 / self.sections / 2)
-                )
-                end_angle = start_angle + (360 / self.sections)
-                angle_offset = start_angle + (360 / self.sections) / 2
-
-                x = self.center_x + (self.radius * 0.7) * math.cos(
-                    math.radians(angle_offset)
-                )
-                y = self.center_y + (self.radius * 0.7) * math.sin(
-                    math.radians(angle_offset)
-                )
-
-                line1 = (
-                    self.center_x + self.radius * math.cos(math.radians(start_angle)),
-                    self.center_y + self.radius * math.sin(math.radians(start_angle)),
-                )
-
-                line2 = (
-                    self.center_x + self.radius * math.cos(math.radians(end_angle)),
-                    self.center_y + self.radius * math.sin(math.radians(end_angle)),
-                )
-
-                angle_values[i + 1] = {
-                    "angle_offset": angle_offset,
-                    "x_text": x,
-                    "y_text": y,
-                    "line1": line1,
-                    "line2": line2,
-                }
-
-            self.precomputed[current_angle] = angle_values
-
-            if angle_in_turn == 0:
-                actual_turns += 1
-
-    def draw_circle_with_border(self, center, radius, border_color, border_width):
-        """Draws a circle with a border effect."""
-        for i in range(border_width):
-            pygame.draw.circle(
-                self.screen,
-                border_color,
-                center,
-                radius + i,
-                width=1,
-            )
-
-    def draw_gradient_section(self, start_angle, end_angle, color1, color2):
-        steps = 100
-        for i in range(steps):
-            angle = start_angle + (end_angle - start_angle) * (i / steps)
-
-            pygame.draw.polygon(
-                self.screen,
-                color1,
-                [
-                    (self.center_x, self.center_y),
-                    (
-                        self.center_x + self.radius * math.cos(math.radians(angle)),
-                        self.center_y + self.radius * math.sin(math.radians(angle)),
-                    ),
-                    (
-                        self.center_x
-                        + self.radius
-                        * math.cos(
-                            math.radians(angle + (end_angle - start_angle) / steps)
-                        ),
-                        self.center_y
-                        + self.radius
-                        * math.sin(
-                            math.radians(angle + (end_angle - start_angle) / steps)
-                        ),
-                    ),
-                ],
-            )
-
-    def draw_roulette(self, angle):
-        # Draw the dark grey background circle to make it visible against black
-        pygame.draw.circle(
-            self.screen,
-            pygame.Color("darkgrey"),
-            (self.center_x, self.center_y),
-            self.radius + 10,
+        # Rotate the image
+        self.rotated_image = pygame.transform.rotate(
+            self.roulette_image, -self.current_angle
         )
+        self.draw_roulette()
 
-        # Offset the angle 0 to the top position
-        angle -= 90
-        angle %= 360
+    def draw_roulette(self):
+        rect = self.rotated_image.get_rect(center=(self.center_x, self.center_y))
 
-        # Retrieve precomputed values for the current angle
-        precomputed_values = self.precomputed.get(angle, {})
+        # Draw the rotated image
+        self.screen.blit(self.rotated_image, rect.topleft)
 
-        # Draw the main roulette sections with gradient shading
-        for i in range(self.sections):
-            section_values = precomputed_values.get(i + 1, {})
-
-            start_angle = section_values.get("start_angle", 0)
-            end_angle = section_values.get("end_angle", 0)
-            angle_offset = section_values.get("angle_offset", 0)
-
-            # Use precomputed line and text positions
-            line1 = section_values.get("line1", (0, 0))
-            line2 = section_values.get("line2", (0, 0))
-            x_text = section_values.get("x_text", 0)
-            y_text = section_values.get("y_text", 0)
-
-            # Draw the section with gradient
-            self.draw_gradient_section(
-                start_angle,
-                end_angle,
-                pygame.Color("gold"),
-                pygame.Color("darkgoldenrod"),
-            )
-
-            # Draw lines using precomputed start and end positions
-            pygame.draw.line(
-                self.screen,
-                GOLD_COLOR,
-                (self.center_x, self.center_y),
-                line1,
-                5,
-            )
-            pygame.draw.line(
-                self.screen,
-                GOLD_COLOR,
-                (self.center_x, self.center_y),
-                line2,
-                5,
-            )
-
-            # Render the text at precomputed positions
-            text_surface = self.font.render(
-                str(self.values[i]), True, pygame.Color("black")
-            )
-            text_surface_rotated = pygame.transform.rotate(text_surface, -angle_offset)
-            text_rect = text_surface_rotated.get_rect(center=(x_text, y_text))
-            self.screen.blit(text_surface_rotated, text_rect)
-
-        # Draw the gold border around the main circle
-        self.draw_circle_with_border(
-            (self.center_x, self.center_y), self.radius, GOLD_COLOR, 10
-        )
-
-        # Draw the gold border around the inner circle
-        self.draw_circle_with_border(
-            (self.center_x, self.center_y), self.inner_radius, GOLD_COLOR, 5
-        )
-
-        # Draw the inner circle
-        pygame.draw.circle(
-            self.screen,
-            pygame.Color("white"),
-            (self.center_x, self.center_y),
-            self.inner_radius - 1,
-        )
+    def get_value_from_angle(self, angle):
+        """Get the roulette value based on the stopping angle."""
+        # Normalize the angle to 0-360
+        normalized_angle = angle % 360
+        # Calculate the section the angle points to
+        section_index = int(normalized_angle // self.angle_per_section)
+        return VALUES[section_index]
 
     def draw_pointer(self):
-        pointer = [
-            (self.center_x, self.center_y - self.radius - 20),
-            (self.center_x - 20, self.center_y - self.radius - 60),
-            (self.center_x + 20, self.center_y - self.radius - 60),
-        ]
-        pygame.draw.polygon(self.screen, pygame.Color("black"), pointer)
-        pygame.draw.polygon(self.screen, pygame.Color("grey"), pointer, 1)
+        """Draw the pointer image on the screen."""
+        # Get the dimensions of the roulette image
+        roulette_rect = self.roulette_image.get_rect(
+            center=(self.center_x, self.center_y)
+        )
 
-    def run(self, type):
-        if type == "frog":
-            self.values = [300, 350, 400, 450, 300, 350, 400, 450]
-        else:
-            self.values = [10, 80, 50, 20, 10, 80, 50, 20]
+        # Position the pointer at the top of the roulette image, centered horizontally
+        pointer_rect = self.roulette_pointer.get_rect(
+            center=(self.center_x, roulette_rect.top + 20)
+        )
+
+        # Draw the pointer on the screen
+        self.screen.blit(self.roulette_pointer, pointer_rect.topleft)
+
+    def run(self):
+        # Calculate the radius of the circle based on 25% of the roulette's height
+        roulette_height = self.roulette_image.get_height()
+        circle_radius = int(roulette_height * 0.29) / 2
 
         running = True
-        current_angle = 0  # Initialize current angle
+        random.seed(time.time())
+        additional_sections = random.randint(0, 2 * self.sections)
+        total_sections = (self.min_turns * len(VALUES)) + additional_sections
+        deceleration_section = total_sections - int(len(VALUES) / 2)
+        final_angle = (additional_sections * self.angle_per_section) % 360
+        self.roulette_sound.play(loops=-1)
+        actual_section = 0
+        section_angle = 360 / len(VALUES)
+        actual_section_angle = 0
 
+        # Spin the wheel until it completes at least the minimum number of turns
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
 
-            self.screen.fill(pygame.Color("black"))  # Clear the screen with black
-            self.draw_roulette(current_angle)
+            self.screen.fill(pygame.Color("black"))  # Clear the screen
+            self.rotate_roulette(self.angular_speed)
+            self.draw_pointer()
+            pygame.display.update()
+            self.clock.tick(30)  # Control frame rate
+            actual_section_angle += self.angular_speed
+            if actual_section_angle == section_angle:
+                actual_section += 1
+                actual_section_angle = 0
+
+            # Start slowing down if the current angle reaches the deceleration start angle
+            if actual_section == deceleration_section:
+                distance_to_final = (total_sections - deceleration_section) * (
+                    360 / len(VALUES)
+                )
+                # Decelerate and stop at the final angle
+                while running:
+                    # Update the current angle
+                    self.screen.fill(pygame.Color("black"))
+                    self.rotate_roulette(self.angular_speed)
+                    self.draw_pointer()
+                    pygame.display.update()
+                    self.clock.tick(30)
+
+                    # Calculate the distance to the final angle
+                    distance_to_final -= self.angular_speed
+
+                    # Gradually reduce the angular speed based on the distance
+                    # The closer to the final angle, the slower the speed
+                    if distance_to_final < 30 and self.angular_speed > 4:
+                        # If very close to the final angle, reduce speed significantly
+                        self.angular_speed *= 0.85
+                    elif distance_to_final < 60 and self.angular_speed > 4:
+                        # Moderately close to the final angle, reduce speed less
+                        self.angular_speed *= 0.9
+                    elif self.angular_speed > 4:
+                        # Far from the final angle, reduce speed minimally
+                        self.angular_speed *= 0.95
+
+                    # Stop if the wheel is close enough to the final angle
+                    if (
+                        distance_to_final < 1
+                        or abs(self.current_angle % 360 - final_angle)
+                        < self.angular_speed
+                    ):
+                        self.angular_speed = 0  # Ensure the wheel stops completely
+                        running = False
+
+        # Determine the final value based on the stopping angle
+        final_value = VALUES[additional_sections % len(VALUES)]
+
+        # Blink the final value for 1.5 seconds
+        blink_duration = 2
+        end_blink_time = time.time() + blink_duration
+
+        self.roulette_sound.stop()
+        self.roulette_end_sound.play()
+
+        while time.time() < end_blink_time:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            self.draw_roulette()
             self.draw_pointer()
 
+            if int(time.time() * 2) % 2 == 0:
+                pygame.draw.circle(
+                    self.screen,
+                    pygame.Color(DARK_GOLD_COLOR),  # Border color
+                    (self.center_x, self.center_y),
+                    circle_radius + 5,  # Slightly larger radius for the border
+                    width=5,  # Border width
+                )
+
+                pygame.draw.circle(
+                    self.screen,
+                    pygame.Color(LIGHT_GOLD_COLOR),
+                    (self.center_x, self.center_y),
+                    circle_radius,
+                )
+
+                # Render the final value text
+                final_value_text = self.font.render(
+                    str(final_value),
+                    True,
+                    pygame.Color("black"),
+                )
+                final_value_rect = final_value_text.get_rect(
+                    center=(self.center_x, self.center_y)
+                )
+                self.screen.blit(final_value_text, final_value_rect)
+
             pygame.display.update()
-            time.sleep(1)
-            self.roulette_sound.play()
-            actual_turns = 0
-            angle_in_turn = current_angle
-            self.roulette_sound.play(loops=-1)
+            self.clock.tick(30)  # Control frame rate consistently
 
-            while actual_turns < self.turns:
-                current_angle += self.angular_speed
-                angle_in_turn += self.angular_speed
-                current_angle %= 360
-                angle_in_turn %= 360
+        self.screen.fill(pygame.Color("black"))  # Clear the screen
+        self.draw_roulette()
+        self.draw_pointer()
 
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
+        pygame.draw.circle(
+            self.screen,
+            pygame.Color(DARK_GOLD_COLOR),  # Border color
+            (self.center_x, self.center_y),
+            circle_radius + 5,  # Slightly larger radius for the border
+            width=5,  # Border width
+        )
 
-                clear_rect = pygame.Rect(
-                    self.center_x - self.radius - 20,
-                    self.center_y - self.radius - 20,
-                    (self.radius + 20) * 2,
-                    (self.radius + 20) * 2,
-                )
-                pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect)
+        pygame.draw.circle(
+            self.screen,
+            pygame.Color(LIGHT_GOLD_COLOR),
+            (self.center_x, self.center_y),
+            circle_radius,
+        )
+        final_value_text = self.font.render(
+            str(final_value),
+            True,
+            pygame.Color("black"),
+        )
+        final_value_rect = final_value_text.get_rect(
+            center=(self.center_x, self.center_y)
+        )
+        self.screen.blit(final_value_text, final_value_rect)
+        pygame.display.update()
 
-                self.draw_roulette(current_angle)
-                self.draw_pointer()
-
-                if angle_in_turn == 0:
-                    actual_turns += 1
-
-                pygame.display.update()
-                self.clock.tick(30)  # Control frame rate
-
-            # Decelerate and stop at a random section
-            additional_section = random.randint(0, self.sections - 1)
-            current_section = 0
-            i = 0
-
-            while current_section < additional_section:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
-
-                i += 1
-                current_angle += self.angular_speed
-                current_angle %= 360
-                if i == 3:
-                    current_section += 1
-                    i = 0
-
-                clear_rect = pygame.Rect(
-                    self.center_x - self.radius - 20,
-                    self.center_y - self.radius - 20,
-                    (self.radius + 20) * 2,
-                    (self.radius + 20) * 2,
-                )
-                pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect)
-
-                self.draw_roulette(current_angle)
-                self.draw_pointer()
-
-                pygame.display.update()
-                self.clock.tick(30)  # Control frame rate consistently
-
-            # Blink the final value for 1.5 seconds
-            blink_duration = 1.5
-            blink_interval = 0.25  # Blinking interval
-            end_blink_time = time.time() + blink_duration
-
-            self.roulette_sound.stop()
-            self.roulette_end_sound.play()
-
-            # Translate current section as per positive rotation
-            current_section = 0 - current_section
-            current_section %= 8
-
-            while time.time() < end_blink_time:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
-
-                clear_rect = pygame.Rect(
-                    self.center_x - self.radius - 20,
-                    self.center_y - self.radius - 20,
-                    (self.radius + 20) * 2,
-                    (self.radius + 20) * 2,
-                )
-                pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect)
-
-                self.draw_roulette(current_angle)
-                self.draw_pointer()
-
-                if int(time.time() * 2) % 2 == 0:
-                    final_value_text = self.font.render(
-                        str(self.values[current_section]),
-                        True,
-                        pygame.Color("black"),
-                    )
-                    final_value_rect = final_value_text.get_rect(
-                        center=(self.center_x, self.center_y)
-                    )
-                    self.screen.blit(final_value_text, final_value_rect)
-
-                pygame.display.update()
-                self.clock.tick(30)  # Control frame rate consistently
-
-            # Display the final value in the center
-            clear_rect = pygame.Rect(
-                self.center_x - self.radius - 20,
-                self.center_y - self.radius - 20,
-                (self.radius + 20) * 2,
-                (self.radius + 20) * 2,
-            )
-            pygame.draw.rect(self.screen, pygame.Color("black"), clear_rect)
-
-            self.draw_roulette(current_angle)
-            self.draw_pointer()
-
-            final_value_text = self.font.render(
-                str(self.values[current_section]), True, pygame.Color("black")
-            )
-            final_value_rect = final_value_text.get_rect(
-                center=(self.center_x, self.center_y)
-            )
-            self.screen.blit(final_value_text, final_value_rect)
-            pygame.display.update()
-
-            return self.values[current_section]
+        return final_value
