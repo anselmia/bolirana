@@ -788,7 +788,10 @@ class Display:
             for player in group:
                 # Draw player box
 
-                self.screen.blit(self.resources["frame_player"], (x, y + height_score))
+                if player.is_active:
+                    self.screen.blit(self.resources["frame_player_select"], (x, y + height_score))
+                else:
+                    self.screen.blit(self.resources["frame_player"], (x, y + height_score))
 
                 # Define rank display position and background with transparency
                 square_x = x + box_width - rank_square_size - (box_width / 18)
@@ -944,28 +947,6 @@ class Display:
                 actual_position[1] - actual_text.get_height() // 2,
             )
         self.screen.blit(actual_text, actual_position)
-
-    def draw_player(self, x, y, player, box_width, box_height, group_color):
-        """Draws individual player boxes and details."""
-        border_color = DARK_ORANGE if player.is_active else BLACK
-        pygame.draw.rect(
-            self.screen,
-            border_color,
-            (x, y, box_width, box_height),
-            border_radius=5,
-            width=5,
-        )
-        pygame.draw.rect(
-            self.screen,
-            group_color,
-            (x + 5, y + 5, box_width - 10, box_height - 10),
-            border_radius=5,
-        )
-
-        player_label = self.font_small.render(str(player), True, DARK_GREY)
-        score_text = self.font_medium.render(str(player.score), True, DARK_GREY)
-        self.screen.blit(player_label, (x + 10, y + 10))
-        self.screen.blit(score_text, (x + 10, y + 30))
 
     def calculate_group_layout(self, team_mode, group):
         """Determines layout settings based on team mode and group size."""
