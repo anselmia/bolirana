@@ -113,6 +113,10 @@ class Display:
                 self.resources["large_frog_frames"],
                 self.resources["large_frog_duration"],
             ) = self.load_gif("gif", "large_frog_animation.gif")
+            (
+                self.resources["beer_frames"],
+                self.resources["beer_duration"],
+            ) = self.load_gif("gif", "beer.gif")
             self.resources["applause"] = self.load_sound("sounds", "aplaudissement.mp3")
             (
                 self.resources["little_frog_frames"],
@@ -1300,6 +1304,10 @@ class Display:
     def animation_bottle(self):
         sound = self.load_sound("sounds", "bouteille.mp3")
         sound.play()
+        self.play_gif(
+            self.resources["beer_frames"],
+            self.resources["beer_duration"],
+        )
 
     def animation_little_frog(self):
         self.resources["applause"].play()
