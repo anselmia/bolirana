@@ -86,6 +86,12 @@ class Display:
             self.resources["roulette_pointer"] = self.load_image(
                 "images", "roulette_pointer.png", scale=0.1
             )
+            self.resources["frame_player_select"] = self.load_image(
+                "images",
+                "frame_player_select.png",
+                width=self.frame_player_width,
+                height=70,
+            )
             self.resources["frame_player"] = self.load_image(
                 "images", "frame_player.png", width=self.frame_player_width, height=70
             )
@@ -789,9 +795,13 @@ class Display:
                 # Draw player box
 
                 if player.is_active:
-                    self.screen.blit(self.resources["frame_player_select"], (x, y + height_score))
+                    self.screen.blit(
+                        self.resources["frame_player_select"], (x, y + height_score)
+                    )
                 else:
-                    self.screen.blit(self.resources["frame_player"], (x, y + height_score))
+                    self.screen.blit(
+                        self.resources["frame_player"], (x, y + height_score)
+                    )
 
                 # Define rank display position and background with transparency
                 square_x = x + box_width - rank_square_size - (box_width / 18)
