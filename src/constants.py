@@ -117,7 +117,7 @@ OFF = "OFF"
 
 # Defines Holes
 
-HOLE_RADIUS = 30
+HOLE_RADIUS = 40
 BLINK_INTERVAL = 0.2
 
 # Game Logic

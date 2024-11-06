@@ -1,6 +1,7 @@
 import pygame
 import random
 import time
+import os
 from pygame.locals import *
 
 
@@ -29,7 +30,6 @@ class RouletteAnimation:
             360 / len(VALUES)
         ) / 2  # Initial angular speed (degrees per frame)
         self.min_turns = 3  # Minimum number of full turns before slowing down
-        self.current_angle = 0  # Initial rotation angle
 
         self.font = pygame.font.Font(None, 80)
         self.roulette_sound = roulette_sound
@@ -41,13 +41,16 @@ class RouletteAnimation:
         self.sections = len(VALUES)
         self.angle_per_section = 360 / self.sections
 
+        roulette_height = self.roulette_image.get_height()
+        self.circle_radius = int(roulette_height * 0.29) / 2
+
     def rotate_roulette(self, angular_speed):
         """Rotate the roulette image by the given angular speed."""
-        self.current_angle = (self.current_angle - angular_speed) % 360
+        self.current_angle = (self.current_angle + angular_speed) % 360
 
         # Rotate the image
         self.rotated_image = pygame.transform.rotate(
-            self.roulette_image, -self.current_angle
+            self.roulette_image, self.current_angle
         )
         self.draw_roulette()
 
@@ -82,12 +85,17 @@ class RouletteAnimation:
 
     def run(self):
         # Calculate the radius of the circle based on 25% of the roulette's height
-        roulette_height = self.roulette_image.get_height()
-        circle_radius = int(roulette_height * 0.29) / 2
-
+        self.current_angle = 0  # Initial rotation angle
         running = True
-        random.seed(time.time())
-        additional_sections = random.randint(0, 2 * self.sections)
+        # Complex seed for better randomness
+        random.seed(time.time() + int.from_bytes(os.urandom(8), "big"))
+
+        # Enhanced randomness in additional sections calculation
+        base_random = random.randint(0, (2 * self.sections) - 1)
+        extra_random = random.randint(1, self.sections)
+        additional_sections = (
+            base_random + extra_random - random.randint(0, extra_random)
+        ) % ((2 * self.sections) - 1)
         total_sections = (self.min_turns * len(VALUES)) + additional_sections
         deceleration_section = total_sections - int(len(VALUES) / 2)
         final_angle = (additional_sections * self.angle_per_section) % 360
@@ -173,7 +181,7 @@ class RouletteAnimation:
                     self.screen,
                     pygame.Color(DARK_GOLD_COLOR),  # Border color
                     (self.center_x, self.center_y),
-                    circle_radius + 5,  # Slightly larger radius for the border
+                    self.circle_radius + 5,  # Slightly larger radius for the border
                     width=5,  # Border width
                 )
 
@@ -181,7 +189,7 @@ class RouletteAnimation:
                     self.screen,
                     pygame.Color(LIGHT_GOLD_COLOR),
                     (self.center_x, self.center_y),
-                    circle_radius,
+                    self.circle_radius,
                 )
 
                 # Render the final value text
@@ -206,7 +214,7 @@ class RouletteAnimation:
             self.screen,
             pygame.Color(DARK_GOLD_COLOR),  # Border color
             (self.center_x, self.center_y),
-            circle_radius + 5,  # Slightly larger radius for the border
+            self.circle_radius + 5,  # Slightly larger radius for the border
             width=5,  # Border width
         )
 
@@ -214,7 +222,7 @@ class RouletteAnimation:
             self.screen,
             pygame.Color(LIGHT_GOLD_COLOR),
             (self.center_x, self.center_y),
-            circle_radius,
+            self.circle_radius,
         )
         final_value_text = self.font.render(
             str(final_value),

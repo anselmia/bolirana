@@ -26,9 +26,9 @@ from src.constants import (
     TEAM_MODE_SOLO,
     TEAM_MODE_TEAM,
 )
-import random
-from src.firework import Firework
+
 from src.roulette import RouletteAnimation
+from moviepy.editor import VideoFileClip
 from PIL import Image
 
 
@@ -54,7 +54,17 @@ class Display:
         self.half_width = self.screen_width // 2
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
+        self.hole_frame_width = self.half_width
+        self.frame_score_width = self.screen_width / 5
+        self.frame_player_width = self.screen_width / 5
         self.hole_rect_height = self.screen_height // 2.4
+        self.frame_space_x = (
+            self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
+        ) / 4
+        self.frame_space_y = 20
+        self.border_holes = 0
+        self.hole_frame_border = 7
+        self.hole_space = self.hole_rect_height / 30
         self.resources = {}  # Cache resources
         self.load_ressources()
 
@@ -76,6 +86,19 @@ class Display:
             self.resources["roulette_pointer"] = self.load_image(
                 "images", "roulette_pointer.png", scale=0.1
             )
+            self.resources["frame_player"] = self.load_image(
+                "images", "frame_player.png", width=self.frame_player_width, height=70
+            )
+            self.resources["hole"] = self.load_image(
+                "images", "hole.png", width=2 * HOLE_RADIUS, height=2 * HOLE_RADIUS
+            )
+            self.resources["hole_score"] = self.load_image(
+                "images",
+                "hole_score.png",
+                width=2 * HOLE_RADIUS,
+                height=2 * HOLE_RADIUS,
+            )
+
             self.resources["penalty_frames"], self.resources["penalty_duration"] = (
                 self.load_gif("gif", "fail.gif")
             )
@@ -100,6 +123,13 @@ class Display:
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )
+            path = os.path.join(
+                os.path.dirname(__file__), "..", "assets", "videos", "firework.mkv"
+            )
+            clip = VideoFileClip(path)
+            self.resources["firework"] = VideoFileClip(path).subclip(
+                0, clip.duration - 0.05
+            )
 
         except Exception as e:
             logging.error(f"Failed to load resources: {e}")
@@ -111,24 +141,33 @@ class Display:
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
         return pygame.transform.scale(pygame.image.load(path), self.screen.get_size())
 
-    def load_image(self, folder, filename, scale=None):
+    def load_image(self, folder, filename, scale=None, width=None, height=None):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+
+        # Load the original image
+        original_image = pygame.image.load(path)
+
+        # Case 1: Scaling based on a specified scale
         if scale is not None:
-            original_image = pygame.image.load(path)
             original_width, original_height = original_image.get_size()
 
-            # Calculate new height as 80% of the screen height
+            # Calculate new dimensions based on the screen height and aspect ratio
             screen_width, screen_height = self.screen.get_size()
             new_height = int(screen_height * scale)
-
-            # Calculate the new width to maintain the aspect ratio
             aspect_ratio = original_width / original_height
             new_width = int(new_height * aspect_ratio)
 
-            # Scale the image to the new dimensions
+            # Return the scaled image
             return pygame.transform.scale(original_image, (new_width, new_height))
+
+        # Case 2: Scaling based on specific width and height
+        elif width is not None and height is not None:
+            # Return the image scaled to the specified width and height
+            return pygame.transform.scale(original_image, (width, height))
+
+        # Case 3: Default loading (no scaling)
         else:
-            return pygame.image.load(path)
+            return original_image
 
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
@@ -153,44 +192,139 @@ class Display:
         # Adjust the function to handle all cases and default return None
         if hole_value == "20":
             return (
-                [(self.screen_width / 2) - 160, 255]
+                [
+                    (self.screen_width / 2) - self.hole_frame_width / 3,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + 5 * HOLE_RADIUS
+                    + 5 * self.border_holes
+                    + 2 * self.hole_space,
+                ]
                 if position == 1
-                else [(self.screen_width / 2) + 160, 255]
+                else [
+                    (self.screen_width / 2) + self.hole_frame_width / 3,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + 5 * HOLE_RADIUS
+                    + 5 * self.border_holes
+                    + 2 * self.hole_space,
+                ]
             )
         elif hole_value == "25":
             return (
-                [(self.screen_width / 2) - 160, 150]
+                [
+                    (self.screen_width / 2) - self.hole_frame_width / 3,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + 3 * HOLE_RADIUS
+                    + 3 * self.border_holes
+                    + self.hole_space,
+                ]
                 if position == 1
-                else [(self.screen_width / 2) + 160, 155]
+                else [
+                    (self.screen_width / 2) + self.hole_frame_width / 3,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + 3 * HOLE_RADIUS
+                    + 3 * self.border_holes
+                    + self.hole_space,
+                ]
             )
         elif hole_value == "40":
             return (
-                [(self.screen_width / 2) - 80, 205]
+                [
+                    (self.screen_width / 2) - self.hole_frame_width / 6,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + self.hole_space * 1.5
+                    + HOLE_RADIUS * 4
+                    + self.border_holes * 4,
+                ]
                 if position == 1
-                else [(self.screen_width / 2) + 80, 205]
+                else [
+                    (self.screen_width / 2) + self.hole_frame_width / 6,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + self.hole_space * 1.5
+                    + HOLE_RADIUS * 4
+                    + self.border_holes * 4,
+                ]
             )
         elif hole_value == "50":
             return (
-                [(self.screen_width / 2) - 80, 105]
+                [
+                    (self.screen_width / 2) - self.hole_frame_width / 6,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + self.hole_space / 2
+                    + HOLE_RADIUS * 2
+                    + self.border_holes * 2,
+                ]
                 if position == 1
-                else [(self.screen_width / 2) + 80, 105]
+                else [
+                    (self.screen_width / 2) + self.hole_frame_width / 6,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + self.hole_space / 2
+                    + HOLE_RADIUS * 2
+                    + self.border_holes * 2,
+                ]
             )
         elif hole_value == "100":
             return (
-                [(self.screen_width / 2) - 80, 305]
+                [
+                    (self.screen_width / 2) - self.hole_frame_width / 6,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + self.hole_space * 2.5
+                    + HOLE_RADIUS * 6
+                    + self.border_holes * 6,
+                ]
                 if position == 1
-                else [(self.screen_width / 2) + 80, 305]
+                else [
+                    (self.screen_width / 2) + self.hole_frame_width / 6,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + self.hole_space * 2.5
+                    + HOLE_RADIUS * 6
+                    + self.border_holes * 6,
+                ]
             )
         elif hole_value == "150":
             return (
-                [(self.screen_width / 2) - 160, 55]
+                [
+                    (self.screen_width / 2) - self.hole_frame_width / 3,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + HOLE_RADIUS
+                    + self.border_holes,
+                ]
                 if position == 1
-                else [(self.screen_width / 2) + 160, 55]
+                else [
+                    (self.screen_width / 2) + self.hole_frame_width / 3,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + HOLE_RADIUS
+                    + self.border_holes,
+                ]
             )
         elif hole_value == "200":
-            return [(self.screen_width / 2), 155]
+            return [
+                (self.screen_width / 2),
+                self.frame_space_y
+                + self.hole_frame_border
+                + 3 * HOLE_RADIUS
+                + 3 * self.border_holes
+                + self.hole_space,
+            ]
         elif hole_value == "ROUL":
-            return [(self.screen_width / 2), 55]
+            return [
+                (self.screen_width / 2),
+                self.frame_space_y
+                + self.hole_frame_border
+                + HOLE_RADIUS
+                + self.border_holes,
+            ]
         return None
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
@@ -394,29 +528,12 @@ class Display:
         self.draw_static_elements(current_player, score, game_mode, team_mode, holes)
         self.display_grouped_players(players, team_mode, player_in_team)
 
-    def draw_score(
-        self,
-        players,
-        current_player,
-        holes,
-        score,
-        game_mode,
-        team_mode,
-        player_in_team=0,
-    ):
-        self.display_grouped_players(
-            players, team_mode, player_in_team, only_score=True
-        )
-        self.draw_static_elements(
-            current_player, score, game_mode, team_mode, holes, only_score=True
-        )
-
     def draw_holes(self, holes):
         # Define the area for the holes and add chrome border
         holes_area_rect = (
-            self.third_width,
-            20,
-            self.third_width,
+            2 * self.frame_space_x + self.frame_score_width,
+            self.frame_space_y,
+            self.hole_frame_width,
             self.hole_rect_height,
         )
         self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
@@ -425,8 +542,10 @@ class Display:
         for hole in holes:
             x1, y1 = hole.position[0], hole.position[1]
 
-            pygame.draw.circle(self.screen, BLACK, (x1, y1), HOLE_RADIUS)
-            pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
+            # Center the image at (x1, y1)
+            self.screen.blit(
+                self.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS)
+            )
             font = self.font_medium if hole.type != "large_frog" else self.font_small
             points_text = font.render(hole.text, True, LIGHT_GREY)
             text_rect = points_text.get_rect(center=(x1, y1))
@@ -435,51 +554,62 @@ class Display:
             if hole.type == "side" or hole.type == "bottle":
                 x2, y2 = hole.position2[0], hole.position2[1]
 
-                pygame.draw.circle(self.screen, BLACK, (x2, y2), HOLE_RADIUS)
-                pygame.draw.circle(self.screen, RED, (x2, y2), HOLE_RADIUS, 5)
+                # Center the image at (x1, y1)
+                self.screen.blit(
+                    self.resources["hole"], (x2 - HOLE_RADIUS, y2 - HOLE_RADIUS)
+                )
                 text_rect = points_text.get_rect(center=(x2, y2))
                 self.screen.blit(points_text, text_rect)
 
-    def draw_static_elements(
-        self, current_player, score, game_mode, team_mode, holes, only_score=False
-    ):
+    def draw_static_elements(self, current_player, score, game_mode, team_mode, holes):
         """Draws static elements like scores and game info."""
         # Define the area for the current player info and add chrome border
-        current_player_rect = (20, 20, self.screen_width / 3 - 40, 200)
+        current_player_rect = (
+            self.frame_space_x,
+            self.frame_space_y,
+            self.frame_score_width,
+            self.hole_rect_height,
+        )
 
-        # Calculate center positions for the texts within the rectangle
-        rect_x, rect_y, rect_width, rect_height = current_player_rect
-        score_text_position = (rect_x + rect_width / 2, rect_y + 100)
-        remaining_points_text_position = (rect_x + rect_width / 2, rect_y + 160)
+        # Calculate center positions for the texts within the frame
+        name_text_position = (
+            self.frame_space_x + self.frame_score_width / 2,
+            self.frame_space_y + (self.hole_rect_height / 3),
+        )
+        score_text_position = (
+            self.frame_space_x + self.frame_score_width / 2,
+            name_text_position[1] + (self.hole_rect_height / 5),
+        )
+        remaining_points_text_position = (
+            self.frame_space_x + self.frame_score_width / 2,
+            score_text_position[1] + (self.hole_rect_height / 5),
+        )
 
         # Define text strings
-        current_player_score = f"Score: {current_player.score}"
-        remaining_points_text = f"Points Restants: {score - current_player.score}"
+        current_player_score = f"Score : {current_player.score}"
+        remaining_points_text = f"Points Restants : {score - current_player.score}"
 
-        if only_score:
-            # Render the text to get the dimensions
-            score_surface = self.font_medium.render(
-                current_player_score, True, DARK_ORANGE
-            )
-            remaining_points_surface = self.font_verysmall.render(
-                remaining_points_text, True, DARK_GREEN
-            )
+        # Render the text to get the dimensions
+        score_surface = self.font_medium.render(current_player_score, True, DARK_ORANGE)
+        remaining_points_surface = self.font_verysmall.render(
+            remaining_points_text, True, DARK_GREEN
+        )
 
-            # Calculate rectangle positions and sizes
-            score_rect = score_surface.get_rect(center=score_text_position)
-            remaining_points_rect = remaining_points_surface.get_rect(
-                center=remaining_points_text_position
-            )
+        # Calculate rectangle positions and sizes
+        score_rect = score_surface.get_rect(center=score_text_position)
+        remaining_points_rect = remaining_points_surface.get_rect(
+            center=remaining_points_text_position
+        )
 
-            # Add padding around the text for the rectangle
-            padding = 10
-            score_rect.inflate_ip(padding, padding)  # Inflate the rectangle by padding
-            remaining_points_rect.inflate_ip(padding, padding)
+        # Add padding around the text for the rectangle
+        padding = 10
+        score_rect.inflate_ip(padding, padding)  # Inflate the rectangle by padding
+        remaining_points_rect.inflate_ip(padding, padding)
 
-            rectangle_color = PLAYER_OPTION_COLOR  # Color of the rectangle border
+        rectangle_color = PLAYER_OPTION_COLOR  # Color of the rectangle border
 
-            pygame.draw.rect(self.screen, rectangle_color, score_rect)
-            pygame.draw.rect(self.screen, rectangle_color, remaining_points_rect)
+        pygame.draw.rect(self.screen, rectangle_color, score_rect)
+        pygame.draw.rect(self.screen, rectangle_color, remaining_points_rect)
 
         # Draw the text with shadow
         self.draw_text_with_shadow(
@@ -502,76 +632,84 @@ class Display:
             center=True,
         )
 
-        if not only_score:
-            self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
+        self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
 
-            current_player_name_text = str(current_player)
-            name_text_position = (rect_x + rect_width / 2, rect_y + 40)
+        current_player_name_text = str(current_player)
 
-            # Draw the current player name with shadow
-            self.draw_text_with_shadow(
-                current_player_name_text,
-                self.font_large,
-                DARK_GREEN,
-                BLACK,
-                name_text_position,
-                shadow_offset=(2, 2),
-                center=True,
-            )
+        # Draw the current player name with shadow
+        self.draw_text_with_shadow(
+            current_player_name_text,
+            self.font_large,
+            DARK_GREEN,
+            BLACK,
+            name_text_position,
+            shadow_offset=(2, 2),
+            center=True,
+        )
 
-            self.draw_holes(holes)
+        self.draw_holes(holes)
 
-            # Define the area for the game options and add chrome border
-            game_mode_rect = (
-                self.screen_width - (self.screen_width / 3 - 20),
-                20,
-                self.screen_width / 3 - 40,
-                200,
-            )
-            self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
+        # Define the area for the game options and add chrome border
+        frame_x, frame_y = (
+            self.screen_width - self.frame_score_width - self.frame_space_x,
+            self.frame_space_y,
+        )
+        game_mode_rect = (
+            frame_x,
+            frame_y,
+            self.frame_score_width,
+            self.hole_rect_height,
+        )
+        self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
 
-            # Calculate center positions for the game options texts within the rectangle
-            rect_x, rect_y, rect_width, rect_height = game_mode_rect
-            game_mode_text_position = (rect_x + rect_width / 2, rect_y + 40)
-            score_text_position = (rect_x + rect_width / 2, rect_y + 100)
-            team_mode_text_position = (rect_x + rect_width / 2, rect_y + 160)
+        # Calculate center positions for the game options texts within the rectangle
+        game_mode_text_position = (
+            frame_x + self.frame_score_width / 2,
+            frame_y + (self.hole_rect_height / 3),
+        )
+        score_text_position = (
+            frame_x + self.frame_score_width / 2,
+            name_text_position[1] + (self.hole_rect_height / 5),
+        )
+        team_mode_text_position = (
+            frame_x + self.frame_score_width / 2,
+            score_text_position[1] + (self.hole_rect_height / 5),
+        )
 
-            # Draw the game mode with shadow
-            self.draw_text_with_shadow(
-                game_mode,
-                self.font_medium,
-                DARK_ORANGE,
-                BLACK,
-                game_mode_text_position,
-                shadow_offset=(2, 2),
-                center=True,
-            )
-            # Draw the game score with shadow
-            self.draw_text_with_shadow(
-                str(score) + " points",
-                self.font_medium,
-                DARK_ORANGE,
-                BLACK,
-                score_text_position,
-                shadow_offset=(2, 2),
-                center=True,
-            )
-            # Draw the team mode with shadow
-            self.draw_text_with_shadow(
-                team_mode,
-                self.font_medium,
-                DARK_ORANGE,
-                BLACK,
-                team_mode_text_position,
-                shadow_offset=(2, 2),
-                center=True,
-            )
+        # Draw the game mode with shadow
+        self.draw_text_with_shadow(
+            game_mode,
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            game_mode_text_position,
+            shadow_offset=(2, 2),
+            center=True,
+        )
+        # Draw the game score with shadow
+        self.draw_text_with_shadow(
+            str(score) + " points",
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            score_text_position,
+            shadow_offset=(2, 2),
+            center=True,
+        )
+        # Draw the team mode with shadow
+        self.draw_text_with_shadow(
+            team_mode,
+            self.font_medium,
+            DARK_ORANGE,
+            BLACK,
+            team_mode_text_position,
+            shadow_offset=(2, 2),
+            center=True,
+        )
 
         pygame.display.update()
 
-    def display_grouped_players(
-        self, players, team_mode, player_in_team, only_score=False
-    ):
+    def display_grouped_players(self, players, team_mode, player_in_team):
         """Handles the display of player groups on the screen."""
         if team_mode == TEAM_MODE_TEAM:
             teams = {}
@@ -610,18 +748,17 @@ class Display:
             id(group): group_colors[i % len(group_colors)]
             for i, group in enumerate(groups)
         }
-        border_radius, border_width = 15, 5
 
         # Set initial coordinates and layout settings
-        start_y = self.screen_height / 2 - 30
+        start_y = self.screen_height / 2 - 20
         gap_between_boxes = 20
-        box_width = self.screen_width / 5
-        box_height = 70  # Adjusted height to fit more players
+        # Use the dimensions of the loaded frame image for positioning
+        box_width, box_height = self.resources["frame_player"].get_size()
         start_x = (self.screen_width - (4 * box_width) - (3 * gap_between_boxes)) / 2
         x, y = start_x, start_y
         players_in_row = 0
 
-        rank_square_size = 25  # Adjusted size to fit better
+        rank_square_size = 20  # Adjusted size to fit better
 
         if display_score:
             height_score = self.font_small.render("T", True, DARK_GREY)
@@ -638,7 +775,7 @@ class Display:
                 self.draw_text_with_shadow(
                     total_score_text,
                     self.font_small,
-                    DARK_ORANGE,  # Text color
+                    WHITE,  # Text color
                     pygame.Color("black"),  # Shadow color
                     (x, y),  # Position
                 )
@@ -646,70 +783,79 @@ class Display:
             # Layout players within the group
             for player in group:
                 # Draw player box
-                if only_score == False or player.is_active:
-                    border_color = (
-                        GOLD_COLORS
-                        if player.won
-                        else (RED_COLORS if player.is_active else CHROME_COLORS)
-                    )
-                    self.draw_chrome_rect(
-                        (x, y + height_score, box_width, box_height),
-                        border_color,
-                        border_radius,
-                        border_width,
-                    )
-                    pygame.draw.rect(
-                        self.screen,
-                        group_color,
-                        (x + 5, y + 5 + height_score, box_width - 10, box_height - 10),
-                        border_radius=5,
-                    )
 
-                    square_x = x + box_width - rank_square_size - 5
-                    square_y = y + 5 + height_score
-                    pygame.draw.rect(
-                        self.screen,
-                        group_color,
-                        (square_x, square_y, rank_square_size, rank_square_size),
-                    )
+                self.screen.blit(self.resources["frame_player"], (x, y + height_score))
 
-                    rank_text = self.font_verysmall.render(
-                        f"{player.rank}", True, WHITE
-                    )
-                    rank_text_rect = rank_text.get_rect(
-                        center=(
-                            square_x + rank_square_size / 2,
-                            square_y + rank_square_size / 2,
-                        )
-                    )
-                    self.screen.blit(rank_text, rank_text_rect)
+                # Define rank display position and background with transparency
+                square_x = x + box_width - rank_square_size - (box_width / 18)
+                square_y = y + height_score + (box_height / 10)
 
-                    # Player details
-                    player_label = self.font_small.render(str(player), True, DARK_GREY)
-                    player_label_pos = (
-                        x + 10,
-                        y
-                        + height_score
-                        + (box_height - player_label.get_height()) // 2,
-                    )
-                    self.draw_text_with_shadow(
-                        str(player), self.font_small, DARK_GREY, WHITE, player_label_pos
-                    )
+                # Create a semi-transparent surface for the rank background
+                rank_background_surface = pygame.Surface(
+                    (rank_square_size, rank_square_size), pygame.SRCALPHA
+                )
+                rank_background_color = pygame.Color(
+                    *group_color[:3], 150
+                )  # Set transparency to 150 out of 255
+                rank_background_surface.fill(rank_background_color)
+                self.screen.blit(rank_background_surface, (square_x, square_y))
 
-                    # Calculate the position for the score text
-                    score_text_pos = (
-                        player_label_pos[0] + player_label.get_width() + 40,
-                        y
-                        + height_score
-                        + (box_height - player_label.get_height()) // 2,
+                # Draw a border around the rank background (optional)
+                pygame.draw.rect(
+                    self.screen,
+                    pygame.Color("white"),  # Color for the border or glow
+                    (square_x, square_y, rank_square_size, rank_square_size),
+                    width=1,  # Border thickness
+                    border_radius=5,  # Rounded corners for smoother integration
+                )
+
+                # Render rank text with a shadow for better readability
+                rank_text = self.font_verysmall.render(
+                    f"{player.rank}", True, pygame.Color("white")
+                )
+                rank_text_shadow = self.font_verysmall.render(
+                    f"{player.rank}", True, pygame.Color(0, 0, 0, 150)
+                )
+
+                # Define the position for the text and shadow
+                rank_text_rect = rank_text.get_rect(
+                    center=(
+                        square_x + rank_square_size / 2,
+                        square_y + rank_square_size / 2,
                     )
-                    self.draw_text_with_shadow(
-                        str(player.score),
-                        self.font_small,
-                        DARK_GREY,
-                        WHITE,
-                        score_text_pos,
-                    )
+                )
+
+                # Blit the shadow slightly offset from the main text
+                self.screen.blit(rank_text_shadow, rank_text_rect.move(1, 1))
+                # Blit the main rank text
+                self.screen.blit(rank_text, rank_text_rect)
+
+                # Player details
+                player_label = self.font_small.render(str(player), True, DARK_ORANGE)
+                player_label_pos = (
+                    x + 20,
+                    y + height_score + (box_height - player_label.get_height()) // 2,
+                )
+                self.draw_text_with_shadow(
+                    str(player),
+                    self.font_small,
+                    DARK_ORANGE,
+                    pygame.Color("black"),
+                    player_label_pos,
+                )
+
+                # Calculate the position for the score text
+                score_text_pos = (
+                    player_label_pos[0] + player_label.get_width() + 20,
+                    y + height_score + (box_height - player_label.get_height()) // 2,
+                )
+                self.draw_text_with_shadow(
+                    str(player.score),
+                    self.font_small,
+                    DARK_ORANGE,
+                    pygame.Color("black"),
+                    score_text_pos,
+                )
 
                 if team_mode in [TEAM_MODE_SOLO, TEAM_MODE_DUO] or (
                     team_mode == TEAM_MODE_TEAM and len(group) == 2
@@ -833,8 +979,8 @@ class Display:
 
     def draw_goal_animation(self, hole, pin):
         start_time = time.time()
-        current_color = WHITE
         last_blink_time = start_time
+        use_first_image = True  # Start with the first image
 
         if pin == hole.pin[0]:
             x1, y1 = hole.position
@@ -845,16 +991,32 @@ class Display:
             current_time = time.time()
             if current_time - last_blink_time > BLINK_INTERVAL:
                 # Toggle the color
-                current_color = RED if current_color == DARK_ORANGE else DARK_ORANGE
+                use_first_image = not use_first_image  # Toggle the image
                 last_blink_time = current_time
 
-            # Draw the border with specified thickness
-            pygame.draw.circle(self.screen, current_color, (x1, y1), HOLE_RADIUS, 5)
+            # Choose the current image to display
+            hole_image = (
+                self.resources["hole"]
+                if use_first_image
+                else self.resources["hole_score"]
+            )
+
+            # Draw the selected image
+            self.screen.blit(hole_image, (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
+
+            font = self.font_medium if hole.type != "large_frog" else self.font_small
+            points_text = font.render(hole.text, True, LIGHT_GREY)
+            text_rect = points_text.get_rect(center=(x1, y1))
+            self.screen.blit(points_text, text_rect)
 
             # Update the display
             pygame.display.flip()
 
-        pygame.draw.circle(self.screen, RED, (x1, y1), HOLE_RADIUS, 5)
+        self.screen.blit(self.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
+        font = self.font_medium if hole.type != "large_frog" else self.font_small
+        points_text = font.render(hole.text, True, LIGHT_GREY)
+        text_rect = points_text.get_rect(center=(x1, y1))
+        self.screen.blit(points_text, text_rect)
 
         # Update the display
         pygame.display.flip()
@@ -1236,28 +1398,36 @@ class Display:
         self.screen.blit(surface, (x, y))
         pygame.display.flip()
 
-    def create_fireworks(self, num_fireworks):
-        for _ in range(num_fireworks):
-            x = random.randint(100, self.screen.get_width() - 100)
-            y = random.randint(100, self.screen.get_height() - 100)
-            color = [random.randint(0, 255) for _ in range(3)]
-            self.fireworks.append(Firework(x, y, color, num_particles=50))
-
     def run_fireworks(self):
-        self.fireworks = []
-        self.create_fireworks(5)
-        running = True
+        # Play the video
+        playing = True
+        start_time = pygame.time.get_ticks() / 1000.0  # Get the start time in seconds
         clock = pygame.time.Clock()
-        while running and self.fireworks:
+
+        while playing:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
-                    break
+                    playing = False
 
-            self.screen.fill((0, 0, 0))
-            for firework in self.fireworks:
-                firework.update()
-                firework.draw(self.screen)
-            self.fireworks = [f for f in self.fireworks if not f.is_dead()]
-            pygame.display.flip()
+            # Calculate the current time in the video
+            current_time = (pygame.time.get_ticks() / 1000.0) - start_time
+
+            # Get the frame for the current time
+            frame = self.resources["firework"].get_frame(current_time)
+
+            # Convert the frame to a Pygame surface
+            frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+
+            # Display the frame
+            self.screen.blit(frame_surface, (0, 0))
+            pygame.display.update()
+
+            # Limit the frame rate
             clock.tick(30)
+
+            # Stop if the video is over
+            if current_time > self.resources["firework"].duration:
+                playing = False
+
+        # Close the video clip and Pygame
+        self.resources["firework"].close()

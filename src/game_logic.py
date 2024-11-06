@@ -42,7 +42,6 @@ class GameLogic:
         self.score = 0
         self.holes = []
         self.draw_game = True
-        self.draw_score = False
         logging.info("Game reset complete.")
 
     def restart_game(self):
@@ -54,7 +53,6 @@ class GameLogic:
             self.current_player.activate()
         self.game_ended = False
         self.draw_game = True
-        self.draw_score = False
         logging.info("Game restarted.")
 
     def setup_game(self, display):
@@ -225,7 +223,7 @@ class GameLogic:
 
             if hole.type == "bottle":
                 display.animation_bottle()
-                self.draw_score = True
+                self.draw_game = True
             elif hole.type == "little_frog":
                 display.animation_little_frog()
                 self.draw_game = True
@@ -233,7 +231,7 @@ class GameLogic:
                 points = display.animation_large_frog()
                 self.draw_game = True
             else:
-                self.draw_score = True
+                self.draw_game = True
             self.current_player.goal(points, self.score)
             next_rank = self.find_next_available_rank()
             if self.team_mode == TEAM_MODE_SOLO:

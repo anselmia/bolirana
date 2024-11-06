@@ -127,9 +127,6 @@ class Game:
             if self.gamelogic.draw_game:
                 self.update_game_display()
                 self.gamelogic.draw_game = False
-            if self.gamelogic.draw_score:
-                self.draw_score()
-                self.gamelogic.draw_score = False
 
             pygame.time.Clock().tick(FPS)
 
@@ -161,21 +158,6 @@ class Game:
             self.gamelogic.game_mode,
             self.gamelogic.team_mode,
             num_active_players,
-        )
-
-    def draw_score(self):
-        self.display.draw_score(
-            self.gamelogic.players,
-            self.gamelogic.current_player,
-            self.gamelogic.holes,
-            self.gamelogic.score,
-            self.gamelogic.game_mode,
-            self.gamelogic.team_mode,
-            (
-                len(self.gamelogic.players)
-                if self.gamelogic.team_mode == TEAM_MODE_SOLO
-                else self.gamelogic.players_per_team
-            ),
         )
 
     def cleanup(self):
