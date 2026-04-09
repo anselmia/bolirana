@@ -24,9 +24,11 @@ from src.game_logic import GameLogic
 
 class Game:
     def __init__(self, debug=False, keyboard_mode=False):
-        # Pre-init mixer before pygame.init() for deterministic low-latency audio
+        # Initialize only required subsystems — pygame.init() scans joysticks
+        # and takes 20-25 seconds on Raspberry Pi when no joystick is connected.
+        pygame.display.init()
+        pygame.font.init()
         pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=512)
-        pygame.init()
         pygame.mixer.init()
         pygame.display.set_caption("Bolirana Game")
         logging.info("Initializing game components...")

@@ -22,17 +22,12 @@ class Display:
 
         self.screen_width = self.screen.get_width()
         self.screen_height = self.screen.get_height()
+
+        # Show a loading splash immediately so the screen isn't black while assets load
+        self._show_loading_screen()
         font_dir = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
         font_path = os.path.join(font_dir, "AntonSC-Regular.ttf")
         title_font_path = os.path.join(font_dir, "GaMaamli-Regular.ttf")
-        self.font_title = pygame.font.Font(title_font_path, 68)
-        self.font_title_small = pygame.font.Font(title_font_path, 54)
-        self.font_large = pygame.font.Font(font_path, 50)
-        self.font_medium = pygame.font.Font(font_path, 30)
-        self.font_small = pygame.font.Font(font_path, 25)
-        self.font_verysmall = pygame.font.Font(font_path, 20)
-        self.font_micro = pygame.font.Font(font_path, 17)
-        self.font_tiny = pygame.font.Font(font_path, 15)
         if self.screen_height >= 900:
             self.font_title = pygame.font.Font(title_font_path, 78)
             self.font_title_small = pygame.font.Font(title_font_path, 60)
@@ -42,6 +37,15 @@ class Display:
             self.font_verysmall = pygame.font.Font(font_path, 22)
             self.font_micro = pygame.font.Font(font_path, 19)
             self.font_tiny = pygame.font.Font(font_path, 17)
+        else:
+            self.font_title = pygame.font.Font(title_font_path, 68)
+            self.font_title_small = pygame.font.Font(title_font_path, 54)
+            self.font_large = pygame.font.Font(font_path, 50)
+            self.font_medium = pygame.font.Font(font_path, 30)
+            self.font_small = pygame.font.Font(font_path, 25)
+            self.font_verysmall = pygame.font.Font(font_path, 20)
+            self.font_micro = pygame.font.Font(font_path, 17)
+            self.font_tiny = pygame.font.Font(font_path, 15)
         self.half_width = self.screen_width // 2
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
@@ -147,6 +151,13 @@ class Display:
         if surface.get_alpha() is not None:
             return surface.convert_alpha()
         return surface.convert()
+
+    def _show_loading_screen(self):
+        self.screen.fill((10, 10, 10))
+        font = pygame.font.SysFont(None, max(32, self.screen_height // 20))
+        text = font.render("Chargement...", True, (200, 200, 200))
+        self.screen.blit(text, text.get_rect(center=(self.screen_width // 2, self.screen_height // 2)))
+        pygame.display.flip()
 
     def load_background(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
