@@ -29,6 +29,7 @@ class Player:
         self.successful_shots = 0
         self.best_turn = 0
         self.max_combo = 0
+        self.sequence_progress = 0
 
     def activate(self):
         self.is_active = True

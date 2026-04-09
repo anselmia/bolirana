@@ -113,6 +113,30 @@ TEAM_MODE_DUO = "DUO"
 TEAM_MODE_TEAM = "TEAM"
 CHALLENGE_CLASSIC = "CLASSIQUE"
 CHALLENGE_ARCADE = "ARCADE"
+CHALLENGE_ORDER = "ORDRE"
+CHALLENGE_TIME_ATTACK = "CHRONO"
+
+ORDER_TARGET_SEQUENCE = [
+    ("side", "20", "20"),
+    ("side", "25", "25"),
+    ("side", "40", "40"),
+    ("side", "50", "50"),
+    ("side", "100", "100"),
+    ("bottle", "150", "150"),
+    ("little_frog", "200", "Petite roulette"),
+    ("large_frog", "ROUL", "Grande roulette"),
+    ("little_frog", "200", "Petite roulette"),
+    ("bottle", "150", "150"),
+    ("side", "100", "100"),
+    ("side", "50", "50"),
+    ("side", "40", "40"),
+    ("side", "25", "25"),
+    ("side", "20", "20"),
+]
+
+DEFAULT_TIME_ATTACK_SECONDS = 20
+DEFAULT_TIME_ATTACK_TURNS = 6
+LOW_TIME_WARNING_SECONDS = 5
 
 ON = "ON"
 OFF = "OFF"

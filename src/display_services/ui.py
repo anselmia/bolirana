@@ -243,6 +243,147 @@ class DisplayUIService:
 
         self.display.screen.blit(overlay, (0, 0))
 
+    def draw_low_time_warning(self, challenge_state):
+        if not challenge_state or not challenge_state.get("low_time"):
+            return
+        remaining = max(0.0, challenge_state.get("remaining_seconds", 0.0))
+        urgency = 1.0 - min(1.0, remaining / max(challenge_state["turn_duration"], 1))
+        pulse = 0.5 + 0.5 * math.sin(time.monotonic() * 9.0)
+        overlay = pygame.Surface(
+            (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
+        )
+        alpha = int((24 + urgency * 50) * pulse)
+        pygame.draw.rect(
+            overlay,
+            (255, 70, 70, alpha),
+            overlay.get_rect(),
+            width=16,
+            border_radius=22,
+        )
+        self.display.screen.blit(overlay, (0, 0))
+
+    def draw_challenge_panel(self, challenge_state):
+        if not challenge_state:
+            return
+
+        if challenge_state["type"] == "order":
+            panel_rect = pygame.Rect(
+                self.display.screen_width // 2 - 280,
+                self.display.screen_height - 166,
+                560,
+                88,
+            )
+            panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                panel_surface,
+                (8, 24, 46, 208),
+                panel_surface.get_rect(),
+                border_radius=22,
+            )
+            self.display.screen.blit(panel_surface, panel_rect.topleft)
+            self.draw_chrome_rect(panel_rect, CHROME_COLORS, 22, 4)
+
+            title = self.display.font_small.render(
+                f"Ordre : {challenge_state['progress']}/{challenge_state['total']}",
+                True,
+                YELLOW,
+            )
+            self.display.screen.blit(title, (panel_rect.left + 18, panel_rect.top + 10))
+
+            visible_labels = challenge_state["sequence_labels"]
+            step_width = 48
+            gap = 6
+            start_x = panel_rect.left + 18
+            start_y = panel_rect.top + 42
+            for index, label in enumerate(visible_labels):
+                step_rect = pygame.Rect(
+                    start_x + index * (step_width + gap),
+                    start_y,
+                    step_width,
+                    28,
+                )
+                if index < challenge_state["progress"]:
+                    fill_color = (78, 176, 102)
+                elif index == challenge_state["progress"]:
+                    fill_color = (255, 206, 84)
+                else:
+                    fill_color = (54, 72, 98)
+                pygame.draw.rect(
+                    self.display.screen,
+                    fill_color,
+                    step_rect,
+                    border_radius=10,
+                )
+                pygame.draw.rect(
+                    self.display.screen,
+                    WHITE,
+                    step_rect,
+                    width=2,
+                    border_radius=10,
+                )
+                short_label = label[:6]
+                text_surface = self.display.font_verysmall.render(
+                    short_label,
+                    True,
+                    BLACK if index <= challenge_state["progress"] else WHITE,
+                )
+                self.display.screen.blit(
+                    text_surface,
+                    text_surface.get_rect(center=step_rect.center),
+                )
+        elif challenge_state["type"] == "time_attack":
+            remaining = max(0.0, challenge_state.get("remaining_seconds", 0.0))
+            low_time = challenge_state.get("low_time", False)
+            pulse = 0.5 + 0.5 * math.sin(time.monotonic() * (9.0 if low_time else 4.0))
+            panel_rect = pygame.Rect(
+                self.display.screen_width // 2 - 140,
+                20,
+                280,
+                92,
+            )
+            panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+            panel_color = (84, 12, 12, 214) if low_time else (6, 26, 56, 214)
+            pygame.draw.rect(
+                panel_surface,
+                panel_color,
+                panel_surface.get_rect(),
+                border_radius=22,
+            )
+            self.display.screen.blit(panel_surface, panel_rect.topleft)
+            self.draw_chrome_rect(
+                panel_rect,
+                (
+                    CHROME_COLORS
+                    if not low_time
+                    else [(255, 180, 180), (255, 90, 90), WHITE]
+                ),
+                22,
+                4,
+            )
+            seconds_text = self.display.font_large.render(
+                f"{remaining:04.1f}s",
+                True,
+                WHITE if not low_time else (255, 244, 214),
+            )
+            self.display.screen.blit(
+                seconds_text,
+                seconds_text.get_rect(
+                    center=(
+                        panel_rect.centerx,
+                        panel_rect.centery - 10 + pulse * (3 if low_time else 1),
+                    )
+                ),
+            )
+            details = self.display.font_small.render(
+                f"Tours restants : {challenge_state['turns_left']}",
+                True,
+                YELLOW,
+            )
+            self.display.screen.blit(
+                details,
+                details.get_rect(center=(panel_rect.centerx, panel_rect.bottom - 20)),
+            )
+
     def draw_chrome_rect(self, rect, colors, border_radius, width):
         x, y, rect_width, rect_height = rect
         for index in range(width):
@@ -406,6 +547,7 @@ class DisplayUIService:
         leader_progress=0,
         challenge_mode="CLASSIQUE",
         status_text="",
+        challenge_state=None,
     ):
         if current_player is None:
             return
@@ -421,13 +563,16 @@ class DisplayUIService:
             current_progress,
             leader_progress,
             challenge_mode,
+            challenge_state,
         )
         self.display_grouped_players(players, team_mode, player_in_team)
+        self.draw_challenge_panel(challenge_state)
+        self.draw_low_time_warning(challenge_state)
         if status_text:
             self.draw_status_banner(status_text)
         pygame.display.flip()
 
-    def draw_holes(self, holes):
+    def draw_holes(self, holes, challenge_state=None):
         phase = time.monotonic()
         holes_area_rect = (
             2 * self.display.frame_space_x + self.display.frame_score_width,
@@ -441,6 +586,20 @@ class DisplayUIService:
         for hole in holes:
             x1, y1 = hole.position[0], hole.position[1]
             self.draw_special_hole_accent(hole, (int(x1), int(y1)), phase)
+            is_target = (
+                challenge_state
+                and challenge_state.get("type") == "order"
+                and challenge_state.get("target_hole_type") == hole.type
+                and challenge_state.get("target_hole_text") == hole.text
+            )
+            if is_target:
+                self.draw_glow_ring(
+                    (int(x1), int(y1)),
+                    HOLE_RADIUS + 22,
+                    (255, 226, 110),
+                    width=5,
+                    alpha=130,
+                )
             self.display.screen.blit(
                 self.display.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS)
             )
@@ -456,6 +615,14 @@ class DisplayUIService:
             if hole.type in {"side", "bottle"}:
                 x2, y2 = hole.position2[0], hole.position2[1]
                 self.draw_special_hole_accent(hole, (int(x2), int(y2)), phase + 0.6)
+                if is_target:
+                    self.draw_glow_ring(
+                        (int(x2), int(y2)),
+                        HOLE_RADIUS + 22,
+                        (255, 226, 110),
+                        width=5,
+                        alpha=130,
+                    )
                 self.display.screen.blit(
                     self.display.resources["hole"],
                     (x2 - HOLE_RADIUS, y2 - HOLE_RADIUS),
@@ -473,6 +640,7 @@ class DisplayUIService:
         current_progress,
         leader_progress,
         challenge_mode,
+        challenge_state=None,
     ):
         phase = time.monotonic()
         current_player_rect = (
@@ -502,8 +670,19 @@ class DisplayUIService:
         else:
             score_label = "Score"
 
-        current_player_score = f"{score_label} : {current_progress}"
-        remaining_points_text = f"Points Restants : {max(score - current_progress, 0)}"
+        if challenge_state and challenge_state.get("type") == "order":
+            current_player_score = (
+                f"Étape : {challenge_state['progress']}/{challenge_state['total']}"
+            )
+            remaining_points_text = f"Prochaine : {challenge_state['next_target']}"
+        elif challenge_state and challenge_state.get("type") == "time_attack":
+            current_player_score = f"{score_label} : {current_progress}"
+            remaining_points_text = f"Tours restants : {challenge_state['turns_left']}"
+        else:
+            current_player_score = f"{score_label} : {current_progress}"
+            remaining_points_text = (
+                f"Points Restants : {max(score - current_progress, 0)}"
+            )
 
         score_surface = self.display.font_medium.render(
             current_player_score, True, DARK_ORANGE
@@ -577,7 +756,7 @@ class DisplayUIService:
             center=True,
         )
 
-        self.draw_holes(holes)
+        self.draw_holes(holes, challenge_state=challenge_state)
 
         progress_meter_rect = pygame.Rect(
             current_player_rect[0] + 18,

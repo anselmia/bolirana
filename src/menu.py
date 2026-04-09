@@ -6,6 +6,10 @@ from src.constants import (
     ACTION_RIGHT,
     CHALLENGE_ARCADE,
     CHALLENGE_CLASSIC,
+    CHALLENGE_ORDER,
+    CHALLENGE_TIME_ATTACK,
+    DEFAULT_TIME_ATTACK_SECONDS,
+    DEFAULT_TIME_ATTACK_TURNS,
     MODE_NORMAL,
     MODE_FROG,
     MODE_BOTTLE,
@@ -26,9 +30,13 @@ OPTION_NUM_PLAYERS = "Nombre de joueurs"
 OPTION_NUM_DUOS = "Nombre de Duo"
 OPTION_NUM_TEAMS = "Nombre d'équipes"
 OPTION_PLAYERS_PER_TEAM = "Joueurs / équipe"
+OPTION_TIME_ATTACK_SECONDS = "Chrono / tour"
+OPTION_TIME_ATTACK_TURNS = "Tours chrono"
 
 
 class Menu:
+    FROG_SOUND_MAXTIME_MS = 320
+
     def __init__(self):
         self.selected_option = 0
         self.values = {
@@ -41,6 +49,8 @@ class Menu:
             OPTION_NUM_DUOS: 2,
             OPTION_NUM_TEAMS: 2,
             OPTION_PLAYERS_PER_TEAM: 2,
+            OPTION_TIME_ATTACK_SECONDS: DEFAULT_TIME_ATTACK_SECONDS,
+            OPTION_TIME_ATTACK_TURNS: DEFAULT_TIME_ATTACK_TURNS,
         }
         self.options = []
         self.sync_options()
@@ -51,9 +61,13 @@ class Menu:
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
         return pygame.mixer.Sound(path)
 
+    def play_frog_sound(self):
+        self.frog_sound.stop()
+        self.frog_sound.play(maxtime=self.FROG_SOUND_MAXTIME_MS, fade_ms=20)
+
     def handle_button_press(self, button):
         option = self.options[self.selected_option]
-        self.frog_sound.play()
+        self.play_frog_sound()
         if button == ACTION_NEXT:
             self.selected_option = (self.selected_option + 1) % len(self.options)
         elif button == ACTION_RIGHT:
@@ -72,17 +86,49 @@ class Menu:
                 OPTION_GAME_MODE,
                 values=[MODE_NORMAL, MODE_FROG, MODE_BOTTLE],
             ),
-            self.build_option(OPTION_SCORE, min=400, max=10000, step=200),
             self.build_option(OPTION_PENALTY, values=[OFF, ON]),
             self.build_option(
                 OPTION_CHALLENGE,
-                values=[CHALLENGE_CLASSIC, CHALLENGE_ARCADE],
-            ),
-            self.build_option(
-                OPTION_TEAM_MODE,
-                values=[TEAM_MODE_SOLO, TEAM_MODE_DUO, TEAM_MODE_TEAM],
+                values=[
+                    CHALLENGE_CLASSIC,
+                    CHALLENGE_ARCADE,
+                    CHALLENGE_ORDER,
+                    CHALLENGE_TIME_ATTACK,
+                ],
             ),
         ]
+
+        challenge_mode = self.values[OPTION_CHALLENGE]
+        if challenge_mode in {CHALLENGE_CLASSIC, CHALLENGE_ARCADE}:
+            self.options.append(
+                self.build_option(OPTION_SCORE, min=400, max=10000, step=200)
+            )
+        elif challenge_mode == CHALLENGE_TIME_ATTACK:
+            self.options.append(
+                self.build_option(
+                    OPTION_TIME_ATTACK_SECONDS,
+                    min=10,
+                    max=60,
+                    step=5,
+                )
+            )
+            self.options.append(
+                self.build_option(
+                    OPTION_TIME_ATTACK_TURNS,
+                    min=2,
+                    max=15,
+                    step=1,
+                )
+            )
+
+        self.options.extend(
+            [
+                self.build_option(
+                    OPTION_TEAM_MODE,
+                    values=[TEAM_MODE_SOLO, TEAM_MODE_DUO, TEAM_MODE_TEAM],
+                ),
+            ]
+        )
 
         team_mode = self.values[OPTION_TEAM_MODE]
         if team_mode == TEAM_MODE_SOLO:
@@ -117,6 +163,13 @@ class Menu:
         )
 
     def normalize_values(self, changed_option_name):
+        self.values[OPTION_TIME_ATTACK_SECONDS] = min(
+            60, max(10, self.values[OPTION_TIME_ATTACK_SECONDS])
+        )
+        self.values[OPTION_TIME_ATTACK_TURNS] = min(
+            15, max(2, self.values[OPTION_TIME_ATTACK_TURNS])
+        )
+
         team_mode = self.values[OPTION_TEAM_MODE]
         if team_mode == TEAM_MODE_SOLO:
             self.values[OPTION_NUM_PLAYERS] = min(
@@ -170,3 +223,9 @@ class Menu:
 
     def get_players_per_team(self):
         return int(self.values[OPTION_PLAYERS_PER_TEAM])
+
+    def get_time_attack_seconds(self):
+        return int(self.values[OPTION_TIME_ATTACK_SECONDS])
+
+    def get_time_attack_turns(self):
+        return int(self.values[OPTION_TIME_ATTACK_TURNS])

@@ -6,6 +6,8 @@ from src.constants import ACTION_NEXT
 
 
 class EndMenu:
+    FROG_SOUND_MAXTIME_MS = 320
+
     def __init__(self):
         logging.info("Initializing EndMenu...")
         self.selected_option = 0
@@ -29,8 +31,12 @@ class EndMenu:
             logging.error(f"Failed to load sound from {folder}/{filename}: {e}")
             raise
 
+    def play_frog_sound(self):
+        self.frog_sound.stop()
+        self.frog_sound.play(maxtime=self.FROG_SOUND_MAXTIME_MS, fade_ms=20)
+
     def handle_button_press(self, button):
-        self.frog_sound.play()
+        self.play_frog_sound()
         if button == ACTION_NEXT:
             self.selected_option = (self.selected_option + 1) % len(self.options)
 

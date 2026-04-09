@@ -5,10 +5,15 @@ from src.holes import Hole
 from src.constants import (
     CHALLENGE_ARCADE,
     CHALLENGE_CLASSIC,
+    CHALLENGE_ORDER,
+    CHALLENGE_TIME_ATTACK,
     COMBO_BONUS_CAP,
     COMBO_BONUS_STEP,
+    DEFAULT_TIME_ATTACK_SECONDS,
+    DEFAULT_TIME_ATTACK_TURNS,
     FINAL_RUSH_BONUS,
     FINAL_RUSH_THRESHOLD,
+    LOW_TIME_WARNING_SECONDS,
     PIN_H20,
     PIN_H25,
     PIN_H40,
@@ -25,6 +30,7 @@ from src.constants import (
     TEAM_MODE_TEAM,
     OFF,
     ON,
+    ORDER_TARGET_SEQUENCE,
     PRESSURE_BONUS,
     PRESSURE_GAP,
     PRESSURE_TRIGGER_POINTS,
@@ -54,6 +60,10 @@ class GameLogic:
         self.holes = []
         self.pin_to_hole = {}
         self.challenge_mode = CHALLENGE_CLASSIC
+        self.challenge_progress = {}
+        self.time_attack_seconds = DEFAULT_TIME_ATTACK_SECONDS
+        self.time_attack_turns = DEFAULT_TIME_ATTACK_TURNS
+        self.turn_started_at = 0.0
         self.status_message = ""
         self.status_message_until = 0.0
         self.draw_game = True
@@ -70,6 +80,8 @@ class GameLogic:
         self.draw_game = True
         self.status_message = ""
         self.status_message_until = 0.0
+        self.challenge_progress = {}
+        self.initialize_challenge_state()
         logging.info("Game restarted.")
 
     def setup_game(self, display):
@@ -84,6 +96,7 @@ class GameLogic:
         setup_method = setup_methods.get(self.game_mode, None)
         if setup_method:
             setup_method(display)
+            self.initialize_challenge_state()
             logging.info(f"Game mode '{self.game_mode}' setup complete.")
         else:
             logging.error(f"Unknown game mode: {self.game_mode}")
@@ -116,6 +129,152 @@ class GameLogic:
     def build_pin_lookup(self):
         self.pin_to_hole = {pin: hole for hole in self.holes for pin in hole.pin}
 
+    def is_order_challenge(self):
+        return self.challenge_mode == CHALLENGE_ORDER
+
+    def is_time_attack_challenge(self):
+        return self.challenge_mode == CHALLENGE_TIME_ATTACK
+
+    def get_group_key(self, player=None):
+        player = player or self.current_player
+        if player is None:
+            return None
+        if self.team_mode == TEAM_MODE_SOLO:
+            return f"player:{player.id}"
+        return f"team:{player.team}"
+
+    def get_players_for_group_key(self, group_key):
+        if group_key is None:
+            return []
+        if group_key.startswith("player:"):
+            player_id = int(group_key.split(":", 1)[1])
+            return [player for player in self.players if player.id == player_id]
+        team_id = int(group_key.split(":", 1)[1])
+        return [player for player in self.players if player.team == team_id]
+
+    def get_current_group(self):
+        if self.current_player is None:
+            return []
+        return self.get_players_for_group_key(self.get_group_key())
+
+    def initialize_challenge_state(self):
+        self.challenge_progress = {}
+        if self.is_order_challenge():
+            for player in self.players:
+                group_key = self.get_group_key(player)
+                if group_key not in self.challenge_progress:
+                    self.challenge_progress[group_key] = 0
+            for player in self.players:
+                player.score = 0
+                player.sequence_progress = 0
+            self.set_status_message(
+                f"Cible : {self.get_order_target_label(0)}", duration=3.0
+            )
+        elif self.is_time_attack_challenge():
+            self.start_turn_timer()
+            self.set_status_message(
+                f"Chrono {self.time_attack_seconds}s | {self.time_attack_turns} tours",
+                duration=3.0,
+            )
+
+    def start_turn_timer(self):
+        if not self.is_time_attack_challenge() or self.current_player is None:
+            return
+        self.turn_started_at = time.monotonic()
+
+    def get_turn_time_remaining(self):
+        if not self.is_time_attack_challenge() or self.current_player is None:
+            return None
+        elapsed = time.monotonic() - self.turn_started_at
+        return max(0.0, self.time_attack_seconds - elapsed)
+
+    def get_turns_left_for_player(self, player=None):
+        player = player or self.current_player
+        if player is None or not self.is_time_attack_challenge():
+            return None
+        return max(0, self.time_attack_turns - player.turns_played)
+
+    def get_order_target(self, progress=None, player=None):
+        if progress is None:
+            group_key = self.get_group_key(player)
+            progress = self.challenge_progress.get(group_key, 0)
+        if 0 <= progress < len(ORDER_TARGET_SEQUENCE):
+            return ORDER_TARGET_SEQUENCE[progress]
+        return None
+
+    def get_order_target_label(self, progress=None, player=None):
+        target = self.get_order_target(progress=progress, player=player)
+        if target is None:
+            return "Terminé"
+        return target[2]
+
+    def sync_order_progress(self, group_key, progress):
+        self.challenge_progress[group_key] = progress
+        for player in self.get_players_for_group_key(group_key):
+            player.score = progress
+            player.sequence_progress = progress
+
+    def register_order_hit(self):
+        if self.current_player is None:
+            return
+        self.current_player.turn_score += 1
+        self.current_player.turn_hits += 1
+        self.current_player.successful_shots += 1
+        self.current_player.max_combo = max(
+            self.current_player.max_combo, self.current_player.turn_hits
+        )
+        self.current_player.best_turn = max(
+            self.current_player.best_turn, self.current_player.turn_score
+        )
+
+    def get_display_target_score(self):
+        if self.is_order_challenge():
+            return len(ORDER_TARGET_SEQUENCE)
+        if self.is_time_attack_challenge():
+            return max(
+                self.score,
+                self.get_leader_progress_score(),
+                self.get_current_progress_score(),
+                1,
+            )
+        return self.score
+
+    def get_challenge_state(self):
+        if self.is_order_challenge():
+            progress = self.challenge_progress.get(self.get_group_key(), 0)
+            labels = [target[2] for target in ORDER_TARGET_SEQUENCE]
+            target = self.get_order_target(progress=progress)
+            return {
+                "type": "order",
+                "progress": progress,
+                "total": len(ORDER_TARGET_SEQUENCE),
+                "next_target": self.get_order_target_label(progress=progress),
+                "sequence_labels": labels,
+                "target_hole_type": None if target is None else target[0],
+                "target_hole_text": None if target is None else target[1],
+            }
+        if self.is_time_attack_challenge():
+            remaining = self.get_turn_time_remaining()
+            return {
+                "type": "time_attack",
+                "remaining_seconds": remaining,
+                "turn_duration": self.time_attack_seconds,
+                "turns_left": self.get_turns_left_for_player(),
+                "max_turns": self.time_attack_turns,
+                "low_time": remaining is not None
+                and remaining <= LOW_TIME_WARNING_SECONDS,
+            }
+        return None
+
+    def update_challenge_runtime(self, display):
+        if not self.is_time_attack_challenge() or self.game_ended:
+            return
+        self.draw_game = True
+        remaining = self.get_turn_time_remaining()
+        if remaining is not None and remaining <= 0:
+            self.set_status_message("Temps écoulé !", duration=1.2)
+            self.next_player(display)
+
     def setup_players(self):
         player_id = 1
         if self.team_mode == TEAM_MODE_SOLO:
@@ -139,21 +298,16 @@ class GameLogic:
             return self.status_message
         return ""
 
-    def get_current_group(self):
-        if self.current_player is None:
-            return []
-        if self.team_mode == TEAM_MODE_SOLO:
-            return [self.current_player]
-        return [
-            player for player in self.players if player.team == self.current_player.team
-        ]
-
     def get_current_progress_score(self):
+        if self.is_order_challenge():
+            return self.challenge_progress.get(self.get_group_key(), 0)
         return sum(player.score for player in self.get_current_group())
 
     def get_leader_progress_score(self):
         if not self.players:
             return 0
+        if self.is_order_challenge():
+            return max(self.challenge_progress.values(), default=0)
         if self.team_mode == TEAM_MODE_SOLO:
             return max(player.score for player in self.players)
 
@@ -227,6 +381,12 @@ class GameLogic:
         ]
 
     def check_game_end(self, display):
+        if self.is_time_attack_challenge():
+            if all(
+                player.turns_played >= self.time_attack_turns for player in self.players
+            ):
+                self.finalize_time_attack_game()
+            return
         if self.team_mode == TEAM_MODE_SOLO:
             self.handle_seul_mode(display)
         elif self.team_mode == TEAM_MODE_DUO:
@@ -293,6 +453,165 @@ class GameLogic:
         next_rank = max(used_ranks, default=0) + 1
         return next_rank
 
+    def finalize_time_attack_game(self):
+        if self.game_ended:
+            return
+
+        if self.team_mode == TEAM_MODE_SOLO:
+            ranked_players = sorted(
+                self.players,
+                key=lambda player: (-player.score, -player.best_turn, player.id),
+            )
+            for rank, player in enumerate(ranked_players, start=1):
+                player.rank = rank
+                player.won = True
+        else:
+            ranked_groups = sorted(
+                self.group_players_by_duo_or_team(self.team_mode == TEAM_MODE_TEAM),
+                key=lambda group: (
+                    -sum(player.score for player in group),
+                    -max(player.best_turn for player in group),
+                    group[0].team,
+                ),
+            )
+            for rank, group in enumerate(ranked_groups, start=1):
+                for player in group:
+                    player.rank = rank
+                    player.won = True
+
+        self.game_ended = True
+        self.draw_game = True
+        self.set_status_message("Fin du chrono !", duration=2.0)
+
+    def activate_next_time_attack_player(self):
+        if self.current_player is None:
+            return
+
+        finished_player = self.current_player
+        finished_player.finish_turn()
+        finished_player.deactivate()
+
+        eligible_players = sorted(
+            [
+                player
+                for player in self.players
+                if player.turns_played < self.time_attack_turns
+            ],
+            key=lambda player: player.order,
+        )
+        if not eligible_players:
+            self.finalize_time_attack_game()
+            return
+
+        self.current_player = next(
+            (
+                player
+                for player in eligible_players
+                if player.order > finished_player.order
+            ),
+            eligible_players[0],
+        )
+        self.current_player.activate()
+        self.start_turn_timer()
+        self.set_status_message(
+            f"{self.current_player} | {self.get_turns_left_for_player()} tours restants",
+            duration=1.6,
+        )
+
+    def run_hole_animation(self, hole, pin, display):
+        points = hole.value
+        display.draw_goal_animation(hole, pin)
+
+        if hole.type == "bottle":
+            display.animation_bottle()
+        elif hole.type == "little_frog":
+            display.animation_little_frog()
+        elif hole.type == "large_frog":
+            points = display.animation_large_frog()
+
+        self.draw_game = True
+        return points
+
+    def resolve_sequence_win(self, display, group_key):
+        winning_group = self.get_players_for_group_key(group_key)
+        next_rank = self.find_next_available_rank()
+        for player in winning_group:
+            player.won = True
+            player.rank = next_rank
+
+        if self.team_mode == TEAM_MODE_SOLO:
+            display.draw_player_win(str(winning_group[0]))
+        elif self.team_mode == TEAM_MODE_DUO:
+            display.draw_player_win(f"Duo {winning_group[0].team}")
+        else:
+            display.draw_player_win(f"Team {winning_group[0].team}")
+
+        self.next_player(display)
+        if self.team_mode != TEAM_MODE_SOLO:
+            self.adjust_player_order_after_win()
+
+    def handle_order_goal(self, hole, pin, display):
+        group_key = self.get_group_key()
+        progress = self.challenge_progress.get(group_key, 0)
+        target = self.get_order_target(progress=progress)
+        if target is None:
+            self.set_status_message("Séquence terminée !", duration=1.5)
+            return
+
+        expected_type, expected_text, expected_label = target
+        if hole.type != expected_type or hole.text != expected_text:
+            self.set_status_message(f"Cible actuelle : {expected_label}", duration=1.7)
+            self.draw_game = True
+            return
+
+        self.run_hole_animation(hole, pin, display)
+        self.register_order_hit()
+        progress += 1
+        self.sync_order_progress(group_key, progress)
+
+        if progress >= len(ORDER_TARGET_SEQUENCE):
+            self.set_status_message("Séquence complète !", duration=2.0)
+            self.resolve_sequence_win(display, group_key)
+            return
+
+        self.set_status_message(
+            f"Validé : {expected_label} | Prochaine cible : {self.get_order_target_label(progress=progress)}",
+            duration=2.2,
+        )
+
+    def apply_points_to_current_player(self, points, win_threshold):
+        if self.current_player is None:
+            return
+        self.current_player.goal(points, win_threshold)
+
+    def handle_standard_goal_result(self, display, points, status_message):
+        if self.current_player is None:
+            return
+        self.set_status_message(status_message)
+
+        next_rank = self.find_next_available_rank()
+        if self.team_mode == TEAM_MODE_SOLO:
+            if self.current_player.won:
+                self.current_player.rank = next_rank
+                display.draw_player_win(str(self.current_player))
+                self.next_player(display)
+                self.draw_game = True
+            return
+
+        group = self.get_current_group()
+        if sum(player.score for player in group) >= self.score:
+            for player in group:
+                player.won = True
+                player.rank = next_rank
+            if self.team_mode == TEAM_MODE_DUO:
+                display.draw_player_win(f"Duo {self.current_player.team}")
+            else:
+                display.draw_player_win(f"Team {self.current_player.team}")
+
+            self.next_player(display)
+            self.adjust_player_order_after_win()
+            self.draw_game = True
+
     def next_player(self, display):
         if self.current_player is None:
             return
@@ -303,9 +622,12 @@ class GameLogic:
             self.current_player.score -= points
             self.set_status_message(f"Pénalité -{points}")
 
-        self.current_player = Player.activate_next_player(
-            self.current_player, self.players
-        )
+        if self.is_time_attack_challenge():
+            self.activate_next_time_attack_player()
+        else:
+            self.current_player = Player.activate_next_player(
+                self.current_player, self.players
+            )
         self.draw_game = True
 
     def goal(self, pin, display):
@@ -314,20 +636,11 @@ class GameLogic:
 
         hole = self.pin_to_hole.get(pin)
         if hole is not None:
-            points = hole.value
-            display.draw_goal_animation(hole, pin)
+            if self.is_order_challenge():
+                self.handle_order_goal(hole, pin, display)
+                return
 
-            if hole.type == "bottle":
-                display.animation_bottle()
-                self.draw_game = True
-            elif hole.type == "little_frog":
-                display.animation_little_frog()
-                self.draw_game = True
-            elif hole.type == "large_frog":
-                points = display.animation_large_frog()
-                self.draw_game = True
-            else:
-                self.draw_game = True
+            points = self.run_hole_animation(hole, pin, display)
 
             bonus_points = 0
             bonus_messages = []
@@ -339,38 +652,20 @@ class GameLogic:
                 )
                 points += bonus_points
 
-            self.current_player.goal(points, self.score)
+            win_threshold = (
+                float("inf") if self.is_time_attack_challenge() else self.score
+            )
+            self.apply_points_to_current_player(points, win_threshold)
             if bonus_messages:
-                self.set_status_message(" | ".join(bonus_messages))
+                status_message = " | ".join(bonus_messages)
             else:
-                self.set_status_message(f"{self.current_player} +{points}")
+                status_message = f"{self.current_player} +{points}"
 
-            next_rank = self.find_next_available_rank()
-            if self.team_mode == TEAM_MODE_SOLO:
-                if self.current_player.won:
-                    self.current_player.rank = next_rank
-                    display.draw_player_win(str(self.current_player))
-                    self.next_player(display)
-                    self.draw_game = True
-            else:
-                group = [
-                    player
-                    for player in self.players
-                    if player.team == self.current_player.team
-                ]
+            if self.is_time_attack_challenge():
+                status_message = f"{self.current_player} +{points} | {self.get_turns_left_for_player()} tours"
+                self.set_status_message(status_message)
+                return
 
-                if sum(player.score for player in group) >= self.score:
-                    for player in group:
-                        player.won = True
-                        player.rank = next_rank
-                    next_rank = self.find_next_available_rank()
-                    if self.team_mode == TEAM_MODE_DUO:
-                        display.draw_player_win(f"Duo {self.current_player.team}")
-                    else:
-                        display.draw_player_win(f"Team {self.current_player.team}")
-
-                    self.next_player(display)
-                    self.adjust_player_order_after_win()
-                    self.draw_game = True
+            self.handle_standard_goal_result(display, points, status_message)
         else:
             logging.warning(f"No matching hole found for pin {pin}.")

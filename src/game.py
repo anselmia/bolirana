@@ -146,6 +146,8 @@ class Game:
         self.gamelogic.players_per_team = self.menu.get_players_per_team()
         self.gamelogic.penalty = self.menu.get_penalty()
         self.gamelogic.challenge_mode = self.menu.get_challenge_mode()
+        self.gamelogic.time_attack_seconds = self.menu.get_time_attack_seconds()
+        self.gamelogic.time_attack_turns = self.menu.get_time_attack_turns()
         self.gamelogic.setup_game(self.display)
         logging.info("Game setup complete.")
 
@@ -168,6 +170,7 @@ class Game:
                 if not self.running:
                     return "quit"
 
+                self.gamelogic.update_challenge_runtime(self.display)
                 self.gamelogic.check_game_end(self.display)
                 if self.gamelogic.draw_game:
                     self.update_game_display()
@@ -216,7 +219,7 @@ class Game:
             self.gamelogic.players,
             self.gamelogic.current_player,
             self.gamelogic.holes,
-            self.gamelogic.score,
+            self.gamelogic.get_display_target_score(),
             self.gamelogic.game_mode,
             self.gamelogic.team_mode,
             num_active_players,
@@ -224,6 +227,7 @@ class Game:
             self.gamelogic.get_leader_progress_score(),
             self.gamelogic.challenge_mode,
             self.gamelogic.get_status_message(),
+            challenge_state=self.gamelogic.get_challenge_state(),
         )
 
     def cleanup(self):
