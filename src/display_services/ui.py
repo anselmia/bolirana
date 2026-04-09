@@ -761,6 +761,14 @@ class DisplayUIService:
             warning,
             warning.get_rect(center=(self.display.screen_width // 2, 138 + pulse * 6)),
         )
+        badge_rect = pygame.Rect(self.display.screen_width // 2 - 70, 158, 140, 24)
+        self.draw_badge(
+            "SIRENE ACTIVE",
+            badge_rect,
+            (255, 90, 90, 220),
+            text_color=WHITE,
+            border_color=(255, 244, 214, 90),
+        )
 
     def draw_challenge_panel(self, challenge_state):
         if not challenge_state:
@@ -991,6 +999,14 @@ class DisplayUIService:
                 text_color=BLACK,
                 border_color=(255, 255, 255, 90),
             )
+            if low_time and not awaiting_start:
+                self.draw_badge(
+                    "ALERTE",
+                    (panel_rect.right - 94, panel_rect.top - 12, 76, 22),
+                    (255, 90, 90, 220),
+                    text_color=WHITE,
+                    border_color=(255, 244, 214, 90),
+                )
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
         x, y, rect_width, rect_height = rect
@@ -1279,6 +1295,7 @@ class DisplayUIService:
             return
 
         phase = time.monotonic()
+        self.display.update_time_warning_audio(challenge_state)
         self.display.screen.blit(self.display.resources["game_background"], (0, 0))
         self.draw_vertical_gradient((6, 14, 22), (8, 28, 46), alpha=86)
         self.draw_spotlight_canopy(phase, intensity=0.62, tint=(255, 220, 148))

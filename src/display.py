@@ -57,6 +57,8 @@ class Display:
         self.hole_space = self.hole_rect_height / 30
         self.clock = pygame.time.Clock()
         self.resources = {}
+        self.time_warning_channel = None
+        self.time_warning_next_allowed = 0.0
         self.load_ressources()
         self.ui = DisplayUIService(self)
         self.effects = DisplayEffectsService(self)
@@ -104,6 +106,7 @@ class Display:
             self.resources["frog_sound"] = self.load_sound("sounds", "frog.mp3")
             self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
             self.resources["coin_sound"] = self.create_coin_sound()
+            self.resources["warning_siren"] = self.create_warning_siren_sound()
             self.resources["roulette_sound"] = self.load_sound("sounds", "roulette.mp3")
             self.resources["roulette_end_sound"] = self.load_sound(
                 "sounds", "roulette_end.mp3"
@@ -112,6 +115,9 @@ class Display:
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )
+            channel_count = pygame.mixer.get_num_channels()
+            if channel_count > 0:
+                self.time_warning_channel = pygame.mixer.Channel(channel_count - 1)
         except Exception as error:
             logging.error(f"Failed to load resources: {error}")
             self.display_error_message("Failed to load resources. Exiting...")
@@ -183,6 +189,71 @@ class Display:
                 samples.append(sample_value)
 
         return pygame.mixer.Sound(buffer=samples.tobytes())
+
+    def create_warning_siren_sound(self):
+        mixer_config = pygame.mixer.get_init()
+        if mixer_config is None:
+            return None
+
+        sample_rate, _, channels = mixer_config
+        duration = 0.38
+        frame_count = int(sample_rate * duration)
+        amplitude = 0.24
+        samples = array("h")
+
+        for index in range(frame_count):
+            progress = index / max(1, frame_count - 1)
+            sweep = sin(progress * pi)
+            frequency = 620 + 240 * sweep
+            overtone = frequency * 1.52
+            envelope = 0.72 + 0.28 * sin(progress * pi)
+            envelope *= 1.0 - 0.18 * progress
+            timeline = index / sample_rate
+
+            tone = sin(2 * pi * frequency * timeline)
+            tone += 0.42 * sin(2 * pi * overtone * timeline)
+            tone += 0.12 * sin(2 * pi * (frequency * 0.5) * timeline)
+            sample_value = int(32767 * amplitude * envelope * tone / 1.54)
+            for _ in range(channels):
+                samples.append(sample_value)
+
+        return pygame.mixer.Sound(buffer=samples.tobytes())
+
+    def stop_time_warning_audio(self):
+        if (
+            self.time_warning_channel is not None
+            and self.time_warning_channel.get_busy()
+        ):
+            self.time_warning_channel.fadeout(90)
+        self.time_warning_next_allowed = 0.0
+
+    def update_time_warning_audio(self, challenge_state):
+        if (
+            challenge_state is None
+            or challenge_state.get("type") != "time_attack"
+            or challenge_state.get("awaiting_start")
+            or not challenge_state.get("low_time")
+        ):
+            self.stop_time_warning_audio()
+            return
+
+        warning_sound = self.resources.get("warning_siren")
+        if warning_sound is None or self.time_warning_channel is None:
+            return
+
+        now = time.monotonic()
+        remaining = max(0.0, float(challenge_state.get("remaining_seconds", 0.0)))
+        duration = max(1.0, float(challenge_state.get("turn_duration", 1.0)))
+        urgency = 1.0 - min(1.0, remaining / duration)
+        pulse_interval = 0.95 - 0.45 * urgency
+        volume = 0.28 + 0.32 * urgency
+
+        if self.time_warning_channel.get_busy() or now < self.time_warning_next_allowed:
+            return
+
+        self.time_warning_channel.set_volume(volume)
+        self.time_warning_channel.play(warning_sound, fade_ms=40)
+        self.time_warning_next_allowed = now + pulse_interval
 
     def display_error_message(self, message):
         self.screen.fill((0, 0, 0))
@@ -342,12 +413,15 @@ class Display:
         return self.ui.draw_text_with_outline(*args, **kwargs)
 
     def draw_menu(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.ui.draw_menu(*args, **kwargs)
 
     def draw_end_menu(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.ui.draw_end_menu(*args, **kwargs)
 
     def play_intro(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.ui.play_intro(*args, **kwargs)
 
     def draw_game(self, *args, **kwargs):
@@ -420,27 +494,35 @@ class Display:
         return self.effects.draw_frog_character(*args, **kwargs)
 
     def draw_goal_animation(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.draw_goal_animation(*args, **kwargs)
 
     def draw_penalty(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.draw_penalty(*args, **kwargs)
 
     def draw_player_win(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.draw_player_win(*args, **kwargs)
 
     def draw_win(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.draw_win(*args, **kwargs)
 
     def animation_bottle(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.animation_bottle(*args, **kwargs)
 
     def animation_little_frog(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.animation_little_frog(*args, **kwargs)
 
     def animation_roulette(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.animation_roulette(*args, **kwargs)
 
     def animation_large_frog(self, *args, **kwargs):
+        self.stop_time_warning_audio()
         return self.effects.animation_large_frog(*args, **kwargs)
 
     def run_fireworks(self, *args, **kwargs):

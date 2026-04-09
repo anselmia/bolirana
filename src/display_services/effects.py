@@ -1015,6 +1015,7 @@ class DisplayEffectsService:
         score_sound_maxtime = 140 if hole.type == "side" else 0
 
         def render(progress):
+            phase = time.monotonic()
             self.trigger_cue(
                 cues_triggered,
                 "cheer",
@@ -1028,6 +1029,25 @@ class DisplayEffectsService:
             flash = max(0.0, 1 - progress * 3.8)
             if flash > 0:
                 self.draw_overlay((255, 248, 220), int(70 * flash))
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.54, tint=(255, 230, 176)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=self.get_rgb(accent), alpha=18
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=self.get_rgb(accent),
+                secondary_color=(255, 230, 176),
+            )
+            left_badge = {
+                "side": "PRECISION",
+                "bottle": "BONUS",
+                "little_frog": "FROG SHOT",
+                "large_frog": "BOSS HIT",
+            }.get(hole.type, "SCORE")
+            right_badge = "ROULETTE" if hole.type == "large_frog" else label
+            self.display.ui.draw_scene_badges(left_badge, right_badge, phase)
             self.draw_cinematic_bars(
                 progress * 0.9, color=(4, 10, 20), max_height=44, reveal_portion=0.3
             )
@@ -1144,6 +1164,13 @@ class DisplayEffectsService:
                 center[0],
                 floating_y - int(6 * math.sin(progress * math.tau * 2.6)),
             )
+            self.display.ui.draw_panel_shadow(
+                badge_rect,
+                alpha=84,
+                inflate=16,
+                offset=(0, 10),
+                border_radius=18,
+            )
             badge_surface = pygame.Surface(badge_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 badge_surface,
@@ -1153,12 +1180,25 @@ class DisplayEffectsService:
             )
             pygame.draw.rect(
                 badge_surface,
+                (255, 255, 255, 14),
+                (10, 8, badge_rect.width - 20, 18),
+                border_radius=10,
+            )
+            pygame.draw.rect(
+                badge_surface,
                 (*self.get_rgb(accent), 110),
                 badge_surface.get_rect(),
                 border_radius=18,
                 width=3,
             )
             self.display.screen.blit(badge_surface, badge_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                badge_rect.inflate(-10, -8),
+                phase,
+                color=self.get_rgb(accent),
+                alpha=10,
+                step=42,
+            )
             label_rect = label_surface.get_rect(center=badge_rect.center)
             label_shadow = label_font.render(label, True, BLACK)
             label_shadow.set_alpha(min(180, label_alpha))
@@ -1178,6 +1218,37 @@ class DisplayEffectsService:
                 outline_color=WHITE,
                 wobble=8.0,
             )
+            footer_text = {
+                "side": "Point marque avec style.",
+                "bottle": "Bonus actif.",
+                "little_frog": "Petite grenouille validee.",
+                "large_frog": "Grande grenouille declenchee.",
+            }.get(hole.type, "Score valide.")
+            footer_rect = pygame.Rect(center[0] - 160, center[1] + 86, 320, 38)
+            self.display.ui.draw_panel_shadow(
+                footer_rect,
+                alpha=56,
+                inflate=12,
+                offset=(0, 8),
+                border_radius=16,
+            )
+            footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                footer_surface,
+                (8, 24, 44, 184),
+                footer_surface.get_rect(),
+                border_radius=16,
+            )
+            self.display.screen.blit(footer_surface, footer_rect.topleft)
+            self.display.ui.draw_chrome_rect(footer_rect, CHROME_COLORS, 16, 2)
+            self.display.ui.draw_text_with_shadow(
+                footer_text,
+                self.display.font_verysmall,
+                WHITE,
+                BLACK,
+                footer_rect.center,
+                center=True,
+            )
 
         self.animate_scene(GOAL_ANIMATION_DURATION, render, background=backdrop)
 
@@ -1188,6 +1259,7 @@ class DisplayEffectsService:
         cues_triggered = set()
 
         def render(progress):
+            phase = time.monotonic()
             self.trigger_cue(
                 cues_triggered,
                 "panic",
@@ -1199,6 +1271,18 @@ class DisplayEffectsService:
             )
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 5)
             self.draw_overlay((32, 0, 0), int(120 + 60 * pulse))
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.76, tint=(255, 170, 140)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.77, tint=(255, 98, 78), alpha=22
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(255, 210, 86),
+                secondary_color=(255, 120, 120),
+            )
+            self.display.ui.draw_scene_badges("ALERTE", "ROULETTE PUNITIVE", phase)
             self.draw_cinematic_bars(
                 progress, color=(0, 0, 0), max_height=56, reveal_portion=0.18
             )
@@ -1261,6 +1345,60 @@ class DisplayEffectsService:
                 )
                 pygame.draw.line(self.display.screen, RED, start, end, 5)
 
+            header_rect = pygame.Rect(center[0] - 248, 92, 496, 84)
+            self.display.ui.draw_panel_shadow(
+                header_rect,
+                alpha=108,
+                inflate=24,
+                offset=(0, 14),
+                border_radius=28,
+            )
+            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                header_surface,
+                (50, 8, 8, 220),
+                header_surface.get_rect(),
+                border_radius=28,
+            )
+            pygame.draw.rect(
+                header_surface,
+                (255, 255, 255, 14),
+                (12, 12, header_rect.width - 24, 28),
+                border_radius=18,
+            )
+            self.display.screen.blit(header_surface, header_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                header_rect.inflate(-16, -14),
+                phase,
+                color=(255, 214, 86),
+                alpha=11,
+                step=58,
+            )
+            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 24, 4)
+            self.display.ui.draw_badge(
+                "DANGER",
+                (header_rect.centerx - 52, header_rect.top - 12, 104, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "PENALITE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (header_rect.centerx, header_rect.top + 30),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Roulette punitive en approche",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (header_rect.centerx, header_rect.bottom - 20),
+                center=True,
+            )
+
             triangle = [
                 (center[0], center[1] - 120),
                 (center[0] - 108, center[1] + 86),
@@ -1298,20 +1436,36 @@ class DisplayEffectsService:
                 self.display.screen, BLACK, (center[0], center[1] + 48), 12
             )
             text_jitter = int(math.sin(progress * math.tau * 18) * 5 * (1 - progress))
-            self.display.ui.draw_text_with_shadow(
-                "PENALITE",
-                self.display.font_large,
-                WHITE,
-                BLACK,
-                (center[0] + text_jitter, center[1] - 180),
-                center=True,
+            warning_rect = pygame.Rect(center[0] - 220, center[1] + 126, 440, 50)
+            self.display.ui.draw_panel_shadow(
+                warning_rect,
+                alpha=86,
+                inflate=18,
+                offset=(0, 10),
+                border_radius=20,
+            )
+            warning_surface = pygame.Surface(warning_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                warning_surface,
+                (22, 4, 4, 210),
+                warning_surface.get_rect(),
+                border_radius=20,
+            )
+            self.display.screen.blit(warning_surface, warning_rect.topleft)
+            self.display.ui.draw_chrome_rect(warning_rect, CHROME_COLORS, 18, 3)
+            self.display.ui.draw_marquee_lights(
+                warning_rect,
+                phase + 0.4,
+                (255, 214, 86),
+                count=12,
+                radius=3,
             )
             self.display.ui.draw_text_with_shadow(
                 "Roulette punitive",
-                self.display.font_small,
+                self.display.font_medium,
                 YELLOW,
                 BLACK,
-                (center[0], center[1] + 150),
+                (center[0] + text_jitter, warning_rect.centery),
                 center=True,
             )
             self.draw_comic_caption(
@@ -1351,6 +1505,7 @@ class DisplayEffectsService:
         cues_triggered = set()
 
         def render(progress):
+            phase = time.monotonic()
             self.trigger_cue(
                 cues_triggered,
                 "victory-hit",
@@ -1361,15 +1516,27 @@ class DisplayEffectsService:
                 fade_ms=120,
             )
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 4)
-            frame_width = 520 + int(60 * self.ease_out_back(progress))
-            frame_rect = pygame.Rect(0, 0, frame_width, 170)
-            frame_rect.center = center
+            frame_width = 660 + int(70 * self.ease_out_back(progress))
+            frame_rect = pygame.Rect(0, 0, frame_width, 236)
+            frame_rect.center = (center[0], center[1] + 18)
 
-            self.draw_overlay((8, 18, 38), 150)
+            self.draw_overlay((6, 14, 32), 170)
             self.draw_party_ribbons(progress, alpha=36, speed=0.45)
             self.draw_star_field(
                 progress, density=26, color=(255, 244, 186), drift=18, alpha=130
             )
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.92, tint=(255, 228, 170)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.77, tint=(255, 214, 110), alpha=28
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(255, 220, 126),
+                secondary_color=(120, 214, 255),
+            )
+            self.display.ui.draw_scene_badges("MVP MOMENT", "SHOWTIME", phase)
             self.draw_aurora_ribbon(
                 progress,
                 (255, 220, 120),
@@ -1422,22 +1589,57 @@ class DisplayEffectsService:
                 pygame.draw.polygon(spotlight_surface, (255, 245, 180, 42), spotlight)
             self.display.screen.blit(spotlight_surface, (0, 0))
 
+            self.display.ui.draw_panel_shadow(
+                frame_rect,
+                alpha=116,
+                inflate=28,
+                offset=(0, 16),
+                border_radius=34,
+            )
             frame_surface = pygame.Surface(frame_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 frame_surface,
-                (18, 38, 76, 210),
+                (18, 38, 76, 222),
                 frame_surface.get_rect(),
-                border_radius=28,
+                border_radius=34,
+            )
+            pygame.draw.rect(
+                frame_surface,
+                (255, 255, 255, 18),
+                (14, 14, frame_rect.width - 28, 72),
+                border_radius=24,
+            )
+            pygame.draw.ellipse(
+                frame_surface,
+                (255, 255, 255, 14),
+                (frame_rect.width // 2 - 190, -36, 380, 110),
             )
             self.display.screen.blit(frame_surface, frame_rect.topleft)
-            self.display.ui.draw_chrome_rect(frame_rect, GOLD_COLORS, 24, 5)
+            self.display.ui.draw_panel_grid(
+                frame_rect.inflate(-24, -24),
+                phase,
+                color=(255, 214, 110),
+                alpha=11,
+                step=68,
+            )
+            self.display.ui.draw_chrome_rect(frame_rect, GOLD_COLORS, 28, 5)
+            self.display.ui.draw_marquee_lights(
+                frame_rect, phase, (255, 220, 126), count=22
+            )
+            self.display.ui.draw_badge(
+                "STAR PLAYER",
+                (frame_rect.centerx - 68, frame_rect.top - 14, 136, 26),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
 
             banner_offset = 28 + int(6 * pulse)
             left_image_rect = self.display.resources["winner_banner"].get_rect(
-                midright=(frame_rect.left - banner_offset, frame_rect.centery)
+                midright=(frame_rect.left - banner_offset, frame_rect.centery + 10)
             )
             right_image_rect = self.display.resources["winner_banner"].get_rect(
-                midleft=(frame_rect.right + banner_offset, frame_rect.centery)
+                midleft=(frame_rect.right + banner_offset, frame_rect.centery + 10)
             )
             self.display.screen.blit(
                 self.display.resources["winner_banner"], left_image_rect
@@ -1464,12 +1666,28 @@ class DisplayEffectsService:
                 twist=0.1,
             )
             self.display.ui.draw_text_with_shadow(
-                message,
-                self.display.font_large,
-                DARK_ORANGE,
+                "VICTOIRE",
+                self.display.font_medium,
+                YELLOW,
                 BLACK,
-                frame_rect.center,
+                (frame_rect.centerx, frame_rect.top + 34),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                message,
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (frame_rect.centerx, frame_rect.centery + 2),
                 shadow_offset=(3, 3),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Le public est debout pour ce finish.",
+                self.display.font_small,
+                WHITE,
+                BLACK,
+                (frame_rect.centerx, frame_rect.bottom - 34),
                 center=True,
             )
             self.draw_comic_caption(
@@ -1524,14 +1742,20 @@ class DisplayEffectsService:
         for group in sorted_groups:
             group.sort(key=lambda player: player.rank)
 
+        champion_group = sorted_groups[0] if sorted_groups else []
+        champion_score = sum(player.score for player in champion_group)
+        champion_label = (
+            message.replace("Bravo ", "") if message.startswith("Bravo ") else message
+        )
+
         group_color_map = {
             id(group): GROUP_COLORS[index % len(GROUP_COLORS)]
             for index, group in enumerate(sorted_groups)
         }
 
-        margin_top = 200
-        box_height = 40
-        gap_between_boxes = 20
+        margin_top = 280
+        box_height = 52
+        gap_between_boxes = 18
         total_height = (
             sum(len(group) for group in sorted_groups)
             * (box_height + gap_between_boxes)
@@ -1544,15 +1768,16 @@ class DisplayEffectsService:
         )
 
         if columns == 1:
-            start_x = self.display.screen_width / 4
-            box_width = self.display.screen.get_width() / 2
+            start_x = self.display.screen_width / 2 - 340
+            box_width = 680
             hor_gap = 0
         else:
-            start_x = self.display.screen_width / 6
-            box_width = self.display.screen.get_width() / 3 - 10
-            hor_gap = 20
+            start_x = self.display.screen_width / 2 - 720
+            box_width = 660
+            hor_gap = 34
 
         def render(progress):
+            phase = time.monotonic()
             self.trigger_cue(
                 cues_triggered,
                 "crowd-rise",
@@ -1571,7 +1796,23 @@ class DisplayEffectsService:
                 volume=0.5,
                 fade_ms=40,
             )
-            self.draw_overlay((4, 10, 30), 62)
+            self.draw_overlay((4, 10, 30), 88)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.88, tint=(255, 226, 164)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.78, tint=(255, 214, 110), alpha=26
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(255, 220, 126),
+                secondary_color=(120, 220, 255),
+            )
+            self.display.ui.draw_scene_badges(
+                "HALL OF FAME",
+                f"{len(players)} JOUEURS",
+                phase,
+            )
             self.draw_star_field(
                 0.35 + progress * 0.45,
                 density=34,
@@ -1593,67 +1834,74 @@ class DisplayEffectsService:
             self.draw_crowd_bounce(progress)
 
             title_progress = self.clamp(progress / 0.28)
-            title_y = self.lerp(-40, 74, self.ease_out_back(title_progress))
-            title_glow_y = self.lerp(
-                self.display.screen_height // 2, 110, title_progress
+            title_y = self.lerp(-60, 52, self.ease_out_back(title_progress))
+            title_rect = pygame.Rect(
+                self.display.screen_width // 2 - 350, int(title_y), 700, 112
             )
-
-            text_surface = self.display.font_large.render(message, True, DARK_ORANGE)
-            text_rect = text_surface.get_rect(
-                center=(self.display.screen.get_width() // 2, int(title_y))
+            self.display.ui.draw_panel_shadow(
+                title_rect,
+                alpha=118,
+                inflate=26,
+                offset=(0, 16),
+                border_radius=32,
             )
-            frame_rect = pygame.Rect(
-                text_rect.left - 20,
-                text_rect.top - 20,
-                text_rect.width + 40,
-                text_rect.height + 40,
+            title_surface = pygame.Surface(title_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                title_surface,
+                (10, 26, 54, 224),
+                title_surface.get_rect(),
+                border_radius=32,
             )
-            left_image_rect = self.display.resources["winner_banner"].get_rect(
-                midright=(frame_rect.left - 10, frame_rect.centery)
+            pygame.draw.rect(
+                title_surface,
+                (255, 255, 255, 16),
+                (14, 14, title_rect.width - 28, 56),
+                border_radius=22,
             )
-            right_image_rect = self.display.resources["winner_banner"].get_rect(
-                midleft=(frame_rect.right + 10, frame_rect.centery)
+            self.display.screen.blit(title_surface, title_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                title_rect.inflate(-22, -22),
+                phase,
+                color=(255, 214, 110),
+                alpha=10,
+                step=72,
             )
-
-            self.draw_glow_circle(
-                (frame_rect.centerx, int(title_glow_y)),
-                26,
-                YELLOW,
-                glow_radius=54,
-                alpha=120,
+            self.display.ui.draw_chrome_rect(title_rect, GOLD_COLORS, 28, 5)
+            self.display.ui.draw_marquee_lights(
+                title_rect, phase, (255, 220, 126), count=22
             )
-            self.draw_light_beam(
-                (frame_rect.centerx, self.display.screen_height // 2),
-                max(0.2, progress),
-                YELLOW,
-                width=320,
-                alpha=40,
+            self.display.ui.draw_badge(
+                "FINALE",
+                (title_rect.centerx - 58, title_rect.top - 14, 116, 26),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
             )
-            self.display.ui.draw_chrome_rect(frame_rect, GOLD_COLORS, 10, 5)
             self.display.ui.draw_text_with_shadow(
-                message,
-                self.display.font_large,
-                DARK_ORANGE,
+                "HALL OF FAME",
+                self.display.font_medium,
+                YELLOW,
                 BLACK,
-                frame_rect.center,
-                shadow_offset=(2, 2),
+                (title_rect.centerx, title_rect.top + 26),
                 center=True,
             )
-            self.display.screen.blit(
-                self.display.resources["winner_banner"], left_image_rect
-            )
-            self.display.screen.blit(
-                self.display.resources["winner_banner"], right_image_rect
+            self.display.ui.draw_text_with_shadow(
+                message,
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (title_rect.centerx, title_rect.top + 66),
+                center=True,
             )
             self.draw_comic_caption(
                 "CHAMPIONS!" if team_mode != TEAM_MODE_SOLO else "LEGENDE!",
-                (frame_rect.centerx + 170, frame_rect.top + 8),
+                (title_rect.centerx + 238, title_rect.top + 14),
                 min(1.0, progress * 1.1),
                 fill_color=(255, 232, 152),
                 wobble=8.0,
             )
             self.draw_sticker_burst(
-                frame_rect.midtop,
+                title_rect.midtop,
                 min(1.0, progress * 1.08),
                 [YELLOW, WHITE, (255, 196, 86)],
                 count=8,
@@ -1663,11 +1911,127 @@ class DisplayEffectsService:
             )
             self.draw_reaction_signs(progress, ["CHAMP!", "OLE!", "MAGIQUE!"])
 
+            summary_rect = pygame.Rect(
+                self.display.screen_width // 2 - 330, 178, 660, 76
+            )
+            self.display.ui.draw_panel_shadow(
+                summary_rect,
+                alpha=96,
+                inflate=22,
+                offset=(0, 12),
+                border_radius=26,
+            )
+            summary_surface = pygame.Surface(summary_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                summary_surface,
+                (10, 28, 56, 214),
+                summary_surface.get_rect(),
+                border_radius=26,
+            )
+            pygame.draw.rect(
+                summary_surface,
+                (255, 255, 255, 14),
+                (12, 12, summary_rect.width - 24, 30),
+                border_radius=18,
+            )
+            self.display.screen.blit(summary_surface, summary_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                summary_rect.inflate(-20, -18),
+                phase,
+                color=(120, 214, 255),
+                alpha=10,
+                step=64,
+            )
+            self.display.ui.draw_chrome_rect(summary_rect, CHROME_COLORS, 24, 4)
+            self.display.ui.draw_badge(
+                "CHAMPION",
+                (summary_rect.left + 20, summary_rect.top + 16, 120, 24),
+                (255, 214, 82, 220),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_badge(
+                f"{champion_score} pts",
+                (summary_rect.right - 136, summary_rect.top + 16, 116, 24),
+                (8, 24, 44, 214),
+                text_color=YELLOW,
+                border_color=(255, 214, 110, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                champion_label,
+                self.display.font_large,
+                WHITE,
+                BLACK,
+                (summary_rect.centerx, summary_rect.top + 48),
+                center=True,
+            )
+
+            hall_rect = pygame.Rect(
+                int(start_x - 26),
+                margin_top - 26,
+                int((box_width * columns) + (hor_gap * max(0, columns - 1)) + 52),
+                self.display.screen_height - margin_top - 76,
+            )
+            self.display.ui.draw_panel_shadow(
+                hall_rect,
+                alpha=94,
+                inflate=24,
+                offset=(0, 16),
+                border_radius=28,
+            )
+            hall_surface = pygame.Surface(hall_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                hall_surface,
+                (8, 22, 44, 176),
+                hall_surface.get_rect(),
+                border_radius=28,
+            )
+            pygame.draw.rect(
+                hall_surface,
+                (255, 255, 255, 12),
+                (16, 16, hall_rect.width - 32, 52),
+                border_radius=20,
+            )
+            self.display.screen.blit(hall_surface, hall_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                hall_rect.inflate(-20, -20),
+                phase,
+                color=(120, 214, 255),
+                alpha=8,
+                step=66,
+            )
+            self.display.ui.draw_chrome_rect(hall_rect, CHROME_COLORS, 26, 4)
+            self.display.ui.draw_text_with_shadow(
+                "CLASSEMENT FINAL",
+                self.display.font_medium,
+                WHITE,
+                BLACK,
+                (hall_rect.centerx, hall_rect.top + 34),
+                center=True,
+            )
+
             x = start_x
             y = margin_top
             row_counter = 0
             for index, group in enumerate(sorted_groups):
                 group_color = group_color_map[id(group)]
+                if team_mode != TEAM_MODE_SOLO:
+                    header_text = (
+                        f"Team {group[0].team}"
+                        if team_mode == TEAM_MODE_TEAM
+                        else f"Duo {group[0].team}"
+                    )
+                    header_width = max(
+                        134, self.display.font_small.size(header_text)[0] + 28
+                    )
+                    self.display.ui.draw_badge(
+                        header_text,
+                        (int(x), int(y - 36), header_width, 24),
+                        (*group_color[:3], 210),
+                        text_color=WHITE,
+                        border_color=(255, 255, 255, 78),
+                        font=self.display.font_small,
+                    )
                 for player_index, player in enumerate(group):
                     local = self.clamp((progress - 0.18 - row_counter * 0.05) / 0.24)
                     row_counter += 1
@@ -1692,19 +2056,45 @@ class DisplayEffectsService:
                         box_height,
                     )
 
+                    self.display.ui.draw_panel_shadow(
+                        row_rect,
+                        alpha=84 if player.rank == 1 else 60,
+                        inflate=14,
+                        offset=(0, 8),
+                        border_radius=18,
+                    )
                     panel_surface = pygame.Surface(row_rect.size, pygame.SRCALPHA)
                     pygame.draw.rect(
                         panel_surface,
-                        (*self.get_rgb(bg_color), 212),
+                        (*self.get_rgb(bg_color), 206),
                         panel_surface.get_rect(),
-                        border_radius=10,
+                        border_radius=18,
+                    )
+                    pygame.draw.rect(
+                        panel_surface,
+                        (255, 255, 255, 14),
+                        (10, 8, row_rect.width - 20, 20),
+                        border_radius=12,
+                    )
+                    pygame.draw.rect(
+                        panel_surface,
+                        (*self.get_rgb(group_color), 150),
+                        (10, 10, 10, row_rect.height - 20),
+                        border_radius=6,
                     )
                     self.display.screen.blit(panel_surface, row_rect.topleft)
+                    self.display.ui.draw_panel_grid(
+                        row_rect.inflate(-12, -10),
+                        phase + row_counter * 0.2,
+                        color=group_color,
+                        alpha=8,
+                        step=52,
+                    )
                     self.display.ui.draw_chrome_rect(
                         row_rect,
                         GOLD_COLORS if player.rank == 1 else CHROME_COLORS,
-                        10,
-                        5,
+                        16,
+                        4,
                     )
 
                     if player.rank == 1:
@@ -1724,38 +2114,51 @@ class DisplayEffectsService:
                             alpha=58,
                             y_scale=0.5,
                         )
+                        self.display.ui.draw_marquee_lights(
+                            row_rect,
+                            phase + player.rank * 0.2,
+                            (255, 220, 126),
+                            count=12,
+                            radius=3,
+                        )
 
-                    player_label = self.display.font_small.render(
-                        str(player), True, WHITE
+                    medal_text = f"#{player.rank}"
+                    medal_width = max(
+                        56, self.display.font_small.size(medal_text)[0] + 22
                     )
-                    score_text = self.display.font_medium.render(
-                        f"{player.score}", True, WHITE
+                    self.display.ui.draw_badge(
+                        medal_text,
+                        (row_rect.left + 24, row_rect.top + 14, medal_width, 24),
+                        (255, 214, 82, 224) if player.rank == 1 else (8, 24, 44, 214),
+                        text_color=BLACK if player.rank == 1 else WHITE,
+                        border_color=(255, 255, 255, 88),
+                        font=self.display.font_small,
                     )
-                    rank_text = self.display.font_small.render(
-                        f"{player.rank}", True, WHITE
+
+                    score_label = f"{player.score} pts"
+                    score_width = max(
+                        92, self.display.font_small.size(score_label)[0] + 24
                     )
-                    self.display.screen.blit(
-                        player_label,
+                    self.display.ui.draw_badge(
+                        score_label,
                         (
-                            row_rect.x + 14,
-                            row_rect.y + (box_height - player_label.get_height()) // 2,
+                            row_rect.right - score_width - 24,
+                            row_rect.top + 14,
+                            score_width,
+                            24,
                         ),
+                        (8, 24, 44, 214),
+                        text_color=YELLOW,
+                        border_color=(255, 214, 110, 90),
+                        font=self.display.font_small,
                     )
-                    self.display.screen.blit(
-                        score_text,
-                        (
-                            row_rect.x
-                            + (row_rect.width // 2)
-                            - (score_text.get_width() // 2),
-                            row_rect.y + (box_height - score_text.get_height()) // 2,
-                        ),
-                    )
-                    self.display.screen.blit(
-                        rank_text,
-                        (
-                            row_rect.right - 42,
-                            row_rect.y + (box_height - rank_text.get_height()) // 2,
-                        ),
+
+                    self.display.ui.draw_text_with_shadow(
+                        str(player),
+                        self.display.font_medium,
+                        WHITE,
+                        BLACK,
+                        (row_rect.left + 34, row_rect.centery + 7),
                     )
                     y += box_height + gap_between_boxes
 
@@ -1776,6 +2179,7 @@ class DisplayEffectsService:
         cues_triggered = set()
 
         def render(progress):
+            phase = time.monotonic()
             self.trigger_cue(
                 cues_triggered,
                 "pop",
@@ -1787,6 +2191,18 @@ class DisplayEffectsService:
             )
             wobble = math.sin(progress * math.tau * 3) * (1 - progress) * 14
             self.draw_overlay((40, 20, 0), 90)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.8, tint=(255, 214, 156)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=(255, 186, 86), alpha=22
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(255, 214, 110),
+                secondary_color=(255, 168, 92),
+            )
+            self.display.ui.draw_scene_badges("BONUS", "BOUTEILLE", phase)
             self.draw_cinematic_bars(
                 progress * 0.7, color=(8, 4, 0), max_height=34, reveal_portion=0.24
             )
@@ -1813,6 +2229,98 @@ class DisplayEffectsService:
                 distance=170,
                 size=9,
                 rotation=progress,
+            )
+
+            header_rect = pygame.Rect(center[0] - 250, 90, 500, 86)
+            self.display.ui.draw_panel_shadow(
+                header_rect,
+                alpha=96,
+                inflate=22,
+                offset=(0, 12),
+                border_radius=28,
+            )
+            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                header_surface,
+                (44, 24, 6, 220),
+                header_surface.get_rect(),
+                border_radius=28,
+            )
+            pygame.draw.rect(
+                header_surface,
+                (255, 255, 255, 14),
+                (12, 12, header_rect.width - 24, 28),
+                border_radius=18,
+            )
+            self.display.screen.blit(header_surface, header_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                header_rect.inflate(-16, -14),
+                phase,
+                color=(255, 214, 110),
+                alpha=10,
+                step=58,
+            )
+            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 24, 4)
+            self.display.ui.draw_badge(
+                "SPECIAL",
+                (header_rect.centerx - 54, header_rect.top - 12, 108, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "BOUTEILLE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (header_rect.centerx, header_rect.top + 30),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Le bonus mousse monte a la scene",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (header_rect.centerx, header_rect.bottom - 20),
+                center=True,
+            )
+
+            podium_rect = pygame.Rect(center[0] - 168, center[1] + 170, 336, 58)
+            self.display.ui.draw_panel_shadow(
+                podium_rect,
+                alpha=90,
+                inflate=20,
+                offset=(0, 12),
+                border_radius=24,
+            )
+            podium_surface = pygame.Surface(podium_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                podium_surface,
+                (26, 14, 4, 208),
+                podium_surface.get_rect(),
+                border_radius=24,
+            )
+            pygame.draw.rect(
+                podium_surface,
+                (255, 255, 255, 12),
+                (12, 8, podium_rect.width - 24, 18),
+                border_radius=12,
+            )
+            self.display.screen.blit(podium_surface, podium_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                podium_rect.inflate(-18, -12),
+                phase + 0.6,
+                color=(255, 214, 110),
+                alpha=9,
+                step=52,
+            )
+            self.display.ui.draw_chrome_rect(podium_rect, CHROME_COLORS, 22, 3)
+            self.display.ui.draw_marquee_lights(
+                podium_rect,
+                phase,
+                (255, 214, 110),
+                count=12,
+                radius=3,
             )
 
             bottle_surface = pygame.Surface((220, 420), pygame.SRCALPHA)
@@ -1929,6 +2437,31 @@ class DisplayEffectsService:
                 outline_color=(188, 120, 20),
                 wobble=10.0,
             )
+            footer_rect = pygame.Rect(center[0] - 236, center[1] + 238, 472, 46)
+            self.display.ui.draw_panel_shadow(
+                footer_rect,
+                alpha=72,
+                inflate=16,
+                offset=(0, 10),
+                border_radius=18,
+            )
+            footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                footer_surface,
+                (26, 14, 4, 202),
+                footer_surface.get_rect(),
+                border_radius=18,
+            )
+            self.display.screen.blit(footer_surface, footer_rect.topleft)
+            self.display.ui.draw_chrome_rect(footer_rect, CHROME_COLORS, 18, 3)
+            self.display.ui.draw_text_with_shadow(
+                "Le bouchon saute et la salle explose.",
+                self.display.font_small,
+                WHITE,
+                BLACK,
+                footer_rect.center,
+                center=True,
+            )
             self.draw_reaction_signs(progress, ["POP!", "SANTE!", "HAHA!"])
 
         self.animate_scene(1.35, render, background=backdrop)
@@ -1952,7 +2485,20 @@ class DisplayEffectsService:
         )
 
         def render(progress):
+            phase = time.monotonic()
             self.draw_overlay((3, 26, 20), 95)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.78, tint=(166, 255, 214)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=(120, 255, 210), alpha=24
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(120, 255, 210),
+                secondary_color=(255, 232, 140),
+            )
+            self.display.ui.draw_scene_badges("PETITE GRENOUILLE", "SUPER SAUT", phase)
             self.draw_vignette(76, (2, 18, 12))
             self.draw_cinematic_bars(
                 progress, color=(0, 0, 0), max_height=42, reveal_portion=0.2
@@ -1982,6 +2528,59 @@ class DisplayEffectsService:
             )
             self.draw_speed_lines(
                 progress, (120, 255, 210), count=8, alpha=32, angle=0.8
+            )
+            header_rect = pygame.Rect(center[0] - 246, 88, 492, 86)
+            self.display.ui.draw_panel_shadow(
+                header_rect,
+                alpha=96,
+                inflate=22,
+                offset=(0, 12),
+                border_radius=28,
+            )
+            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                header_surface,
+                (8, 34, 28, 216),
+                header_surface.get_rect(),
+                border_radius=28,
+            )
+            pygame.draw.rect(
+                header_surface,
+                (255, 255, 255, 14),
+                (12, 12, header_rect.width - 24, 28),
+                border_radius=18,
+            )
+            self.display.screen.blit(header_surface, header_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                header_rect.inflate(-16, -14),
+                phase,
+                color=(120, 255, 210),
+                alpha=10,
+                step=56,
+            )
+            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 24, 4)
+            self.display.ui.draw_badge(
+                "SPECIAL",
+                (header_rect.centerx - 54, header_rect.top - 12, 108, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "PETITE GRENOUILLE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (header_rect.centerx, header_rect.top + 30),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Precision, elan et capture parfaite",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (header_rect.centerx, header_rect.bottom - 20),
+                center=True,
             )
             self.trigger_cue(
                 cues_triggered,
@@ -2205,17 +2804,40 @@ class DisplayEffectsService:
 
             if progress > 0.7:
                 caption_alpha = self.clamp((progress - 0.7) / 0.18)
-                caption_surface = self.display.font_small.render(
-                    "Super saut", True, WHITE
+                footer_rect = pygame.Rect(
+                    center[0] - 184, lily_center[1] + 104, 368, 48
                 )
-                caption_surface.set_alpha(int(255 * caption_alpha))
-                caption_rect = caption_surface.get_rect(
-                    center=(center[0], lily_center[1] + 128)
+                self.display.ui.draw_panel_shadow(
+                    footer_rect,
+                    alpha=78,
+                    inflate=16,
+                    offset=(0, 10),
+                    border_radius=18,
                 )
-                shadow = self.display.font_small.render("Super saut", True, BLACK)
-                shadow.set_alpha(int(180 * caption_alpha))
-                self.display.screen.blit(shadow, caption_rect.move(2, 2))
-                self.display.screen.blit(caption_surface, caption_rect)
+                footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(
+                    footer_surface,
+                    (8, 24, 44, int(188 * caption_alpha)),
+                    footer_surface.get_rect(),
+                    border_radius=18,
+                )
+                self.display.screen.blit(footer_surface, footer_rect.topleft)
+                self.display.ui.draw_chrome_rect(footer_rect, CHROME_COLORS, 18, 3)
+                self.display.ui.draw_marquee_lights(
+                    footer_rect,
+                    phase + 0.4,
+                    (255, 214, 110),
+                    count=12,
+                    radius=3,
+                )
+                self.display.ui.draw_text_with_shadow(
+                    "Super saut",
+                    self.display.font_medium,
+                    WHITE,
+                    BLACK,
+                    footer_rect.center,
+                    center=True,
+                )
             self.draw_reaction_signs(progress, ["MIAM!", "BOING!", "YES!"])
 
         self.animate_scene(1.55, render, background=backdrop)
@@ -2238,8 +2860,21 @@ class DisplayEffectsService:
         )
 
         def render(progress):
+            phase = time.monotonic()
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 3.5)
             self.draw_overlay((2, 18, 16), 145)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.86, tint=(166, 255, 214)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=(110, 255, 210), alpha=24
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(110, 255, 210),
+                secondary_color=(90, 180, 255),
+            )
+            self.display.ui.draw_scene_badges("GRANDE GRENOUILLE", "BOSS ARENA", phase)
             self.draw_cinematic_bars(
                 progress, color=(0, 0, 0), max_height=58, reveal_portion=0.16
             )
@@ -2273,6 +2908,59 @@ class DisplayEffectsService:
             self.draw_light_beam(center, progress, (100, 255, 200), width=340, alpha=78)
             self.draw_speed_lines(
                 progress, (120, 255, 210), count=10, alpha=42, angle=-0.5
+            )
+            header_rect = pygame.Rect(center[0] - 272, 82, 544, 92)
+            self.display.ui.draw_panel_shadow(
+                header_rect,
+                alpha=106,
+                inflate=24,
+                offset=(0, 14),
+                border_radius=30,
+            )
+            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                header_surface,
+                (8, 28, 32, 220),
+                header_surface.get_rect(),
+                border_radius=30,
+            )
+            pygame.draw.rect(
+                header_surface,
+                (255, 255, 255, 14),
+                (12, 12, header_rect.width - 24, 30),
+                border_radius=18,
+            )
+            self.display.screen.blit(header_surface, header_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                header_rect.inflate(-18, -16),
+                phase,
+                color=(110, 255, 210),
+                alpha=10,
+                step=58,
+            )
+            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 26, 4)
+            self.display.ui.draw_badge(
+                "BOSS",
+                (header_rect.centerx - 48, header_rect.top - 12, 96, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "GRANDE GRENOUILLE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (header_rect.centerx, header_rect.top + 32),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Le boss arrive avant la roulette",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (header_rect.centerx, header_rect.bottom - 20),
+                center=True,
             )
             self.trigger_cue(
                 cues_triggered,
@@ -2462,26 +3150,60 @@ class DisplayEffectsService:
                 title_y = self.lerp(
                     center[1] + 214, center[1] + 182, self.ease_out_back(title_progress)
                 )
+                footer_rect = pygame.Rect(center[0] - 210, int(title_y - 24), 420, 74)
+                self.display.ui.draw_panel_shadow(
+                    footer_rect,
+                    alpha=92,
+                    inflate=18,
+                    offset=(0, 12),
+                    border_radius=22,
+                )
+                footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(
+                    footer_surface,
+                    (8, 24, 44, 208),
+                    footer_surface.get_rect(),
+                    border_radius=22,
+                )
+                pygame.draw.rect(
+                    footer_surface,
+                    (255, 255, 255, 14),
+                    (12, 10, footer_rect.width - 24, 22),
+                    border_radius=12,
+                )
+                self.display.screen.blit(footer_surface, footer_rect.topleft)
+                self.display.ui.draw_panel_grid(
+                    footer_rect.inflate(-16, -14),
+                    phase + 0.4,
+                    color=(90, 180, 255),
+                    alpha=9,
+                    step=52,
+                )
+                self.display.ui.draw_chrome_rect(footer_rect, GOLD_COLORS, 22, 4)
+                self.display.ui.draw_marquee_lights(
+                    footer_rect,
+                    phase + 0.3,
+                    (255, 220, 126),
+                    count=14,
+                    radius=3,
+                )
                 self.display.ui.draw_text_with_shadow(
                     "ROULETTE",
                     self.display.font_large,
                     YELLOW,
                     BLACK,
-                    (center[0], title_y),
+                    (footer_rect.centerx, footer_rect.top + 24),
                     shadow_offset=(4, 4),
                     center=True,
                 )
-                subtitle = self.display.font_small.render(
-                    "Le boss entre en scene", True, WHITE
+                self.display.ui.draw_text_with_shadow(
+                    "Le boss entre en scene",
+                    self.display.font_small,
+                    WHITE,
+                    BLACK,
+                    (footer_rect.centerx, footer_rect.bottom - 18),
+                    center=True,
                 )
-                subtitle.set_alpha(int(255 * title_progress))
-                subtitle_rect = subtitle.get_rect(center=(center[0], title_y + 44))
-                shadow = self.display.font_small.render(
-                    "Le boss entre en scene", True, BLACK
-                )
-                shadow.set_alpha(int(180 * title_progress))
-                self.display.screen.blit(shadow, subtitle_rect.move(2, 2))
-                self.display.screen.blit(subtitle, subtitle_rect)
                 self.draw_comic_caption(
                     "MEGA CROAK!",
                     (center[0] + 190, center[1] - 130),
@@ -2499,12 +3221,121 @@ class DisplayEffectsService:
         return self.animation_roulette()
 
     def animation_roulette(self):
+        backdrop = self.display.screen.copy()
+        center = (self.display.screen_width // 2, self.display.screen_height // 2)
+        cues_triggered = set()
+
+        def render(progress):
+            phase = time.monotonic()
+            self.trigger_cue(
+                cues_triggered,
+                "roulette-rise",
+                0.22,
+                progress,
+                "applause",
+                volume=0.24,
+                fade_ms=80,
+            )
+            pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 4)
+            self.draw_overlay((4, 10, 28), 128)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.92, tint=(255, 224, 164)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=(120, 214, 255), alpha=22
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(255, 220, 126),
+                secondary_color=(120, 214, 255),
+            )
+            self.display.ui.draw_scene_badges("ROULETTE", "SHOWTIME", phase)
+            self.draw_star_field(
+                progress, density=30, color=(255, 244, 186), drift=14, alpha=118
+            )
+            self.draw_party_ribbons(progress, alpha=28, speed=0.42)
+            self.draw_light_beam(center, progress, YELLOW, width=320, alpha=54)
+            self.draw_glow_circle(
+                center, 98 + pulse * 18, YELLOW, glow_radius=70, alpha=138
+            )
+
+            frame_rect = pygame.Rect(center[0] - 272, center[1] - 54, 544, 132)
+            self.display.ui.draw_panel_shadow(
+                frame_rect,
+                alpha=114,
+                inflate=24,
+                offset=(0, 14),
+                border_radius=30,
+            )
+            frame_surface = pygame.Surface(frame_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                frame_surface,
+                (8, 24, 46, 220),
+                frame_surface.get_rect(),
+                border_radius=30,
+            )
+            pygame.draw.rect(
+                frame_surface,
+                (255, 255, 255, 14),
+                (14, 12, frame_rect.width - 28, 34),
+                border_radius=18,
+            )
+            self.display.screen.blit(frame_surface, frame_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                frame_rect.inflate(-18, -16),
+                phase,
+                color=(120, 214, 255),
+                alpha=10,
+                step=60,
+            )
+            self.display.ui.draw_chrome_rect(frame_rect, GOLD_COLORS, 28, 4)
+            self.display.ui.draw_marquee_lights(
+                frame_rect,
+                phase,
+                (255, 220, 126),
+                count=18,
+            )
+            self.display.ui.draw_badge(
+                "JACKPOT",
+                (frame_rect.centerx - 54, frame_rect.top - 12, 108, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "ROULETTE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (frame_rect.centerx, frame_rect.top + 36),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Le destin choisit la valeur finale",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (frame_rect.centerx, frame_rect.bottom - 24),
+                center=True,
+            )
+            self.draw_sticker_burst(
+                frame_rect.midtop,
+                min(1.0, progress * 1.18),
+                [YELLOW, WHITE, (120, 214, 255)],
+                count=8,
+                distance=96,
+                size=13,
+                twist=0.12,
+            )
+
+        self.animate_scene(0.9, render, background=backdrop)
         roulette_animation = RouletteAnimation(
             self.display.screen,
             self.display.resources["roulette_sound"],
             self.display.resources["roulette_end_sound"],
             self.display.resources["roulette_image"],
             self.display.resources["roulette_pointer"],
+            self.display.ui,
         )
         return roulette_animation.run()
 
