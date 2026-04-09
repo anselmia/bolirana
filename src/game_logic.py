@@ -1,7 +1,14 @@
 import logging
+import time
 
 from src.holes import Hole
 from src.constants import (
+    CHALLENGE_ARCADE,
+    CHALLENGE_CLASSIC,
+    COMBO_BONUS_CAP,
+    COMBO_BONUS_STEP,
+    FINAL_RUSH_BONUS,
+    FINAL_RUSH_THRESHOLD,
     PIN_H20,
     PIN_H25,
     PIN_H40,
@@ -16,7 +23,11 @@ from src.constants import (
     TEAM_MODE_SOLO,
     TEAM_MODE_DUO,
     TEAM_MODE_TEAM,
+    OFF,
     ON,
+    PRESSURE_BONUS,
+    PRESSURE_GAP,
+    PRESSURE_TRIGGER_POINTS,
 )
 from src.player import Player
 
@@ -38,9 +49,13 @@ class GameLogic:
         self.current_player = None
         self.selecting_mode = True
         self.game_ended = False
-        self.penalty = False
+        self.penalty = OFF
         self.score = 0
         self.holes = []
+        self.pin_to_hole = {}
+        self.challenge_mode = CHALLENGE_CLASSIC
+        self.status_message = ""
+        self.status_message_until = 0.0
         self.draw_game = True
         logging.info("Game reset complete.")
 
@@ -53,6 +68,8 @@ class GameLogic:
             self.current_player.activate()
         self.game_ended = False
         self.draw_game = True
+        self.status_message = ""
+        self.status_message_until = 0.0
         logging.info("Game restarted.")
 
     def setup_game(self, display):
@@ -83,15 +100,21 @@ class GameLogic:
             Hole(display, "little_frog", 200, PIN_HSFROG, "200"),
             Hole(display, "large_frog", 0, PIN_HLFROG, "ROUL"),
         ]
+        self.build_pin_lookup()
 
     def setup_grenouille_mode(self, display):
         self.holes = [
             Hole(display, "little_frog", 200, PIN_HSFROG, "200"),
             Hole(display, "large_frog", 0, PIN_HLFROG, "ROUL"),
         ]
+        self.build_pin_lookup()
 
     def setup_bouteille_mode(self, display):
         self.holes = [Hole(display, "bottle", 150, PIN_HBOTTLE, "150")]
+        self.build_pin_lookup()
+
+    def build_pin_lookup(self):
+        self.pin_to_hole = {pin: hole for hole in self.holes for pin in hole.pin}
 
     def setup_players(self):
         player_id = 1
@@ -106,6 +129,69 @@ class GameLogic:
         self.current_player = self.players[0] if self.players else None
         if self.current_player:
             self.current_player.activate()
+
+    def set_status_message(self, message, duration=2.5):
+        self.status_message = message
+        self.status_message_until = time.monotonic() + duration
+
+    def get_status_message(self):
+        if time.monotonic() <= self.status_message_until:
+            return self.status_message
+        return ""
+
+    def get_current_group(self):
+        if self.current_player is None:
+            return []
+        if self.team_mode == TEAM_MODE_SOLO:
+            return [self.current_player]
+        return [
+            player for player in self.players if player.team == self.current_player.team
+        ]
+
+    def get_current_progress_score(self):
+        return sum(player.score for player in self.get_current_group())
+
+    def get_leader_progress_score(self):
+        if not self.players:
+            return 0
+        if self.team_mode == TEAM_MODE_SOLO:
+            return max(player.score for player in self.players)
+
+        groups = self.group_players_by_duo_or_team(self.team_mode == TEAM_MODE_TEAM)
+        return max(sum(player.score for player in group) for group in groups)
+
+    def is_final_rush(self):
+        return self.score > 0 and self.get_leader_progress_score() >= int(
+            self.score * FINAL_RUSH_THRESHOLD
+        )
+
+    def calculate_arcade_bonus(self, player, hole, base_points):
+        bonuses = []
+        total_bonus = 0
+
+        combo_bonus = min(player.turn_hits * COMBO_BONUS_STEP, COMBO_BONUS_CAP)
+        if combo_bonus:
+            bonuses.append(f"Combo +{combo_bonus}")
+            total_bonus += combo_bonus
+
+        leader_progress = self.get_leader_progress_score()
+        current_progress = self.get_current_progress_score()
+        if (
+            leader_progress - current_progress >= PRESSURE_GAP
+            and base_points >= PRESSURE_TRIGGER_POINTS
+        ):
+            bonuses.append(f"Pression +{PRESSURE_BONUS}")
+            total_bonus += PRESSURE_BONUS
+
+        if self.is_final_rush() and hole.type in {
+            "bottle",
+            "little_frog",
+            "large_frog",
+        }:
+            bonuses.append(f"Final rush +{FINAL_RUSH_BONUS}")
+            total_bonus += FINAL_RUSH_BONUS
+
+        return total_bonus, bonuses
 
     def setup_team_players(self, player_id):
         temp_teams = {}
@@ -152,9 +238,11 @@ class GameLogic:
 
     def handle_seul_mode(self, display):
         remaining_players = [p for p in self.players if not p.won]
-        if (len(remaining_players) == 1 and not len(self.players) == 1) or (
-            len(self.players) == 1 and self.players[0].won
-        ):
+        if len(self.players) == 1 and self.players[0].won:
+            self.players[0].rank = self.find_next_available_rank()
+            self.game_ended = True
+            logging.info("Game ended.")
+        elif len(remaining_players) == 1 and len(self.players) != 1:
             remaining_players[0].rank = self.find_next_available_rank()
             self.game_ended = True
             logging.info("Game ended.")
@@ -206,17 +294,25 @@ class GameLogic:
         return next_rank
 
     def next_player(self, display):
+        if self.current_player is None:
+            return
+
         if self.current_player.turn_score == 0 and self.penalty:
             points = display.draw_penalty()
             display.draw_holes(self.holes)
             self.current_player.score -= points
+            self.set_status_message(f"Pénalité -{points}")
 
         self.current_player = Player.activate_next_player(
             self.current_player, self.players
         )
+        self.draw_game = True
 
     def goal(self, pin, display):
-        hole = next((hole for hole in self.holes if pin in hole.pin), None)
+        if self.current_player is None:
+            return
+
+        hole = self.pin_to_hole.get(pin)
         if hole is not None:
             points = hole.value
             display.draw_goal_animation(hole, pin)
@@ -232,7 +328,23 @@ class GameLogic:
                 self.draw_game = True
             else:
                 self.draw_game = True
+
+            bonus_points = 0
+            bonus_messages = []
+            if self.challenge_mode == CHALLENGE_ARCADE:
+                bonus_points, bonus_messages = self.calculate_arcade_bonus(
+                    self.current_player,
+                    hole,
+                    points,
+                )
+                points += bonus_points
+
             self.current_player.goal(points, self.score)
+            if bonus_messages:
+                self.set_status_message(" | ".join(bonus_messages))
+            else:
+                self.set_status_message(f"{self.current_player} +{points}")
+
             next_rank = self.find_next_available_rank()
             if self.team_mode == TEAM_MODE_SOLO:
                 if self.current_player.won:

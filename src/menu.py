@@ -4,6 +4,8 @@ import pygame
 from src.constants import (
     ACTION_NEXT,
     ACTION_RIGHT,
+    CHALLENGE_ARCADE,
+    CHALLENGE_CLASSIC,
     MODE_NORMAL,
     MODE_FROG,
     MODE_BOTTLE,
@@ -15,35 +17,33 @@ from src.constants import (
 )
 
 
+OPTION_GAME_MODE = "Mode de jeu"
+OPTION_SCORE = "Score"
+OPTION_PENALTY = "Pénalité"
+OPTION_CHALLENGE = "Challenge"
+OPTION_TEAM_MODE = "Mode équipe"
+OPTION_NUM_PLAYERS = "Nombre de joueurs"
+OPTION_NUM_DUOS = "Nombre de Duo"
+OPTION_NUM_TEAMS = "Nombre d'équipes"
+OPTION_PLAYERS_PER_TEAM = "Joueurs / équipe"
+
+
 class Menu:
     def __init__(self):
-
         self.selected_option = 0
-        self.options = [
-            {
-                "name": "Mode de jeu",
-                "value": MODE_NORMAL,
-                "values": [MODE_NORMAL, MODE_FROG, MODE_BOTTLE],
-            },
-            {"name": "Score", "value": 400, "min": 400, "max": 10000, "step": 200},
-            {
-                "name": "Pénalité",
-                "value": OFF,
-                "values": [OFF, ON],
-            },
-            {
-                "name": TEAM_MODE_TEAM,
-                "value": TEAM_MODE_SOLO,
-                "values": [TEAM_MODE_SOLO, TEAM_MODE_DUO, TEAM_MODE_TEAM],
-            },
-            {
-                "name": "Nombre de joueurs",
-                "value": 1,
-                "min": 1,
-                "max": 12,
-                "step": 1,
-            },
-        ]
+        self.values = {
+            OPTION_GAME_MODE: MODE_NORMAL,
+            OPTION_SCORE: 400,
+            OPTION_PENALTY: OFF,
+            OPTION_CHALLENGE: CHALLENGE_CLASSIC,
+            OPTION_TEAM_MODE: TEAM_MODE_SOLO,
+            OPTION_NUM_PLAYERS: 1,
+            OPTION_NUM_DUOS: 2,
+            OPTION_NUM_TEAMS: 2,
+            OPTION_PLAYERS_PER_TEAM: 2,
+        }
+        self.options = []
+        self.sync_options()
 
         self.frog_sound = self.load_sound("sounds", "frog.mp3")
 
@@ -57,122 +57,116 @@ class Menu:
         if button == ACTION_NEXT:
             self.selected_option = (self.selected_option + 1) % len(self.options)
         elif button == ACTION_RIGHT:
-            if "values" in option:
-                current_index = option["values"].index(option["value"])
-                option["value"] = option["values"][
-                    (current_index + 1) % len(option["values"])
-                ]
+            self.cycle_option_value(option)
+            self.normalize_values(option["name"])
+            self.sync_options()
+
+    def build_option(self, name, **kwargs):
+        option = {"name": name, "value": self.values[name]}
+        option.update(kwargs)
+        return option
+
+    def sync_options(self):
+        self.options = [
+            self.build_option(
+                OPTION_GAME_MODE,
+                values=[MODE_NORMAL, MODE_FROG, MODE_BOTTLE],
+            ),
+            self.build_option(OPTION_SCORE, min=400, max=10000, step=200),
+            self.build_option(OPTION_PENALTY, values=[OFF, ON]),
+            self.build_option(
+                OPTION_CHALLENGE,
+                values=[CHALLENGE_CLASSIC, CHALLENGE_ARCADE],
+            ),
+            self.build_option(
+                OPTION_TEAM_MODE,
+                values=[TEAM_MODE_SOLO, TEAM_MODE_DUO, TEAM_MODE_TEAM],
+            ),
+        ]
+
+        team_mode = self.values[OPTION_TEAM_MODE]
+        if team_mode == TEAM_MODE_SOLO:
+            self.options.append(
+                self.build_option(OPTION_NUM_PLAYERS, min=1, max=12, step=1)
+            )
+        elif team_mode == TEAM_MODE_DUO:
+            self.options.append(
+                self.build_option(OPTION_NUM_DUOS, min=2, max=6, step=1)
+            )
+        else:
+            self.options.append(
+                self.build_option(OPTION_NUM_TEAMS, min=2, max=6, step=1)
+            )
+            self.options.append(
+                self.build_option(OPTION_PLAYERS_PER_TEAM, min=2, max=6, step=1)
+            )
+
+        self.selected_option = min(self.selected_option, len(self.options) - 1)
+
+    def cycle_option_value(self, option):
+        if "values" in option:
+            current_index = option["values"].index(option["value"])
+            self.values[option["name"]] = option["values"][
+                (current_index + 1) % len(option["values"])
+            ]
+            return
+
+        self.values[option["name"]] = min(
+            option["max"],
+            option["value"] + option["step"],
+        )
+
+    def normalize_values(self, changed_option_name):
+        team_mode = self.values[OPTION_TEAM_MODE]
+        if team_mode == TEAM_MODE_SOLO:
+            self.values[OPTION_NUM_PLAYERS] = min(
+                12, max(1, self.values[OPTION_NUM_PLAYERS])
+            )
+            return
+
+        if team_mode == TEAM_MODE_DUO:
+            self.values[OPTION_NUM_DUOS] = min(6, max(2, self.values[OPTION_NUM_DUOS]))
+            return
+
+        num_teams = min(6, max(2, self.values[OPTION_NUM_TEAMS]))
+        players_per_team = min(6, max(2, self.values[OPTION_PLAYERS_PER_TEAM]))
+
+        while num_teams * players_per_team > 12:
+            if changed_option_name == OPTION_NUM_TEAMS and num_teams > 2:
+                num_teams -= 1
+            elif players_per_team > 2:
+                players_per_team -= 1
+            elif num_teams > 2:
+                num_teams -= 1
             else:
-                option["value"] = min(option["max"], option["value"] + option["step"])
-
-            if option["name"] == TEAM_MODE_TEAM:
-                self.update_player_selection(option)
-            elif (
-                option["name"] == "Nombre d'équipes"
-                or option["name"] == "Joueurs / équipe"
-            ):
-                self.set_max_plaxer_in_team(option)
-
-    def remove_menu_option(self, option_name):
-        for idx, option in enumerate(self.options):
-            if option["name"] == option_name:
-                del self.options[idx]
                 break
 
-    def update_player_selection(self, option):
-        if option["value"] == TEAM_MODE_SOLO:
-            self.options.append(
-                {
-                    "name": "Nombre de joueurs",
-                    "value": 1,
-                    "min": 1,
-                    "max": 12,
-                    "step": 1,
-                }
-            )
-            self.remove_menu_option("Nombre d'équipes")
-            self.remove_menu_option("Joueurs / équipe")
-            self.remove_menu_option("Nombre de Duo")
-        elif option["value"] == TEAM_MODE_DUO:
-            self.options.append(
-                {
-                    "name": "Nombre de Duo",
-                    "value": 2,
-                    "min": 2,
-                    "max": 6,
-                    "step": 1,
-                },
-            )
-            self.remove_menu_option("Nombre d'équipes")
-            self.remove_menu_option("Joueurs / équipe")
-            self.remove_menu_option("Nombre de joueurs")
-        elif option["value"] == TEAM_MODE_TEAM:
-            self.options.append(
-                {
-                    "name": "Nombre d'équipes",
-                    "value": 2,
-                    "min": 2,
-                    "max": 6,
-                    "step": 1,
-                },
-            )
-            self.options.append(
-                {
-                    "name": "Joueurs / équipe",
-                    "value": 2,
-                    "min": 2,
-                    "max": 6,
-                    "step": 1,
-                },
-            )
-            self.remove_menu_option("Nombre de Duo")
-            self.remove_menu_option("Nombre de joueurs")
-
-    def set_max_plaxer_in_team(self, option_selected):
-        player_in_team = next(
-            option for option in self.options if option["name"] == "Joueurs / équipe"
-        )["value"]
-        number_of_team = next(
-            option for option in self.options if option["name"] == "Nombre d'équipes"
-        )["value"]
-        if player_in_team * number_of_team > 12:
-            for option in self.options:
-                if option["name"] == option_selected["name"]:
-                    option["value"] = option["value"] - 1
-                    break
+        self.values[OPTION_NUM_TEAMS] = num_teams
+        self.values[OPTION_PLAYERS_PER_TEAM] = players_per_team
 
     def get_num_players(self):
-        return self.options[4]["value"]
+        return int(self.values[OPTION_NUM_PLAYERS])
 
     def get_team_mode(self):
-        return self.options[3]["value"]
+        return str(self.values[OPTION_TEAM_MODE])
 
     def get_score(self):
-        return self.options[1]["value"]
+        return int(self.values[OPTION_SCORE])
 
     def get_game_mode(self):
-        return self.options[0]["value"]
+        return str(self.values[OPTION_GAME_MODE])
+
+    def get_challenge_mode(self):
+        return str(self.values[OPTION_CHALLENGE])
 
     def get_num_pairs(self):
-        for option in self.options:
-            if option["name"] == "Nombre de Duo":
-                return option["value"]
-        return 1
+        return int(self.values[OPTION_NUM_DUOS])
 
     def get_num_teams(self):
-        for option in self.options:
-            if option["name"] == "Nombre d'équipes":
-                return option["value"]
-        return 1
+        return int(self.values[OPTION_NUM_TEAMS])
 
     def get_penalty(self):
-        for option in self.options:
-            if option["name"] == "Pénalité":
-                return option["value"]
-        return 1
+        return str(self.values[OPTION_PENALTY])
 
     def get_players_per_team(self):
-        for option in self.options:
-            if option["name"] == "Joueurs / équipe":
-                return option["value"]
-        return 1
+        return int(self.values[OPTION_PLAYERS_PER_TEAM])

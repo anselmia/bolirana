@@ -48,7 +48,7 @@ class PIN:
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
         self.COOLDOWN_MS_PIN = 1200  # Cooldown period in milliseconds
         self.COOLDOWN_MS_Button = 500  # Cooldown period in milliseconds
-        self.pin_hole = (
+        self.pin_hole = set(
             PIN_H20
             + PIN_H25
             + PIN_H40
@@ -58,7 +58,10 @@ class PIN:
             + PIN_HSFROG
             + PIN_HLFROG
         )
-        self.button_pin = [PIN_BNEXT, PIN_BENTER, PIN_RIGHT]
+        self.button_pin = {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
+        self.menu_pins = {PIN_BENTER, PIN_RIGHT, PIN_BNEXT}
+        self.game_pins = self.pin_hole | {PIN_BNEXT, PIN_BENTER}
+        self.end_menu_pins = {PIN_BENTER, PIN_BNEXT}
         logging.info("Initializing communication with the I2C slave...")
 
         self.display_waiting_popup(screen)
@@ -120,10 +123,11 @@ class PIN:
         return None
 
     def _get_next_pin(self, pin, game_action):
+        pin = int(pin)
         current_time = time.time() * 1000  # Convert to milliseconds
         last_time = self.last_pin_time.get(pin, 0)
 
-        if int(pin) in self.pin_hole:
+        if pin in self.pin_hole:
             cooldown = self.COOLDOWN_MS_PIN
         else:
             cooldown = self.COOLDOWN_MS_Button
@@ -135,27 +139,10 @@ class PIN:
         # Update last detection time for the pin
         self.last_pin_time[pin] = current_time
 
-        if game_action == "menu" and int(pin) in {
-            PIN_BENTER,
-            PIN_RIGHT,
-            PIN_BNEXT,
-        }:
-            return int(pin)
-        elif game_action == "game":
-            if (
-                int(pin) in PIN_H20
-                or int(pin) in PIN_H25
-                or int(pin) in PIN_H40
-                or int(pin) in PIN_H50
-                or int(pin) in PIN_H100
-                or int(pin) in PIN_HBOTTLE
-                or int(pin) in PIN_HSFROG
-                or int(pin) in PIN_HLFROG
-                or int(pin) == PIN_BNEXT
-                or int(pin) == PIN_BENTER
-            ):
-                return int(pin)
-        elif game_action == "end_menu":
-            if int(pin) == PIN_BENTER or int(pin) == PIN_BNEXT:
-                return int(pin)
+        if game_action == "menu" and pin in self.menu_pins:
+            return pin
+        if game_action == "game" and pin in self.game_pins:
+            return pin
+        if game_action == "end_menu" and pin in self.end_menu_pins:
+            return pin
         return None

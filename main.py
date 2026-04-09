@@ -18,12 +18,16 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 # Determine log file path based on platform
 if platform.system() == "Windows":
-    log_path = os.path.join(os.getenv("APPDATA"), "bolirana", "bolirana.log")
+    appdata_dir = os.getenv("APPDATA") or os.path.expanduser("~")
+    log_path = os.path.join(appdata_dir, "bolirana", "bolirana.log")
 else:
     log_path = "/opt/bolirana/log/bolirana.log"
     # Ensure the process is running as the correct user
-    if os.geteuid() == 0:  # If running as root
-        os.seteuid(os.getuid())  # Switch to the current user (pi)
+    geteuid = getattr(os, "geteuid", None)
+    seteuid = getattr(os, "seteuid", None)
+    getuid = getattr(os, "getuid", None)
+    if callable(geteuid) and callable(seteuid) and callable(getuid) and geteuid() == 0:
+        seteuid(getuid())  # Switch to the current user (pi)
 
 # Ensure the log directory exists
 log_dir = os.path.dirname(log_path)

@@ -11,6 +11,10 @@ class Player:
     def goal(self, points, win_threshold):
         self.score += points
         self.turn_score += points
+        self.turn_hits += 1
+        self.successful_shots += 1
+        self.max_combo = max(self.max_combo, self.turn_hits)
+        self.best_turn = max(self.best_turn, self.turn_score)
         if self.score >= win_threshold:
             self.won = True
 
@@ -19,7 +23,12 @@ class Player:
         self.won = False
         self.rank = 0
         self.turn_score = 0
+        self.turn_hits = 0
         self.is_active = False
+        self.turns_played = 0
+        self.successful_shots = 0
+        self.best_turn = 0
+        self.max_combo = 0
 
     def activate(self):
         self.is_active = True
@@ -29,6 +38,11 @@ class Player:
 
     def reset_turn(self):
         self.turn_score = 0
+        self.turn_hits = 0
+
+    def finish_turn(self):
+        self.turns_played += 1
+        self.reset_turn()
 
     @staticmethod
     def activate_next_player(current_player, players):
@@ -67,7 +81,7 @@ class Player:
             next_player = sorted_players[next_index]
 
         # Reset the turn score for cleanup
-        current_player.reset_turn()
+        current_player.finish_turn()
 
         # Deactivate current and activate next player
         current_player.deactivate()

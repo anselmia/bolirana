@@ -2,7 +2,6 @@ import pygame
 import random
 import time
 import os
-from pygame.locals import *
 
 
 DARK_GOLD_COLOR = (184, 134, 11)
@@ -21,7 +20,8 @@ class RouletteAnimation:
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
-        self.rotated_image = None
+        self.rotated_image = roulette_image
+        self.current_angle = 0.0
 
         screen_width, screen_height = self.screen.get_size()
         self.center_x, self.center_y = screen_width // 2, screen_height // 2
@@ -84,8 +84,6 @@ class RouletteAnimation:
         self.screen.blit(self.roulette_pointer, pointer_rect.topleft)
 
     def run(self):
-        # Calculate the radius of the circle based on 25% of the roulette's height
-        self.current_angle = 0  # Initial rotation angle
         running = True
         # Complex seed for better randomness
         random.seed(time.time() + int.from_bytes(os.urandom(8), "big"))
@@ -114,14 +112,14 @@ class RouletteAnimation:
             self.rotate_roulette(self.angular_speed)
             self.draw_pointer()
             pygame.display.update()
-            self.clock.tick(30)  # Control frame rate
+            self.clock.tick(60)  # Control frame rate
             actual_section_angle += self.angular_speed
-            if actual_section_angle == section_angle:
+            if actual_section_angle >= section_angle:
                 actual_section += 1
-                actual_section_angle = 0
+                actual_section_angle -= section_angle
 
             # Start slowing down if the current angle reaches the deceleration start angle
-            if actual_section == deceleration_section:
+            if actual_section >= deceleration_section:
                 distance_to_final = (total_sections - deceleration_section) * (
                     360 / len(VALUES)
                 )
@@ -132,7 +130,7 @@ class RouletteAnimation:
                     self.rotate_roulette(self.angular_speed)
                     self.draw_pointer()
                     pygame.display.update()
-                    self.clock.tick(30)
+                    self.clock.tick(60)
 
                     # Calculate the distance to the final angle
                     distance_to_final -= self.angular_speed
@@ -204,7 +202,7 @@ class RouletteAnimation:
                 self.screen.blit(final_value_text, final_value_rect)
 
             pygame.display.update()
-            self.clock.tick(30)  # Control frame rate consistently
+            self.clock.tick(60)  # Control frame rate consistently
 
         self.screen.fill(pygame.Color("black"))  # Clear the screen
         self.draw_roulette()

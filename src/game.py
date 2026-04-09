@@ -1,8 +1,7 @@
-import pygame
-import sys
 import logging
 import time
-import os
+
+import pygame
 
 from src.constants import (
     PIN_BENTER,
@@ -34,33 +33,60 @@ class Game:
         self.pin = PIN(self.display.screen)
         self.gamelogic = GameLogic()
         self.gamelogic.reset_game()
-        self.last_next_action_time = time.time()
+        self.last_next_action_time = time.monotonic()
         self.in_end_menu = False
         self.debug = debug
+        self.running = True
         self.clock = pygame.time.Clock()
         logging.info("Game initialized successfully.")
 
     def run(self):
-        while self.gamelogic.selecting_mode:
+        while self.running:
+            self.run_menu()
+            if not self.running:
+                break
+
+            action = self.play()
+            if action == "new_game":
+                self.reset_to_menu()
+                continue
+            break
+
+    def run_menu(self):
+        while self.running and self.gamelogic.selecting_mode:
             self.process_events("menu")
             self.display.draw_menu(self.menu)
             self.clock.tick(FPS)
 
-        self.play()
+    def reset_to_menu(self):
+        self.menu = Menu()
+        self.end_menu = EndMenu()
+        self.gamelogic.reset_game()
+        self.last_next_action_time = time.monotonic()
+        self.in_end_menu = False
 
     def process_events(self, mode):
         if self.debug:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.cleanup()
+                    return "quit"
                 elif event.type == pygame.KEYDOWN:
                     if event.key in KEY_TO_PIN_MAP:
                         pin = KEY_TO_PIN_MAP[event.key]
-                        self.handle_event(mode, pin)
+                        action = self.handle_event(mode, pin)
+                        if action is not None:
+                            return action
         else:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.cleanup()
+                    return "quit"
             pin = self.pin.read_pin_states(mode)
             if pin is not None:
-                self.handle_event(mode, pin)
+                return self.handle_event(mode, pin)
+
+        return None
 
     def handle_event(self, mode, pin):
         if mode == "menu" and pin in PIN_TO_ACTION_MAP:
@@ -71,40 +97,43 @@ class Game:
                 self.setup_game_from_menu()
                 self.gamelogic.selecting_mode = False
         elif mode == "game":
-            self.handle_game_event(pin)
+            return self.handle_game_event(pin)
         elif mode == "end_menu":
             if pin == PIN_BENTER:
-                self.execute_end_menu_option()
+                return self.execute_end_menu_option()
             elif pin == PIN_BNEXT:
                 self.end_menu.handle_button_press(ACTION_NEXT)
 
+        return None
+
     def handle_game_event(self, pin):
-        current_time = time.time()
+        current_time = time.monotonic()
         if pin == PIN_BNEXT:
             if current_time - self.last_next_action_time >= ACTION_COOLDOWN:
                 self.gamelogic.next_player(self.display)
                 self.gamelogic.draw_game = True
                 self.last_next_action_time = current_time
         elif pin == PIN_BENTER:
-            self.enter_end_menu()  # Directly call the end menu when needed
-        elif any(pin in hole.pin for hole in self.gamelogic.holes):
+            return "open_end_menu"
+        elif pin in self.gamelogic.pin_to_hole:
             self.gamelogic.goal(pin, self.display)
+
+        return None
 
     def execute_end_menu_option(self):
         option = self.end_menu.options[self.end_menu.selected_option]
 
         if option == "Continuer":
-            self.in_end_menu = False  # Exit the menu and continue the game
-        elif option == "Nouveau":
-            self.gamelogic.reset_game()
-            self.run()
-        elif option == "Recommencer":
-            self.gamelogic.restart_game()
-            self.play()
-        elif option == "Quitter":
+            return "continue"
+        if option == "Nouveau":
+            return "new_game"
+        if option == "Recommencer":
+            return "restart"
+        if option == "Quitter":
             self.cleanup()
+            return "quit"
 
-        self.in_end_menu = False  # Ensure we exit the menu after executing an option
+        return None
 
     def setup_game_from_menu(self):
         logging.info("Setting up game from menu selections.")
@@ -116,33 +145,65 @@ class Game:
         self.gamelogic.num_teams = self.menu.get_num_teams()
         self.gamelogic.players_per_team = self.menu.get_players_per_team()
         self.gamelogic.penalty = self.menu.get_penalty()
+        self.gamelogic.challenge_mode = self.menu.get_challenge_mode()
         self.gamelogic.setup_game(self.display)
         logging.info("Game setup complete.")
 
     def play(self):
         self.display.play_intro()
 
-        while not self.gamelogic.game_ended:
-            self.process_events("game")
-            self.gamelogic.check_game_end(self.display)
-            if self.gamelogic.draw_game:
-                self.update_game_display()
-                self.gamelogic.draw_game = False
+        while self.running:
+            while self.running and not self.gamelogic.game_ended:
+                action = self.process_events("game")
+                if action == "open_end_menu":
+                    menu_action = self.enter_end_menu(can_continue=True)
+                    if menu_action == "continue":
+                        self.gamelogic.draw_game = True
+                    elif menu_action == "restart":
+                        self.gamelogic.restart_game()
+                        continue
+                    else:
+                        return menu_action
 
-            self.clock.tick(FPS)
+                if not self.running:
+                    return "quit"
 
-        self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
-        time.sleep(10)
-        self.enter_end_menu()
+                self.gamelogic.check_game_end(self.display)
+                if self.gamelogic.draw_game:
+                    self.update_game_display()
+                    self.gamelogic.draw_game = False
 
-    def enter_end_menu(self):
+                self.clock.tick(FPS)
+
+            if not self.running:
+                return "quit"
+
+            self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
+            if not self.display.wait_with_event_pump(4):
+                self.cleanup()
+                return "quit"
+            menu_action = self.enter_end_menu(can_continue=False)
+            if menu_action == "restart":
+                self.gamelogic.restart_game()
+                self.display.play_intro()
+                continue
+            return menu_action
+
+        return "quit"
+
+    def enter_end_menu(self, can_continue):
+        self.end_menu.set_context(can_continue)
         self.in_end_menu = True
-        while self.in_end_menu:
+        while self.running and self.in_end_menu:
             self.display.draw_end_menu(self.end_menu)
-            self.process_events("end_menu")
-            pygame.display.flip()
+            action = self.process_events("end_menu")
+            if action is not None:
+                self.in_end_menu = False
+                self.gamelogic.draw_game = True
+                return action
             self.clock.tick(FPS)
-        self.gamelogic.draw_game = True
+
+        return "quit"
 
     def update_game_display(self):
         num_active_players = (
@@ -159,10 +220,13 @@ class Game:
             self.gamelogic.game_mode,
             self.gamelogic.team_mode,
             num_active_players,
+            self.gamelogic.get_current_progress_score(),
+            self.gamelogic.get_leader_progress_score(),
+            self.gamelogic.challenge_mode,
+            self.gamelogic.get_status_message(),
         )
 
     def cleanup(self):
         logging.info("Cleaning up and shutting down the game.")
+        self.running = False
         pygame.quit()
-        os.system("sudo shutdown now")
-        sys.exit()

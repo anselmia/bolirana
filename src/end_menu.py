@@ -9,7 +9,8 @@ class EndMenu:
     def __init__(self):
         logging.info("Initializing EndMenu...")
         self.selected_option = 0
-        self.options = ["Continuer", "Nouveau", "Recommencer", "Quitter"]
+        self.options = []
+        self.set_context(can_continue=True)
 
         try:
             self.frog_sound = self.load_sound("sounds", "frog.mp3")
@@ -31,5 +32,10 @@ class EndMenu:
     def handle_button_press(self, button):
         self.frog_sound.play()
         if button == ACTION_NEXT:
-            previous_option = self.selected_option
             self.selected_option = (self.selected_option + 1) % len(self.options)
+
+    def set_context(self, can_continue):
+        self.options = ["Nouveau", "Recommencer", "Quitter"]
+        if can_continue:
+            self.options.insert(0, "Continuer")
+        self.selected_option = min(self.selected_option, len(self.options) - 1)

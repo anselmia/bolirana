@@ -26,6 +26,7 @@ from src.constants import (
     TEAM_MODE_DUO,
     TEAM_MODE_SOLO,
     TEAM_MODE_TEAM,
+    GOAL_ANIMATION_DURATION,
 )
 
 from src.roulette import RouletteAnimation
@@ -55,16 +56,20 @@ class Display:
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
         self.hole_frame_width = self.half_width
-        self.frame_score_width = self.screen_width / 5
-        self.frame_player_width = self.screen_width / 5
-        self.hole_rect_height = self.screen_height // 2.4
+        self.frame_score_width = self.screen_width // 5
+        self.frame_player_width = self.screen_width // 5
+        self.hole_rect_height = int(self.screen_height / 2.4)
         self.frame_space_x = (
-            self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
-        ) / 4
+            int(
+                self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
+            )
+            // 4
+        )
         self.frame_space_y = 20
         self.border_holes = 0
         self.hole_frame_border = 7
         self.hole_space = self.hole_rect_height / 30
+        self.clock = pygame.time.Clock()
         self.resources = {}  # Cache resources
         self.load_ressources()
 
@@ -111,6 +116,7 @@ class Display:
             self.resources["penalty_sound"] = self.load_sound("sounds", "fail.mp3")
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
+            self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
             self.resources["roulette_sound"] = self.load_sound("sounds", "roulette.mp3")
             self.resources["roulette_end_sound"] = self.load_sound(
                 "sounds", "roulette_end.mp3"
@@ -137,7 +143,15 @@ class Display:
                 os.path.dirname(__file__), "..", "assets", "videos", "firework_frames"
             )
             frame_paths = sorted(glob.glob(os.path.join(frames_dir, "frame_*.jpg")))
-            self.resources["firework_frames"] = frame_paths
+            self.resources["firework_frames"] = [
+                self.load_image(
+                    "videos/firework_frames",
+                    os.path.basename(frame_path),
+                    width=self.screen_width,
+                    height=self.screen_height,
+                )
+                for frame_path in frame_paths
+            ]
             self.resources["firework_fps"] = 25
 
         except Exception as e:
@@ -146,15 +160,21 @@ class Display:
             pygame.quit()
             sys.exit()
 
+    def prepare_surface(self, surface):
+        if surface.get_alpha() is not None:
+            return surface.convert_alpha()
+        return surface.convert()
+
     def load_background(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
-        return pygame.transform.scale(pygame.image.load(path), self.screen.get_size())
+        surface = self.prepare_surface(pygame.image.load(path))
+        return pygame.transform.smoothscale(surface, self.screen.get_size())
 
     def load_image(self, folder, filename, scale=None, width=None, height=None):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
 
         # Load the original image
-        original_image = pygame.image.load(path)
+        original_image = self.prepare_surface(pygame.image.load(path))
 
         # Case 1: Scaling based on a specified scale
         if scale is not None:
@@ -167,12 +187,16 @@ class Display:
             new_width = int(new_height * aspect_ratio)
 
             # Return the scaled image
-            return pygame.transform.scale(original_image, (new_width, new_height))
+            return self.prepare_surface(
+                pygame.transform.smoothscale(original_image, (new_width, new_height))
+            )
 
         # Case 2: Scaling based on specific width and height
         elif width is not None and height is not None:
             # Return the image scaled to the specified width and height
-            return pygame.transform.scale(original_image, (width, height))
+            return self.prepare_surface(
+                pygame.transform.smoothscale(original_image, (int(width), int(height)))
+            )
 
         # Case 3: Default loading (no scaling)
         else:
@@ -183,6 +207,20 @@ class Display:
         if (folder, filename) not in self.resources:
             self.resources[(folder, filename)] = pygame.mixer.Sound(path)
         return self.resources[(folder, filename)]
+
+    def handle_animation_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+        return True
+
+    def wait_with_event_pump(self, seconds):
+        end_time = time.monotonic() + seconds
+        while time.monotonic() < end_time:
+            if not self.handle_animation_events():
+                return False
+            self.clock.tick(30)
+        return True
 
     def display_error_message(self, message):
         self.screen.fill((0, 0, 0))
@@ -532,10 +570,29 @@ class Display:
         game_mode,
         team_mode,
         player_in_team=0,
+        current_progress=0,
+        leader_progress=0,
+        challenge_mode="CLASSIQUE",
+        status_text="",
     ):
+        if current_player is None:
+            return
+
         self.screen.blit(self.resources["game_background"], (0, 0))
-        self.draw_static_elements(current_player, score, game_mode, team_mode, holes)
+        self.draw_static_elements(
+            current_player,
+            score,
+            game_mode,
+            team_mode,
+            holes,
+            current_progress,
+            leader_progress,
+            challenge_mode,
+        )
         self.display_grouped_players(players, team_mode, player_in_team)
+        if status_text:
+            self.draw_status_banner(status_text)
+        pygame.display.flip()
 
     def draw_holes(self, holes):
         # Define the area for the holes and add chrome border
@@ -570,7 +627,17 @@ class Display:
                 text_rect = points_text.get_rect(center=(x2, y2))
                 self.screen.blit(points_text, text_rect)
 
-    def draw_static_elements(self, current_player, score, game_mode, team_mode, holes):
+    def draw_static_elements(
+        self,
+        current_player,
+        score,
+        game_mode,
+        team_mode,
+        holes,
+        current_progress,
+        leader_progress,
+        challenge_mode,
+    ):
         """Draws static elements like scores and game info."""
         # Define the area for the current player info and add chrome border
         current_player_rect = (
@@ -595,8 +662,15 @@ class Display:
         )
 
         # Define text strings
-        current_player_score = f"Score : {current_player.score}"
-        remaining_points_text = f"Points Restants : {score - current_player.score}"
+        if team_mode == TEAM_MODE_TEAM:
+            score_label = "Score équipe"
+        elif team_mode == TEAM_MODE_DUO:
+            score_label = "Score duo"
+        else:
+            score_label = "Score"
+
+        current_player_score = f"{score_label} : {current_progress}"
+        remaining_points_text = f"Points Restants : {max(score - current_progress, 0)}"
 
         # Render the text to get the dimensions
         score_surface = self.font_medium.render(current_player_score, True, DARK_ORANGE)
@@ -644,6 +718,10 @@ class Display:
         self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
 
         current_player_name_text = str(current_player)
+        if team_mode != TEAM_MODE_SOLO and current_player.team is not None:
+            current_player_name_text = (
+                f"{current_player_name_text} - {current_player.team}"
+            )
 
         # Draw the current player name with shadow
         self.draw_text_with_shadow(
@@ -684,6 +762,10 @@ class Display:
             frame_x + self.frame_score_width / 2,
             score_text_position[1] + (self.hole_rect_height / 5),
         )
+        leader_text_position = (
+            frame_x + self.frame_score_width / 2,
+            team_mode_text_position[1] + (self.hole_rect_height / 7),
+        )
 
         # Draw the game mode with shadow
         self.draw_text_with_shadow(
@@ -707,7 +789,7 @@ class Display:
         )
         # Draw the team mode with shadow
         self.draw_text_with_shadow(
-            team_mode,
+            f"{team_mode} | {challenge_mode}",
             self.font_medium,
             DARK_ORANGE,
             BLACK,
@@ -715,8 +797,15 @@ class Display:
             shadow_offset=(2, 2),
             center=True,
         )
-
-        pygame.display.update()
+        self.draw_text_with_shadow(
+            f"Leader : {leader_progress}",
+            self.font_small,
+            WHITE,
+            BLACK,
+            leader_text_position,
+            shadow_offset=(2, 2),
+            center=True,
+        )
 
     def display_grouped_players(self, players, team_mode, player_in_team):
         """Handles the display of player groups on the screen."""
@@ -810,9 +899,7 @@ class Display:
                 rank_background_surface = pygame.Surface(
                     (rank_square_size, rank_square_size), pygame.SRCALPHA
                 )
-                rank_background_color = pygame.Color(
-                    *group_color[:3], 150
-                )  # Set transparency to 150 out of 255
+                rank_background_color = (*group_color[:3], 150)
                 rank_background_surface.fill(rank_background_color)
                 self.screen.blit(rank_background_surface, (square_x, square_y))
 
@@ -914,7 +1001,33 @@ class Display:
                     x = start_x
                     y += box_height + gap_between_boxes + height_score
 
-        pygame.display.flip()
+    def draw_status_banner(self, status_text):
+        banner_width = min(self.screen_width - 80, 720)
+        banner_height = 54
+        banner_rect = pygame.Rect(
+            (self.screen_width - banner_width) // 2,
+            self.screen_height - banner_height - 30,
+            banner_width,
+            banner_height,
+        )
+        banner_surface = pygame.Surface(banner_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            banner_surface,
+            (8, 32, 64, 185),
+            banner_surface.get_rect(),
+            border_radius=18,
+        )
+        self.screen.blit(banner_surface, banner_rect.topleft)
+        self.draw_chrome_rect(banner_rect, CHROME_COLORS, 18, 4)
+        self.draw_text_with_shadow(
+            status_text,
+            self.font_small,
+            YELLOW,
+            BLACK,
+            banner_rect.center,
+            shadow_offset=(2, 2),
+            center=True,
+        )
 
     def draw_text_with_shadow(
         self,
@@ -972,7 +1085,7 @@ class Display:
         return 4
 
     def draw_goal_animation(self, hole, pin):
-        start_time = time.time()
+        start_time = time.monotonic()
         last_blink_time = start_time
         use_first_image = True  # Start with the first image
 
@@ -981,8 +1094,11 @@ class Display:
         else:
             x1, y1 = hole.position2
 
-        while time.time() - start_time < 1.5:
-            current_time = time.time()
+        while time.monotonic() - start_time < GOAL_ANIMATION_DURATION:
+            if not self.handle_animation_events():
+                return
+
+            current_time = time.monotonic()
             if current_time - last_blink_time > BLINK_INTERVAL:
                 # Toggle the color
                 use_first_image = not use_first_image  # Toggle the image
@@ -1005,6 +1121,7 @@ class Display:
 
             # Update the display
             pygame.display.flip()
+            self.clock.tick(60)
 
         self.screen.blit(self.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
         font = self.font_medium if hole.type != "large_frog" else self.font_small
@@ -1034,7 +1151,7 @@ class Display:
     def draw_player_win(self, winner):
         # Determine the winner and message
         self.resources["applause"].play()
-        BLINK_INTERVAL = 0.5  # Interval in seconds
+        blink_interval = 0.5  # Interval in seconds
 
         # Message and font
         message = f"Bravo {winner}"
@@ -1071,11 +1188,12 @@ class Display:
         )
 
         # Blinking effect
-        start_time = time.time()
-        while time.time() - start_time < 3:
-            blink = int(
-                (time.time() * 2) % 2
-            )  # Toggle between 0 and 1 every 0.5 seconds
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < 3:
+            if not self.handle_animation_events():
+                break
+
+            blink = int((time.monotonic() * 2) % 2)
 
             # Clear the screen area
             self.screen.fill((0, 0, 0), clear_rect)  # Adjust as necessary
@@ -1103,7 +1221,7 @@ class Display:
                 self.screen.blit(self.resources["winner_banner"], right_image_rect)
 
             pygame.display.update()
-            time.sleep(BLINK_INTERVAL)
+            self.clock.tick(max(1, int(1 / blink_interval) * 2))
 
         # Ensure the final state is visible
         self.draw_chrome_rect(frame_rect, GOLD_COLORS, 10, 5)
@@ -1148,11 +1266,13 @@ class Display:
                 ),
                 None,
             )
-            winner_name = (
-                f"Team {next(player.team for player in winner_group)}"
-                if team_mode == TEAM_MODE_TEAM
-                else f"Duo {next(player.team for player in winner_group)}"
-            )
+            winner_name = None
+            if winner_group:
+                winner_name = (
+                    f"Team {winner_group[0].team}"
+                    if team_mode == TEAM_MODE_TEAM
+                    else f"Duo {winner_group[0].team}"
+                )
             message = f"Bravo {winner_name}" if winner_group else "Game Over!"
         else:
             winner = next((player for player in players if player.rank == 1), None)
@@ -1292,8 +1412,7 @@ class Display:
         return list(groups.values())
 
     def animation_bottle(self):
-        sound = self.load_sound("sounds", "bouteille.mp3")
-        sound.play()
+        self.resources["bottle_sound"].play()
         self.play_gif(
             self.resources["beer_frames"],
             self.resources["beer_duration"],
@@ -1330,6 +1449,8 @@ class Display:
         )
         gif = Image.open(gif_path)
         frames = []
+        max_width = self.screen_width // 3
+        max_height = int(self.screen_height / 2.4)
         try:
             while True:
                 # Convert each frame to a format compatible with Pygame
@@ -1337,6 +1458,15 @@ class Display:
                 pygame_frame = pygame.image.fromstring(
                     frame.tobytes(), frame.size, frame.mode
                 )
+                pygame_frame = pygame_frame.convert_alpha()
+                frame_width = pygame_frame.get_width()
+                frame_height = pygame_frame.get_height()
+                if frame_width > max_width or frame_height > max_height:
+                    scale = min(max_width / frame_width, max_height / frame_height)
+                    pygame_frame = pygame.transform.smoothscale(
+                        pygame_frame,
+                        (int(frame_width * scale), int(frame_height * scale)),
+                    ).convert_alpha()
                 frames.append(pygame_frame)
                 gif.seek(len(frames))  # Move to the next frame
         except EOFError:
@@ -1346,6 +1476,9 @@ class Display:
         )  # Default duration to 100ms if not found
 
     def play_gif(self, frames, duration):
+        if not frames:
+            return
+
         clock = pygame.time.Clock()
         running = True
         frame_index = 0
@@ -1355,12 +1488,15 @@ class Display:
 
         # Get the maximum width and height based on the hole radius and holes_area_rect
         max_width = screen_width // 3
-        max_height = screen_height // 2.4
+        max_height = int(screen_height / 2.4)
+
+        surface = frames[0]
+        x = max_width + max_width // 2 - surface.get_width() // 2
+        y = 20 + max_height // 2 - surface.get_height() // 2
 
         while running and frame_index < len(frames):
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+            if not self.handle_animation_events():
+                return
 
             # Clear the previous frame area
             self.screen.fill((0, 0, 0))  # Fill the entire screen with black
@@ -1370,15 +1506,6 @@ class Display:
 
             frame_width = surface.get_width()
             frame_height = surface.get_height()
-
-            # Resize the frame to fit within the maximum dimensions if needed
-            if frame_width > max_width or frame_height > max_height:
-                scale = min(max_width / frame_width, max_height / frame_height)
-                surface = pygame.transform.scale(
-                    surface, (int(frame_width * scale), int(frame_height * scale))
-                )
-                frame_width = surface.get_width()
-                frame_height = surface.get_height()
 
             # Calculate position to center the frame in the hole area
             x = max_width + max_width // 2 - frame_width // 2
@@ -1390,27 +1517,20 @@ class Display:
             pygame.display.flip()
 
             frame_index += 1
-            clock.tick(1000 // duration)
+            clock.tick(max(1, 1000 // max(duration, 1)))
 
         # Final frame display (optional)
         self.screen.blit(surface, (x, y))
         pygame.display.flip()
 
     def run_fireworks(self):
-        frame_paths = self.resources["firework_frames"]
+        frame_surfaces = self.resources["firework_frames"]
         fps = self.resources["firework_fps"]
         clock = pygame.time.Clock()
-        screen_size = self.screen.get_size()
 
-        for frame_path in frame_paths:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return
-
-            frame_surface = pygame.image.load(frame_path).convert()
-            if frame_surface.get_size() != screen_size:
-                frame_surface = pygame.transform.scale(frame_surface, screen_size)
-
+        for frame_surface in frame_surfaces:
+            if not self.handle_animation_events():
+                return
             self.screen.blit(frame_surface, (0, 0))
             pygame.display.flip()
             clock.tick(fps)
