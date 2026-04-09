@@ -1,36 +1,12 @@
-import pygame
-import os
-import glob
-import time
 import logging
+import os
 import sys
-import math
-from src.constants import (
-    HOLE_RADIUS,
-    CHROME_COLORS,
-    RED_COLORS,
-    GOLD_COLORS,
-    BLUE,
-    DARK_BLUE,
-    YELLOW,
-    WHITE,
-    DARK_GREEN,
-    DARK_ORANGE,
-    DARK_GREY,
-    LIGHT_GREY,
-    BLACK,
-    RED,
-    GROUP_COLORS,
-    BLINK_INTERVAL,
-    PLAYER_OPTION_COLOR,
-    TEAM_MODE_DUO,
-    TEAM_MODE_SOLO,
-    TEAM_MODE_TEAM,
-    GOAL_ANIMATION_DURATION,
-)
+import time
 
-from src.roulette import RouletteAnimation
-from PIL import Image
+import pygame
+
+from src.constants import HOLE_RADIUS
+from src.display_services import DisplayEffectsService, DisplayUIService
 
 
 class Display:
@@ -42,7 +18,6 @@ class Display:
         else:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | flags)
 
-        # Optionally, you can also set the window title
         font_path = os.path.join(
             os.path.dirname(__file__), "..", "assets", "fonts", "AntonSC-Regular.ttf"
         )
@@ -60,9 +35,7 @@ class Display:
         self.frame_player_width = self.screen_width // 5
         self.hole_rect_height = int(self.screen_height / 2.4)
         self.frame_space_x = (
-            int(
-                self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
-            )
+            int(self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width)
             // 4
         )
         self.frame_space_y = 20
@@ -70,21 +43,17 @@ class Display:
         self.hole_frame_border = 7
         self.hole_space = self.hole_rect_height / 30
         self.clock = pygame.time.Clock()
-        self.resources = {}  # Cache resources
+        self.resources = {}
         self.load_ressources()
+        self.ui = DisplayUIService(self)
+        self.effects = DisplayEffectsService(self)
 
     def load_ressources(self):
         try:
-            self.resources["game_background"] = self.load_background(
-                "images", "game3.jpg"
-            )
-            self.resources["menu_background"] = self.load_background(
-                "images", "intro.jpg"
-            )
+            self.resources["game_background"] = self.load_background("images", "game3.jpg")
+            self.resources["menu_background"] = self.load_background("images", "intro.jpg")
             self.resources["win_background"] = self.load_background("images", "win.jpg")
-            self.resources["winner_banner"] = self.load_background(
-                "images", "winner.png"
-            )
+            self.resources["winner_banner"] = self.load_background("images", "winner.png")
             self.resources["roulette_image"] = self.load_image(
                 "images", "roulette_image.png", scale=0.8
             )
@@ -110,9 +79,6 @@ class Display:
                 height=2 * HOLE_RADIUS,
             )
 
-            self.resources["penalty_frames"], self.resources["penalty_duration"] = (
-                self.load_gif("gif", "fail.gif")
-            )
             self.resources["penalty_sound"] = self.load_sound("sounds", "fail.mp3")
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
@@ -121,41 +87,12 @@ class Display:
             self.resources["roulette_end_sound"] = self.load_sound(
                 "sounds", "roulette_end.mp3"
             )
-            (
-                self.resources["large_frog_frames"],
-                self.resources["large_frog_duration"],
-            ) = self.load_gif("gif", "large_frog_animation.gif")
-            (
-                self.resources["beer_frames"],
-                self.resources["beer_duration"],
-            ) = self.load_gif("gif", "beer.gif")
             self.resources["applause"] = self.load_sound("sounds", "aplaudissement.mp3")
-            (
-                self.resources["little_frog_frames"],
-                self.resources["little_frog_duration"],
-            ) = self.load_gif("gif", "small_frog_animation.gif")
-
-            # Scale winner_banner once and store it
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )
-            frames_dir = os.path.join(
-                os.path.dirname(__file__), "..", "assets", "videos", "firework_frames"
-            )
-            frame_paths = sorted(glob.glob(os.path.join(frames_dir, "frame_*.jpg")))
-            self.resources["firework_frames"] = [
-                self.load_image(
-                    "videos/firework_frames",
-                    os.path.basename(frame_path),
-                    width=self.screen_width,
-                    height=self.screen_height,
-                )
-                for frame_path in frame_paths
-            ]
-            self.resources["firework_fps"] = 25
-
-        except Exception as e:
-            logging.error(f"Failed to load resources: {e}")
+        except Exception as error:
+            logging.error(f"Failed to load resources: {error}")
             self.display_error_message("Failed to load resources. Exiting...")
             pygame.quit()
             sys.exit()
@@ -172,35 +109,24 @@ class Display:
 
     def load_image(self, folder, filename, scale=None, width=None, height=None):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
-
-        # Load the original image
         original_image = self.prepare_surface(pygame.image.load(path))
 
-        # Case 1: Scaling based on a specified scale
         if scale is not None:
             original_width, original_height = original_image.get_size()
-
-            # Calculate new dimensions based on the screen height and aspect ratio
-            screen_width, screen_height = self.screen.get_size()
+            _, screen_height = self.screen.get_size()
             new_height = int(screen_height * scale)
             aspect_ratio = original_width / original_height
             new_width = int(new_height * aspect_ratio)
-
-            # Return the scaled image
             return self.prepare_surface(
                 pygame.transform.smoothscale(original_image, (new_width, new_height))
             )
 
-        # Case 2: Scaling based on specific width and height
-        elif width is not None and height is not None:
-            # Return the image scaled to the specified width and height
+        if width is not None and height is not None:
             return self.prepare_surface(
                 pygame.transform.smoothscale(original_image, (int(width), int(height)))
             )
 
-        # Case 3: Default loading (no scaling)
-        else:
-            return original_image
+        return original_image
 
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
@@ -208,23 +134,9 @@ class Display:
             self.resources[(folder, filename)] = pygame.mixer.Sound(path)
         return self.resources[(folder, filename)]
 
-    def handle_animation_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
-        return True
-
-    def wait_with_event_pump(self, seconds):
-        end_time = time.monotonic() + seconds
-        while time.monotonic() < end_time:
-            if not self.handle_animation_events():
-                return False
-            self.clock.tick(30)
-        return True
-
     def display_error_message(self, message):
         self.screen.fill((0, 0, 0))
-        error_text = self.font_large.render(message, True, RED)
+        error_text = self.font_large.render(message, True, (255, 0, 0))
         self.screen.blit(
             error_text,
             (
@@ -233,10 +145,9 @@ class Display:
             ),
         )
         pygame.display.flip()
-        time.sleep(3)  # Display the message for 3 seconds
+        time.sleep(3)
 
     def get_hole_position(self, hole_value, position):
-        # Adjust the function to handle all cases and default return None
         if hole_value == "20":
             return (
                 [
@@ -257,7 +168,7 @@ class Display:
                     + 2 * self.hole_space,
                 ]
             )
-        elif hole_value == "25":
+        if hole_value == "25":
             return (
                 [
                     (self.screen_width / 2) - self.hole_frame_width / 3,
@@ -277,7 +188,7 @@ class Display:
                     + self.hole_space,
                 ]
             )
-        elif hole_value == "40":
+        if hole_value == "40":
             return (
                 [
                     (self.screen_width / 2) - self.hole_frame_width / 6,
@@ -297,7 +208,7 @@ class Display:
                     + self.border_holes * 4,
                 ]
             )
-        elif hole_value == "50":
+        if hole_value == "50":
             return (
                 [
                     (self.screen_width / 2) - self.hole_frame_width / 6,
@@ -317,7 +228,7 @@ class Display:
                     + self.border_holes * 2,
                 ]
             )
-        elif hole_value == "100":
+        if hole_value == "100":
             return (
                 [
                     (self.screen_width / 2) - self.hole_frame_width / 6,
@@ -337,1200 +248,138 @@ class Display:
                     + self.border_holes * 6,
                 ]
             )
-        elif hole_value == "150":
+        if hole_value == "150":
             return (
                 [
                     (self.screen_width / 2) - self.hole_frame_width / 3,
-                    self.frame_space_y
-                    + self.hole_frame_border
-                    + HOLE_RADIUS
-                    + self.border_holes,
+                    self.frame_space_y + self.hole_frame_border + HOLE_RADIUS + self.border_holes,
                 ]
                 if position == 1
                 else [
                     (self.screen_width / 2) + self.hole_frame_width / 3,
-                    self.frame_space_y
-                    + self.hole_frame_border
-                    + HOLE_RADIUS
-                    + self.border_holes,
+                    self.frame_space_y + self.hole_frame_border + HOLE_RADIUS + self.border_holes,
                 ]
             )
-        elif hole_value == "200":
+        if hole_value == "200":
             return [
-                (self.screen_width / 2),
+                self.screen_width / 2,
                 self.frame_space_y
                 + self.hole_frame_border
                 + 3 * HOLE_RADIUS
                 + 3 * self.border_holes
                 + self.hole_space,
             ]
-        elif hole_value == "ROUL":
+        if hole_value == "ROUL":
             return [
-                (self.screen_width / 2),
-                self.frame_space_y
-                + self.hole_frame_border
-                + HOLE_RADIUS
-                + self.border_holes,
+                self.screen_width / 2,
+                self.frame_space_y + self.hole_frame_border + HOLE_RADIUS + self.border_holes,
             ]
         return None
 
-    def draw_chrome_rect(self, rect, colors, border_radius, width):
-        """Draws a rounded rectangle with a chrome effect."""
-        x, y, w, h = rect
-        for i in range(width):
-            pygame.draw.rect(
-                self.screen,
-                colors[i % len(colors)],
-                (x - i, y - i, w + 2 * i, h + 2 * i),
-                border_radius=border_radius - i if border_radius > i else 0,
-                width=1,
-            )
-
-    def draw_text_with_outline(
-        self,
-        text,
-        font,
-        text_color,
-        outline_color,
-        position,
-        outline_width=2,
-        center=False,
-    ):
-        outline_font = pygame.font.Font(font, font.size + outline_width * 2)
-        outline_text = outline_font.render(text, True, outline_color)
-        outline_rect = outline_text.get_rect()
-        if center:
-            outline_rect.center = position
-        else:
-            outline_rect.topleft = position
-        self.screen.blit(outline_text, outline_rect)
-
-        actual_text = font.render(text, True, text_color)
-        actual_rect = actual_text.get_rect()
-        if center:
-            actual_rect.center = outline_rect.center
-        else:
-            actual_rect.topleft = outline_rect.topleft
-        self.screen.blit(actual_text, actual_rect)
-
-    def draw_menu(self, menu):
-        self.screen.blit(self.resources["menu_background"], (0, 0))
-
-        # Menu options dimensions
-        box_width, box_height, margin_x, margin_y = 400, 100, 20, 20
-        border_radius, border_width = 15, 5
-
-        # Transparency settings
-        semi_transparent_blue, semi_transparent_darkblue = BLUE, DARK_BLUE
-        semi_transparent_blue.a, semi_transparent_darkblue.a = 128, 128
-
-        # Calculate the number of rows needed
-        num_rows = (len(menu.options) + 1) // 2
-
-        # Calculate total height of the menu
-        total_height = num_rows * box_height + (num_rows - 1) * margin_y
-
-        # Calculate starting positions to center the menu
-        start_x = (self.screen.get_width() - (2 * box_width + margin_x)) // 2
-        start_y = (self.screen.get_height() - total_height) // 2
-
-        for i, option in enumerate(menu.options):
-            color = (
-                semi_transparent_blue
-                if i == menu.selected_option
-                else semi_transparent_darkblue
-            )
-            # Calculate position
-            x, y = start_x + (i % 2) * (box_width + margin_x), start_y + (i // 2) * (
-                box_height + margin_y
-            )
-
-            # Draw chrome effect rectangle
-            self.draw_chrome_rect(
-                (x, y, box_width, box_height),
-                CHROME_COLORS,
-                border_radius,
-                border_width,
-            )
-
-            # Create a semi-transparent surface for the filled rectangle
-            rect_surface = pygame.Surface(
-                (box_width - 2 * border_width, box_height - 2 * border_width),
-                pygame.SRCALPHA,
-            )
-            rect_surface = rect_surface.convert_alpha()
-            pygame.draw.rect(
-                rect_surface,
-                color,
-                rect_surface.get_rect(),
-                border_radius=border_radius - border_width,
-            )
-
-            # Blit the semi-transparent surface onto the main screen
-            self.screen.blit(rect_surface, (x + border_width, y + border_width))
-
-            # Render text
-            name_text = self.font_medium.render(option["name"], True, WHITE)
-            value_text = self.font_medium.render(str(option["value"]), True, YELLOW)
-
-            # Calculate center positions for the texts within the rectangle
-            name_text_rect = name_text.get_rect(
-                center=(x + box_width // 2, y + box_height // 2 - 20)
-            )
-            value_text_rect = value_text.get_rect(
-                center=(x + box_width // 2, y + box_height // 2 + 20)
-            )
-
-            # Blit centered text
-            self.screen.blit(name_text, name_text_rect)
-            self.screen.blit(value_text, value_text_rect)
-
-        pygame.display.update()
-
-    def draw_end_menu(self, menu):
-        self.screen.blit(self.resources["menu_background"], (0, 0))
-
-        # Menu options dimensions
-        box_width, box_height, margin_x, margin_y = 400, 100, 20, 20
-        border_radius, border_width = 15, 5
-
-        # Transparency settings
-        semi_transparent_blue, semi_transparent_darkblue = BLUE, DARK_BLUE
-        semi_transparent_blue.a, semi_transparent_darkblue.a = 128, 128
-
-        # Calculate the number of rows needed
-        num_rows = (len(menu.options) + 1) // 2
-
-        # Calculate total height of the menu
-        total_height = num_rows * box_height + (num_rows - 1) * margin_y
-
-        # Calculate starting positions to center the menu
-        start_x = (self.screen.get_width() - (2 * box_width + margin_x)) // 2
-        start_y = (self.screen.get_height() - total_height) // 2
-
-        for i, option in enumerate(menu.options):
-            color = (
-                semi_transparent_blue
-                if i == menu.selected_option
-                else semi_transparent_darkblue
-            )
-            # Calculate position
-            x, y = start_x + (i % 2) * (box_width + margin_x), start_y + (i // 2) * (
-                box_height + margin_y
-            )
-
-            # Draw chrome effect rectangle
-            self.draw_chrome_rect(
-                (x, y, box_width, box_height),
-                CHROME_COLORS,
-                border_radius,
-                border_width,
-            )
-
-            # Create a semi-transparent surface for the filled rectangle
-            rect_surface = pygame.Surface(
-                (box_width - 2 * border_width, box_height - 2 * border_width),
-                pygame.SRCALPHA,
-            )
-            rect_surface = rect_surface.convert_alpha()
-            pygame.draw.rect(
-                rect_surface,
-                color,
-                rect_surface.get_rect(),
-                border_radius=border_radius - border_width,
-            )
-
-            # Blit the semi-transparent surface onto the main screen
-            self.screen.blit(rect_surface, (x + border_width, y + border_width))
-
-            # Render text
-            name_text = self.font_medium.render(str(option), True, WHITE)
-
-            # Calculate center positions for the texts within the rectangle
-            name_text_rect = name_text.get_rect(
-                center=(x + box_width // 2, y + box_height // 2)
-            )
-
-            # Blit centered text
-            self.screen.blit(name_text, name_text_rect)
-
-        pygame.display.update()
-
-    def play_intro(self):
-        sound = self.resources.get("intro_sound")
-        if sound:
-            sound.play()
-
-    def draw_game(
-        self,
-        players,
-        current_player,
-        holes,
-        score,
-        game_mode,
-        team_mode,
-        player_in_team=0,
-        current_progress=0,
-        leader_progress=0,
-        challenge_mode="CLASSIQUE",
-        status_text="",
-    ):
-        if current_player is None:
-            return
-
-        self.screen.blit(self.resources["game_background"], (0, 0))
-        self.draw_static_elements(
-            current_player,
-            score,
-            game_mode,
-            team_mode,
-            holes,
-            current_progress,
-            leader_progress,
-            challenge_mode,
-        )
-        self.display_grouped_players(players, team_mode, player_in_team)
-        if status_text:
-            self.draw_status_banner(status_text)
-        pygame.display.flip()
-
-    def draw_holes(self, holes):
-        # Define the area for the holes and add chrome border
-        holes_area_rect = (
-            2 * self.frame_space_x + self.frame_score_width,
-            self.frame_space_y,
-            self.hole_frame_width,
-            self.hole_rect_height,
-        )
-        self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
-
-        # Draw holes
-        for hole in holes:
-            x1, y1 = hole.position[0], hole.position[1]
-
-            # Center the image at (x1, y1)
-            self.screen.blit(
-                self.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS)
-            )
-            font = self.font_medium if hole.type != "large_frog" else self.font_small
-            points_text = font.render(hole.text, True, LIGHT_GREY)
-            text_rect = points_text.get_rect(center=(x1, y1))
-            self.screen.blit(points_text, text_rect)
-
-            if hole.type == "side" or hole.type == "bottle":
-                x2, y2 = hole.position2[0], hole.position2[1]
-
-                # Center the image at (x1, y1)
-                self.screen.blit(
-                    self.resources["hole"], (x2 - HOLE_RADIUS, y2 - HOLE_RADIUS)
-                )
-                text_rect = points_text.get_rect(center=(x2, y2))
-                self.screen.blit(points_text, text_rect)
-
-    def draw_static_elements(
-        self,
-        current_player,
-        score,
-        game_mode,
-        team_mode,
-        holes,
-        current_progress,
-        leader_progress,
-        challenge_mode,
-    ):
-        """Draws static elements like scores and game info."""
-        # Define the area for the current player info and add chrome border
-        current_player_rect = (
-            self.frame_space_x,
-            self.frame_space_y,
-            self.frame_score_width,
-            self.hole_rect_height,
-        )
-
-        # Calculate center positions for the texts within the frame
-        name_text_position = (
-            self.frame_space_x + self.frame_score_width / 2,
-            self.frame_space_y + (self.hole_rect_height / 3),
-        )
-        score_text_position = (
-            self.frame_space_x + self.frame_score_width / 2,
-            name_text_position[1] + (self.hole_rect_height / 5),
-        )
-        remaining_points_text_position = (
-            self.frame_space_x + self.frame_score_width / 2,
-            score_text_position[1] + (self.hole_rect_height / 5),
-        )
-
-        # Define text strings
-        if team_mode == TEAM_MODE_TEAM:
-            score_label = "Score équipe"
-        elif team_mode == TEAM_MODE_DUO:
-            score_label = "Score duo"
-        else:
-            score_label = "Score"
-
-        current_player_score = f"{score_label} : {current_progress}"
-        remaining_points_text = f"Points Restants : {max(score - current_progress, 0)}"
-
-        # Render the text to get the dimensions
-        score_surface = self.font_medium.render(current_player_score, True, DARK_ORANGE)
-        remaining_points_surface = self.font_verysmall.render(
-            remaining_points_text, True, DARK_GREEN
-        )
-
-        # Calculate rectangle positions and sizes
-        score_rect = score_surface.get_rect(center=score_text_position)
-        remaining_points_rect = remaining_points_surface.get_rect(
-            center=remaining_points_text_position
-        )
-
-        # Add padding around the text for the rectangle
-        padding = 10
-        score_rect.inflate_ip(padding, padding)  # Inflate the rectangle by padding
-        remaining_points_rect.inflate_ip(padding, padding)
-
-        rectangle_color = PLAYER_OPTION_COLOR  # Color of the rectangle border
-
-        pygame.draw.rect(self.screen, rectangle_color, score_rect)
-        pygame.draw.rect(self.screen, rectangle_color, remaining_points_rect)
-
-        # Draw the text with shadow
-        self.draw_text_with_shadow(
-            current_player_score,
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            score_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-        self.draw_text_with_shadow(
-            remaining_points_text,
-            self.font_verysmall,
-            DARK_GREEN,
-            BLACK,
-            remaining_points_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-        self.draw_chrome_rect(current_player_rect, CHROME_COLORS, 15, 5)
-
-        current_player_name_text = str(current_player)
-        if team_mode != TEAM_MODE_SOLO and current_player.team is not None:
-            current_player_name_text = (
-                f"{current_player_name_text} - {current_player.team}"
-            )
-
-        # Draw the current player name with shadow
-        self.draw_text_with_shadow(
-            current_player_name_text,
-            self.font_large,
-            DARK_GREEN,
-            BLACK,
-            name_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-        self.draw_holes(holes)
-
-        # Define the area for the game options and add chrome border
-        frame_x, frame_y = (
-            self.screen_width - self.frame_score_width - self.frame_space_x,
-            self.frame_space_y,
-        )
-        game_mode_rect = (
-            frame_x,
-            frame_y,
-            self.frame_score_width,
-            self.hole_rect_height,
-        )
-        self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
-
-        # Calculate center positions for the game options texts within the rectangle
-        game_mode_text_position = (
-            frame_x + self.frame_score_width / 2,
-            frame_y + (self.hole_rect_height / 3),
-        )
-        score_text_position = (
-            frame_x + self.frame_score_width / 2,
-            name_text_position[1] + (self.hole_rect_height / 5),
-        )
-        team_mode_text_position = (
-            frame_x + self.frame_score_width / 2,
-            score_text_position[1] + (self.hole_rect_height / 5),
-        )
-        leader_text_position = (
-            frame_x + self.frame_score_width / 2,
-            team_mode_text_position[1] + (self.hole_rect_height / 7),
-        )
-
-        # Draw the game mode with shadow
-        self.draw_text_with_shadow(
-            game_mode,
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            game_mode_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-        # Draw the game score with shadow
-        self.draw_text_with_shadow(
-            str(score) + " points",
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            score_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-        # Draw the team mode with shadow
-        self.draw_text_with_shadow(
-            f"{team_mode} | {challenge_mode}",
-            self.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            team_mode_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-        self.draw_text_with_shadow(
-            f"Leader : {leader_progress}",
-            self.font_small,
-            WHITE,
-            BLACK,
-            leader_text_position,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-    def display_grouped_players(self, players, team_mode, player_in_team):
-        """Handles the display of player groups on the screen."""
-        if team_mode == TEAM_MODE_TEAM:
-            teams = {}
-            for player in players:
-                team_id = player.team
-                if team_id not in teams:
-                    teams[team_id] = []
-                teams[team_id].append(player)
-            groups = list(teams.values())
-            players_per_row = (
-                1
-                if player_in_team == 3
-                else (
-                    2
-                    if player_in_team > 4
-                    else (player_in_team if player_in_team != 2 else 4)
-                )
-            )
-            display_score = True
-        elif team_mode == TEAM_MODE_DUO:
-            pairs = {}
-            for player in players:
-                pair_id = player.team
-                if pair_id not in pairs:
-                    pairs[pair_id] = []
-                pairs[pair_id].append(player)
-            groups = list(pairs.values())
-            players_per_row, display_score = 4, True
-        else:  # For TEAM_MODE_SOLO mode, treat all players as a single group
-            groups = [players]
-            players_per_row, display_score = 4, False
-
-        # Define colors for each group
-        group_colors = GROUP_COLORS
-        group_color_map = {
-            id(group): group_colors[i % len(group_colors)]
-            for i, group in enumerate(groups)
-        }
-
-        # Set initial coordinates and layout settings
-        start_y = self.screen_height / 2 - 20
-        gap_between_boxes = 20
-        # Use the dimensions of the loaded frame image for positioning
-        box_width, box_height = self.resources["frame_player"].get_size()
-        start_x = (self.screen_width - (4 * box_width) - (3 * gap_between_boxes)) / 2
-        x, y = start_x, start_y
-        players_in_row = 0
-
-        rank_square_size = 20  # Adjusted size to fit better
-
-        if display_score:
-            height_score = self.font_small.render("T", True, DARK_GREY)
-            height_score = height_score.get_height() + 5
-        else:
-            height_score = 0
-
-        for group in groups:
-            group_color = group_color_map[id(group)]
-            if team_mode != TEAM_MODE_SOLO:
-                group_total_score = sum(player.score for player in group)
-
-                total_score_text = f"Total: {group_total_score}"
-                self.draw_text_with_shadow(
-                    total_score_text,
-                    self.font_small,
-                    WHITE,  # Text color
-                    pygame.Color("black"),  # Shadow color
-                    (x, y),  # Position
-                )
-
-            # Layout players within the group
-            for player in group:
-                # Draw player box
-
-                if player.is_active:
-                    self.screen.blit(
-                        self.resources["frame_player_select"], (x, y + height_score)
-                    )
-                else:
-                    self.screen.blit(
-                        self.resources["frame_player"], (x, y + height_score)
-                    )
-
-                # Define rank display position and background with transparency
-                square_x = x + box_width - rank_square_size - (box_width / 18)
-                square_y = y + height_score + (box_height / 10)
-
-                # Create a semi-transparent surface for the rank background
-                rank_background_surface = pygame.Surface(
-                    (rank_square_size, rank_square_size), pygame.SRCALPHA
-                )
-                rank_background_color = (*group_color[:3], 150)
-                rank_background_surface.fill(rank_background_color)
-                self.screen.blit(rank_background_surface, (square_x, square_y))
-
-                # Draw a border around the rank background (optional)
-                pygame.draw.rect(
-                    self.screen,
-                    pygame.Color("white"),  # Color for the border or glow
-                    (square_x, square_y, rank_square_size, rank_square_size),
-                    width=1,  # Border thickness
-                    border_radius=5,  # Rounded corners for smoother integration
-                )
-
-                # Render rank text with a shadow for better readability
-                rank_text = self.font_verysmall.render(
-                    f"{player.rank}", True, pygame.Color("white")
-                )
-                rank_text_shadow = self.font_verysmall.render(
-                    f"{player.rank}", True, pygame.Color(0, 0, 0, 150)
-                )
-
-                # Define the position for the text and shadow
-                rank_text_rect = rank_text.get_rect(
-                    center=(
-                        square_x + rank_square_size / 2,
-                        square_y + rank_square_size / 2,
-                    )
-                )
-
-                # Blit the shadow slightly offset from the main text
-                self.screen.blit(rank_text_shadow, rank_text_rect.move(1, 1))
-                # Blit the main rank text
-                self.screen.blit(rank_text, rank_text_rect)
-
-                # Player details
-                player_label = self.font_small.render(str(player), True, DARK_ORANGE)
-                player_label_pos = (
-                    x + 20,
-                    y + height_score + (box_height - player_label.get_height()) // 2,
-                )
-                self.draw_text_with_shadow(
-                    str(player),
-                    self.font_small,
-                    DARK_ORANGE,
-                    pygame.Color("black"),
-                    player_label_pos,
-                )
-
-                # Calculate the position for the score text
-                score_text_pos = (
-                    player_label_pos[0] + player_label.get_width() + 20,
-                    y + height_score + (box_height - player_label.get_height()) // 2,
-                )
-                self.draw_text_with_shadow(
-                    str(player.score),
-                    self.font_small,
-                    DARK_ORANGE,
-                    pygame.Color("black"),
-                    score_text_pos,
-                )
-
-                if team_mode in [TEAM_MODE_SOLO, TEAM_MODE_DUO] or (
-                    team_mode == TEAM_MODE_TEAM and len(group) == 2
-                ):
-                    x += box_width + gap_between_boxes
-                    players_in_row += 1  # Increment players in row counter
-                    if players_in_row >= players_per_row:
-                        x = start_x  # Reset x position for new row
-                        y += (
-                            box_height + gap_between_boxes + height_score
-                        )  # Move down to next row
-                        players_in_row = 0  # Reset players in row counter
-                elif team_mode == TEAM_MODE_TEAM:
-                    if len(group) == 3:
-                        x = start_x  # Reset x position for new row
-                        y += (
-                            box_height + gap_between_boxes + height_score
-                        )  # Move down to next row
-                    elif len(group) > 4:
-                        x += box_width + gap_between_boxes
-                        players_in_row += 1
-                        if players_in_row == 2:
-                            x = start_x
-                            y += box_height + gap_between_boxes + height_score
-                            players_in_row = 0
-                    elif len(group) != 2:
-                        x += box_width + gap_between_boxes
-
-            if team_mode == TEAM_MODE_TEAM:
-                if len(group) == 3:
-                    start_x += box_width + gap_between_boxes  #
-                    x = start_x
-                    y = start_y  # Move down to next row
-                elif len(group) > 4:
-                    players_in_row = 0
-                    start_x += 2 * (box_width + gap_between_boxes)
-                    x = start_x
-                    y = start_y
-                elif len(group) != 2:
-                    x = start_x
-                    y += box_height + gap_between_boxes + height_score
-
-    def draw_status_banner(self, status_text):
-        banner_width = min(self.screen_width - 80, 720)
-        banner_height = 54
-        banner_rect = pygame.Rect(
-            (self.screen_width - banner_width) // 2,
-            self.screen_height - banner_height - 30,
-            banner_width,
-            banner_height,
-        )
-        banner_surface = pygame.Surface(banner_rect.size, pygame.SRCALPHA)
-        pygame.draw.rect(
-            banner_surface,
-            (8, 32, 64, 185),
-            banner_surface.get_rect(),
-            border_radius=18,
-        )
-        self.screen.blit(banner_surface, banner_rect.topleft)
-        self.draw_chrome_rect(banner_rect, CHROME_COLORS, 18, 4)
-        self.draw_text_with_shadow(
-            status_text,
-            self.font_small,
-            YELLOW,
-            BLACK,
-            banner_rect.center,
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-    def draw_text_with_shadow(
-        self,
-        text,
-        font,
-        text_color,
-        shadow_color,
-        position,
-        shadow_offset=(2, 2),
-        center=False,
-    ):
-        """
-        Renders text with a shadow effect.
-        :param text: The text to render.
-        :param font: The font to use.
-        :param text_color: The color of the text.
-        :param shadow_color: The color of the shadow.
-        :param position: The position to render the text.
-        :param shadow_offset: The offset of the shadow from the text.
-        :param center: Whether to center the text at the given position.
-        """
-        shadow_text = font.render(text, True, shadow_color)
-        shadow_position = (
-            position[0] + shadow_offset[0],
-            position[1] + shadow_offset[1],
-        )
-        if center:
-            shadow_position = (
-                shadow_position[0] - shadow_text.get_width() // 2,
-                shadow_position[1] - shadow_text.get_height() // 2,
-            )
-        self.screen.blit(shadow_text, shadow_position)
-
-        actual_text = font.render(text, True, text_color)
-        actual_position = position
-        if center:
-            actual_position = (
-                actual_position[0] - actual_text.get_width() // 2,
-                actual_position[1] - actual_text.get_height() // 2,
-            )
-        self.screen.blit(actual_text, actual_position)
-
-    def calculate_group_layout(self, team_mode, group):
-        """Determines layout settings based on team mode and group size."""
-        if team_mode == TEAM_MODE_SOLO:
-            return 4
-        elif team_mode == TEAM_MODE_DUO:
-            return 4
-        elif team_mode == TEAM_MODE_TEAM:
-            if len(group) == 3:
-                return 1
-            elif len(group) > 4:
-                return 2
-            return len(group)
-        return 4
-
-    def draw_goal_animation(self, hole, pin):
-        start_time = time.monotonic()
-        last_blink_time = start_time
-        use_first_image = True  # Start with the first image
-
-        if pin == hole.pin[0]:
-            x1, y1 = hole.position
-        else:
-            x1, y1 = hole.position2
-
-        while time.monotonic() - start_time < GOAL_ANIMATION_DURATION:
-            if not self.handle_animation_events():
-                return
-
-            current_time = time.monotonic()
-            if current_time - last_blink_time > BLINK_INTERVAL:
-                # Toggle the color
-                use_first_image = not use_first_image  # Toggle the image
-                last_blink_time = current_time
-
-            # Choose the current image to display
-            hole_image = (
-                self.resources["hole"]
-                if use_first_image
-                else self.resources["hole_score"]
-            )
-
-            # Draw the selected image
-            self.screen.blit(hole_image, (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
-
-            font = self.font_medium if hole.type != "large_frog" else self.font_small
-            points_text = font.render(hole.text, True, LIGHT_GREY)
-            text_rect = points_text.get_rect(center=(x1, y1))
-            self.screen.blit(points_text, text_rect)
-
-            # Update the display
-            pygame.display.flip()
-            self.clock.tick(60)
-
-        self.screen.blit(self.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
-        font = self.font_medium if hole.type != "large_frog" else self.font_small
-        points_text = font.render(hole.text, True, LIGHT_GREY)
-        text_rect = points_text.get_rect(center=(x1, y1))
-        self.screen.blit(points_text, text_rect)
-
-        # Update the display
-        pygame.display.flip()
-
-    def draw_penalty(self):
-        self.resources["penalty_sound"].play()
-        self.play_gif(
-            self.resources["penalty_frames"], self.resources["penalty_duration"]
-        )
-        roulette_animation = RouletteAnimation(
-            self.screen,
-            self.resources["roulette_sound"],
-            self.resources["roulette_end_sound"],
-            self.resources["roulette_image"],
-            self.resources["roulette_pointer"],
-        )
-        points = roulette_animation.run()
-
-        return points
-
-    def draw_player_win(self, winner):
-        # Determine the winner and message
-        self.resources["applause"].play()
-        blink_interval = 0.5  # Interval in seconds
-
-        # Message and font
-        message = f"Bravo {winner}"
-        text_surface = self.font_large.render(message, True, DARK_ORANGE)
-        text_rect = text_surface.get_rect(
-            center=(self.screen.get_width() // 2, self.screen.get_height() // 2)
-        )
-
-        # Calculate positions for the winner frame and images
-        frame_margin = 20
-        banner_margin = 10
-        banner_width = self.resources["winner_banner"].get_width()
-
-        frame_rect = pygame.Rect(
-            text_rect.left - frame_margin - banner_width - banner_margin,
-            text_rect.top - frame_margin,
-            text_rect.width + 2 * frame_margin + 2 * banner_width + 2 * banner_margin,
-            text_rect.height + 2 * frame_margin,
-        )
-
-        left_image_rect = self.resources["winner_banner"].get_rect(
-            midright=(frame_rect.left - banner_margin, frame_rect.centery)
-        )
-        right_image_rect = self.resources["winner_banner"].get_rect(
-            midleft=(frame_rect.right + banner_margin, frame_rect.centery)
-        )
-
-        # Calculate clear rectangle size
-        clear_rect = pygame.Rect(
-            frame_rect.left - 20 - left_image_rect.width,
-            frame_rect.top - 20,
-            frame_rect.width + 40 + 2 * left_image_rect.width,
-            frame_rect.height + 40,
-        )
-
-        # Blinking effect
-        start_time = time.monotonic()
-        while time.monotonic() - start_time < 3:
-            if not self.handle_animation_events():
-                break
-
-            blink = int((time.monotonic() * 2) % 2)
-
-            # Clear the screen area
-            self.screen.fill((0, 0, 0), clear_rect)  # Adjust as necessary
-
-            if blink:
-                # Draw the winner frame
-                self.draw_chrome_rect(frame_rect, GOLD_COLORS, 10, 5)
-
-                # Draw the text with shadow centered within the frame
-                text_center_x = frame_rect.centerx
-                text_center_y = frame_rect.centery
-
-                self.draw_text_with_shadow(
-                    message,
-                    self.font_large,
-                    DARK_ORANGE,
-                    BLACK,
-                    (text_center_x, text_center_y),
-                    shadow_offset=(2, 2),
-                    center=True,
-                )
-
-                # Draw the winner banner images
-                self.screen.blit(self.resources["winner_banner"], left_image_rect)
-                self.screen.blit(self.resources["winner_banner"], right_image_rect)
-
-            pygame.display.update()
-            self.clock.tick(max(1, int(1 / blink_interval) * 2))
-
-        # Ensure the final state is visible
-        self.draw_chrome_rect(frame_rect, GOLD_COLORS, 10, 5)
-        text_center_x = frame_rect.centerx
-        text_center_y = frame_rect.centery
-
-        self.draw_text_with_shadow(
-            message,
-            self.font_large,
-            DARK_ORANGE,
-            BLACK,
-            (text_center_x, text_center_y),
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-        self.screen.blit(self.resources["winner_banner"], left_image_rect)
-        self.screen.blit(self.resources["winner_banner"], right_image_rect)
-        pygame.display.update()
-        self.resources["applause"].stop()
-
-    def draw_win(self, players, team_mode):
-        self.resources["win_sound"].play()
-        self.run_fireworks()
-        self.screen.blit(self.resources["win_background"], (0, 0))
-
-        # Group players by team or pairs
-        if team_mode == TEAM_MODE_TEAM:
-            groups = self.group_players(players, "team")
-        elif team_mode == TEAM_MODE_DUO:
-            groups = self.group_players(players, "team")
-        else:  # For TEAM_MODE_SOLO mode, treat all players as a single group
-            groups = [players]
-
-        # Determine the winner and message
-        if team_mode in [TEAM_MODE_TEAM, TEAM_MODE_DUO]:
-            winner_group = next(
-                (
-                    group
-                    for group in groups
-                    if any(player.rank == 1 for player in group)
-                ),
-                None,
-            )
-            winner_name = None
-            if winner_group:
-                winner_name = (
-                    f"Team {winner_group[0].team}"
-                    if team_mode == TEAM_MODE_TEAM
-                    else f"Duo {winner_group[0].team}"
-                )
-            message = f"Bravo {winner_name}" if winner_group else "Game Over!"
-        else:
-            winner = next((player for player in players if player.rank == 1), None)
-            message = f"Bravo {winner}" if winner else "Game Over!"
-
-        text_surface = self.font_large.render(message, True, DARK_ORANGE)
-        text_rect = text_surface.get_rect(center=(self.screen.get_width() // 2, 70))
-
-        frame_margin = 20
-        frame_rect = pygame.Rect(
-            text_rect.left - frame_margin,
-            text_rect.top - frame_margin,
-            text_rect.width + 2 * frame_margin,
-            text_rect.height + 2 * frame_margin,
-        )
-        left_image_rect = self.resources["winner_banner"].get_rect(
-            midright=(frame_rect.left - 10, frame_rect.centery)
-        )
-        right_image_rect = self.resources["winner_banner"].get_rect(
-            midleft=(frame_rect.right + 10, frame_rect.centery)
-        )
-
-        self.draw_chrome_rect(
-            frame_rect,
-            GOLD_COLORS,
-            10,
-            5,
-        )
-
-        text_center_x = frame_rect.centerx
-        text_center_y = frame_rect.centery
-
-        self.draw_text_with_shadow(
-            message,
-            self.font_large,
-            DARK_ORANGE,
-            BLACK,
-            (text_center_x, text_center_y),
-            shadow_offset=(2, 2),
-            center=True,
-        )
-
-        self.screen.blit(self.resources["winner_banner"], left_image_rect)
-        self.screen.blit(self.resources["winner_banner"], right_image_rect)
-
-        # Sort groups and players within groups by rank
-        sorted_groups = sorted(
-            groups, key=lambda group: min(player.rank for player in group)
-        )
-        for group in sorted_groups:
-            group.sort(key=lambda player: player.rank)
-
-        # Assign colors to each group
-        group_colors = GROUP_COLORS
-        group_color_map = {
-            id(group): group_colors[i % len(group_colors)]
-            for i, group in enumerate(sorted_groups)
-        }
-
-        margin_top = 200
-        box_height = 40
-        gap_between_boxes = 20
-        num_rows = sum(len(group) for group in sorted_groups)
-        total_height = num_rows * (box_height + gap_between_boxes) - gap_between_boxes
-
-        screen_height = self.screen.get_height()
-        columns = 2 if total_height > screen_height - margin_top - 50 else 1
-
-        if columns == 1:
-            start_x = self.screen_width / 4
-            box_width = self.screen.get_width() / 2
-            hor_gap = 0
-        else:
-            start_x = self.screen_width / 6
-            box_width = self.screen.get_width() / 3 - 10
-            hor_gap = 20
-
-        x = start_x
-        y = margin_top
-
-        for z, group in enumerate(sorted_groups):
-            group_color = group_color_map[id(group)]
-
-            for i, player in enumerate(group):
-                bg_color = (
-                    group_color
-                    if team_mode != TEAM_MODE_SOLO
-                    else DARK_BLUE if i % 2 == 0 else DARK_GREY
-                )
-
-                pygame.draw.rect(
-                    self.screen,
-                    bg_color,
-                    (x, y, box_width, box_height),
-                    border_radius=0,
-                )
-
-                self.draw_chrome_rect(
-                    (x, y, box_width, box_height), CHROME_COLORS, 10, 5
-                )
-
-                player_label = self.font_small.render(str(player), True, WHITE)
-                score_text = self.font_medium.render(f"{player.score}", True, WHITE)
-                rank_text = self.font_small.render(f"{player.rank}", True, WHITE)
-
-                player_label_y = y + (box_height - player_label.get_height()) // 2
-                score_text_y = y + (box_height - score_text.get_height()) // 2
-                rank_text_y = y + (box_height - rank_text.get_height()) // 2
-
-                self.screen.blit(player_label, (x + 10, player_label_y))
-                self.screen.blit(
-                    score_text,
-                    (
-                        x + (box_width // 2) - (score_text.get_width() // 2),
-                        score_text_y,
-                    ),
-                )
-                self.screen.blit(rank_text, (x + box_width - 50, rank_text_y))
-
-                y += box_height + gap_between_boxes
-
-            y += gap_between_boxes
-
-            if columns > 1 and z + 1 == math.ceil(len(groups) / 2):
-                x += hor_gap + box_width
-                y = margin_top
-
-        pygame.display.flip()
-
-    def group_players(self, players, attribute):
-        groups = {}
-        for player in players:
-            key = getattr(player, attribute)
-            if key not in groups:
-                groups[key] = []
-            groups[key].append(player)
-        return list(groups.values())
-
-    def animation_bottle(self):
-        self.resources["bottle_sound"].play()
-        self.play_gif(
-            self.resources["beer_frames"],
-            self.resources["beer_duration"],
-        )
-
-    def animation_little_frog(self):
-        self.resources["applause"].play()
-        self.play_gif(
-            self.resources["little_frog_frames"],
-            self.resources["little_frog_duration"],
-        )
-        self.resources["applause"].stop()
-
-    def animation_large_frog(self):
-        self.resources["applause"].play()
-        self.play_gif(
-            self.resources["large_frog_frames"], self.resources["large_frog_duration"]
-        )
-        self.resources["applause"].stop()
-        roulette_animation = RouletteAnimation(
-            self.screen,
-            self.resources["roulette_sound"],
-            self.resources["roulette_end_sound"],
-            self.resources["roulette_image"],
-            self.resources["roulette_pointer"],
-        )
-        points = roulette_animation.run()
-        return points
-
-    def load_gif(self, folder, filename):
-        # Load GIF using PIL
-        gif_path = os.path.join(
-            os.path.dirname(__file__), "..", "assets", folder, filename
-        )
-        gif = Image.open(gif_path)
-        frames = []
-        max_width = self.screen_width // 3
-        max_height = int(self.screen_height / 2.4)
-        try:
-            while True:
-                # Convert each frame to a format compatible with Pygame
-                frame = gif.convert("RGBA")  # Convert to RGBA for transparency support
-                pygame_frame = pygame.image.fromstring(
-                    frame.tobytes(), frame.size, frame.mode
-                )
-                pygame_frame = pygame_frame.convert_alpha()
-                frame_width = pygame_frame.get_width()
-                frame_height = pygame_frame.get_height()
-                if frame_width > max_width or frame_height > max_height:
-                    scale = min(max_width / frame_width, max_height / frame_height)
-                    pygame_frame = pygame.transform.smoothscale(
-                        pygame_frame,
-                        (int(frame_width * scale), int(frame_height * scale)),
-                    ).convert_alpha()
-                frames.append(pygame_frame)
-                gif.seek(len(frames))  # Move to the next frame
-        except EOFError:
-            pass
-        return frames, gif.info.get(
-            "duration", 100
-        )  # Default duration to 100ms if not found
-
-    def play_gif(self, frames, duration):
-        if not frames:
-            return
-
-        clock = pygame.time.Clock()
-        running = True
-        frame_index = 0
-
-        # Get screen dimensions
-        screen_width, screen_height = self.screen.get_size()
-
-        # Get the maximum width and height based on the hole radius and holes_area_rect
-        max_width = screen_width // 3
-        max_height = int(screen_height / 2.4)
-
-        surface = frames[0]
-        x = max_width + max_width // 2 - surface.get_width() // 2
-        y = 20 + max_height // 2 - surface.get_height() // 2
-
-        while running and frame_index < len(frames):
-            if not self.handle_animation_events():
-                return
-
-            # Clear the previous frame area
-            self.screen.fill((0, 0, 0))  # Fill the entire screen with black
-
-            # Get the current frame
-            surface = frames[frame_index]
-
-            frame_width = surface.get_width()
-            frame_height = surface.get_height()
-
-            # Calculate position to center the frame in the hole area
-            x = max_width + max_width // 2 - frame_width // 2
-            y = 20 + max_height // 2 - frame_height // 2
-
-            # Blit the current frame
-            self.screen.blit(surface, (x, y))
-
-            pygame.display.flip()
-
-            frame_index += 1
-            clock.tick(max(1, 1000 // max(duration, 1)))
-
-        # Final frame display (optional)
-        self.screen.blit(surface, (x, y))
-        pygame.display.flip()
-
-    def run_fireworks(self):
-        frame_surfaces = self.resources["firework_frames"]
-        fps = self.resources["firework_fps"]
-        clock = pygame.time.Clock()
-
-        for frame_surface in frame_surfaces:
-            if not self.handle_animation_events():
-                return
-            self.screen.blit(frame_surface, (0, 0))
-            pygame.display.flip()
-            clock.tick(fps)
+    def draw_chrome_rect(self, *args, **kwargs):
+        return self.ui.draw_chrome_rect(*args, **kwargs)
+
+    def draw_text_with_outline(self, *args, **kwargs):
+        return self.ui.draw_text_with_outline(*args, **kwargs)
+
+    def draw_menu(self, *args, **kwargs):
+        return self.ui.draw_menu(*args, **kwargs)
+
+    def draw_end_menu(self, *args, **kwargs):
+        return self.ui.draw_end_menu(*args, **kwargs)
+
+    def play_intro(self, *args, **kwargs):
+        return self.ui.play_intro(*args, **kwargs)
+
+    def draw_game(self, *args, **kwargs):
+        return self.ui.draw_game(*args, **kwargs)
+
+    def draw_holes(self, *args, **kwargs):
+        return self.ui.draw_holes(*args, **kwargs)
+
+    def draw_static_elements(self, *args, **kwargs):
+        return self.ui.draw_static_elements(*args, **kwargs)
+
+    def display_grouped_players(self, *args, **kwargs):
+        return self.ui.display_grouped_players(*args, **kwargs)
+
+    def draw_status_banner(self, *args, **kwargs):
+        return self.ui.draw_status_banner(*args, **kwargs)
+
+    def draw_text_with_shadow(self, *args, **kwargs):
+        return self.ui.draw_text_with_shadow(*args, **kwargs)
+
+    def calculate_group_layout(self, *args, **kwargs):
+        return self.ui.calculate_group_layout(*args, **kwargs)
+
+    def group_players(self, *args, **kwargs):
+        return self.ui.group_players(*args, **kwargs)
+
+    def handle_animation_events(self, *args, **kwargs):
+        return self.effects.handle_animation_events(*args, **kwargs)
+
+    def wait_with_event_pump(self, *args, **kwargs):
+        return self.effects.wait_with_event_pump(*args, **kwargs)
+
+    def ease_out_cubic(self, *args, **kwargs):
+        return self.effects.ease_out_cubic(*args, **kwargs)
+
+    def ease_in_out_sine(self, *args, **kwargs):
+        return self.effects.ease_in_out_sine(*args, **kwargs)
+
+    def ease_out_back(self, *args, **kwargs):
+        return self.effects.ease_out_back(*args, **kwargs)
+
+    def get_rgb(self, *args, **kwargs):
+        return self.effects.get_rgb(*args, **kwargs)
+
+    def animate_scene(self, *args, **kwargs):
+        return self.effects.animate_scene(*args, **kwargs)
+
+    def draw_overlay(self, *args, **kwargs):
+        return self.effects.draw_overlay(*args, **kwargs)
+
+    def draw_glow_circle(self, *args, **kwargs):
+        return self.effects.draw_glow_circle(*args, **kwargs)
+
+    def draw_radial_burst(self, *args, **kwargs):
+        return self.effects.draw_radial_burst(*args, **kwargs)
+
+    def draw_confetti(self, *args, **kwargs):
+        return self.effects.draw_confetti(*args, **kwargs)
+
+    def clamp(self, *args, **kwargs):
+        return self.effects.clamp(*args, **kwargs)
+
+    def lerp(self, *args, **kwargs):
+        return self.effects.lerp(*args, **kwargs)
+
+    def draw_lily_pad(self, *args, **kwargs):
+        return self.effects.draw_lily_pad(*args, **kwargs)
+
+    def draw_frog_character(self, *args, **kwargs):
+        return self.effects.draw_frog_character(*args, **kwargs)
+
+    def draw_goal_animation(self, *args, **kwargs):
+        return self.effects.draw_goal_animation(*args, **kwargs)
+
+    def draw_penalty(self, *args, **kwargs):
+        return self.effects.draw_penalty(*args, **kwargs)
+
+    def draw_player_win(self, *args, **kwargs):
+        return self.effects.draw_player_win(*args, **kwargs)
+
+    def draw_win(self, *args, **kwargs):
+        return self.effects.draw_win(*args, **kwargs)
+
+    def animation_bottle(self, *args, **kwargs):
+        return self.effects.animation_bottle(*args, **kwargs)
+
+    def animation_little_frog(self, *args, **kwargs):
+        return self.effects.animation_little_frog(*args, **kwargs)
+
+    def animation_large_frog(self, *args, **kwargs):
+        return self.effects.animation_large_frog(*args, **kwargs)
+
+    def run_fireworks(self, *args, **kwargs):
+        return self.effects.run_fireworks(*args, **kwargs)
