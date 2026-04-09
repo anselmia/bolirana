@@ -35,7 +35,9 @@ class Display:
         self.frame_player_width = self.screen_width // 5
         self.hole_rect_height = int(self.screen_height / 2.4)
         self.frame_space_x = (
-            int(self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width)
+            int(
+                self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
+            )
             // 4
         )
         self.frame_space_y = 20
@@ -50,10 +52,16 @@ class Display:
 
     def load_ressources(self):
         try:
-            self.resources["game_background"] = self.load_background("images", "game3.jpg")
-            self.resources["menu_background"] = self.load_background("images", "intro.jpg")
+            self.resources["game_background"] = self.load_background(
+                "images", "game3.jpg"
+            )
+            self.resources["menu_background"] = self.load_background(
+                "images", "intro.jpg"
+            )
             self.resources["win_background"] = self.load_background("images", "win.jpg")
-            self.resources["winner_banner"] = self.load_background("images", "winner.png")
+            self.resources["winner_banner"] = self.load_background(
+                "images", "winner.png"
+            )
             self.resources["roulette_image"] = self.load_image(
                 "images", "roulette_image.png", scale=0.8
             )
@@ -82,6 +90,7 @@ class Display:
             self.resources["penalty_sound"] = self.load_sound("sounds", "fail.mp3")
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
+            self.resources["frog_sound"] = self.load_sound("sounds", "frog.mp3")
             self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
             self.resources["roulette_sound"] = self.load_sound("sounds", "roulette.mp3")
             self.resources["roulette_end_sound"] = self.load_sound(
@@ -252,12 +261,18 @@ class Display:
             return (
                 [
                     (self.screen_width / 2) - self.hole_frame_width / 3,
-                    self.frame_space_y + self.hole_frame_border + HOLE_RADIUS + self.border_holes,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + HOLE_RADIUS
+                    + self.border_holes,
                 ]
                 if position == 1
                 else [
                     (self.screen_width / 2) + self.hole_frame_width / 3,
-                    self.frame_space_y + self.hole_frame_border + HOLE_RADIUS + self.border_holes,
+                    self.frame_space_y
+                    + self.hole_frame_border
+                    + HOLE_RADIUS
+                    + self.border_holes,
                 ]
             )
         if hole_value == "200":
@@ -272,7 +287,10 @@ class Display:
         if hole_value == "ROUL":
             return [
                 self.screen_width / 2,
-                self.frame_space_y + self.hole_frame_border + HOLE_RADIUS + self.border_holes,
+                self.frame_space_y
+                + self.hole_frame_border
+                + HOLE_RADIUS
+                + self.border_holes,
             ]
         return None
 

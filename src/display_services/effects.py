@@ -27,6 +27,9 @@ from src.roulette import RouletteAnimation
 
 
 class DisplayEffectsService:
+    LITTLE_FROG_SOUND_MAXTIME_MS = 1450
+    LARGE_FROG_SOUND_MAXTIME_MS = 1750
+
     def __init__(self, display):
         self.display = display
 
@@ -947,15 +950,25 @@ class DisplayEffectsService:
 
         self.display.screen.blit(surface, surface.get_rect(center=center))
 
-    def play_sound_cue(self, sound_name, volume=1.0, fade_ms=0):
+    def play_sound_cue(
+        self,
+        sound_name,
+        volume=1.0,
+        fade_ms=0,
+        maxtime=0,
+        stop_existing=False,
+    ):
         sound = self.display.resources.get(sound_name)
         if sound is None:
             return
+        if stop_existing:
+            sound.stop()
         channel = pygame.mixer.find_channel(True)
         if channel is None:
             return
         channel.set_volume(volume)
-        channel.play(sound, fade_ms=fade_ms)
+        channel.play(sound, maxtime=maxtime, fade_ms=fade_ms)
+        return channel
 
     def trigger_cue(
         self, tracker, cue_name, threshold, progress, sound_name, volume=1.0, fade_ms=0
@@ -1913,6 +1926,14 @@ class DisplayEffectsService:
         fly_center = (center[0] + 240, center[1] - 126)
         cues_triggered = set()
 
+        self.play_sound_cue(
+            "frog_sound",
+            volume=0.72,
+            fade_ms=50,
+            maxtime=self.LITTLE_FROG_SOUND_MAXTIME_MS,
+            stop_existing=True,
+        )
+
         def render(progress):
             self.draw_overlay((3, 26, 20), 95)
             self.draw_vignette(76, (2, 18, 12))
@@ -2181,12 +2202,23 @@ class DisplayEffectsService:
             self.draw_reaction_signs(progress, ["MIAM!", "BOING!", "YES!"])
 
         self.animate_scene(1.55, render, background=backdrop)
+        frog_sound = self.display.resources.get("frog_sound")
+        if frog_sound is not None:
+            frog_sound.stop()
 
     def animation_large_frog(self):
         backdrop = self.display.screen.copy()
         center = (self.display.screen_width // 2, self.display.screen_height // 2 + 24)
         lily_center = (center[0], center[1] + 154)
         cues_triggered = set()
+
+        self.play_sound_cue(
+            "frog_sound",
+            volume=0.8,
+            fade_ms=50,
+            maxtime=self.LARGE_FROG_SOUND_MAXTIME_MS,
+            stop_existing=True,
+        )
 
         def render(progress):
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 3.5)
@@ -2444,6 +2476,9 @@ class DisplayEffectsService:
             self.draw_reaction_signs(progress, ["BOSS!", "CROAK!", "RUN!"])
 
         self.animate_scene(1.9, render, background=backdrop)
+        frog_sound = self.display.resources.get("frog_sound")
+        if frog_sound is not None:
+            frog_sound.stop()
         roulette_animation = RouletteAnimation(
             self.display.screen,
             self.display.resources["roulette_sound"],

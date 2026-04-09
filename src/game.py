@@ -6,6 +6,7 @@ import pygame
 from src.constants import (
     PIN_BENTER,
     PIN_BNEXT,
+    PIN_RIGHT,
     ACTION_NEXT,
     ACTION_RIGHT,
     ACTION_COOLDOWN,
@@ -113,6 +114,8 @@ class Game:
                 self.gamelogic.next_player(self.display)
                 self.gamelogic.draw_game = True
                 self.last_next_action_time = current_time
+        elif pin == PIN_RIGHT:
+            self.gamelogic.start_turn_timer()
         elif pin == PIN_BENTER:
             return "open_end_menu"
         elif pin in self.gamelogic.pin_to_hole:

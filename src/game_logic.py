@@ -64,6 +64,7 @@ class GameLogic:
         self.time_attack_seconds = DEFAULT_TIME_ATTACK_SECONDS
         self.time_attack_turns = DEFAULT_TIME_ATTACK_TURNS
         self.turn_started_at = 0.0
+        self.time_attack_waiting_start = False
         self.status_message = ""
         self.status_message_until = 0.0
         self.draw_game = True
@@ -81,6 +82,7 @@ class GameLogic:
         self.status_message = ""
         self.status_message_until = 0.0
         self.challenge_progress = {}
+        self.time_attack_waiting_start = False
         self.initialize_challenge_state()
         logging.info("Game restarted.")
 
@@ -171,22 +173,46 @@ class GameLogic:
                 f"Cible : {self.get_order_target_label(0)}", duration=3.0
             )
         elif self.is_time_attack_challenge():
-            self.start_turn_timer()
-            self.set_status_message(
-                f"Chrono {self.time_attack_seconds}s | {self.time_attack_turns} tours",
-                duration=3.0,
+            self.arm_time_attack_turn(
+                f"Chrono {self.time_attack_seconds}s | appuie sur HAUT pour lancer"
             )
+
+    def arm_time_attack_turn(self, message=None):
+        if not self.is_time_attack_challenge() or self.current_player is None:
+            return
+        self.turn_started_at = 0.0
+        self.time_attack_waiting_start = True
+        turns_left = self.get_turns_left_for_player()
+        prompt = message or (
+            f"{self.current_player} | {turns_left} tours restants | appuie sur HAUT pour lancer"
+        )
+        self.set_status_message(prompt, duration=3600)
+        self.draw_game = True
 
     def start_turn_timer(self):
         if not self.is_time_attack_challenge() or self.current_player is None:
-            return
+            return False
+        if not self.time_attack_waiting_start:
+            return False
         self.turn_started_at = time.monotonic()
+        self.time_attack_waiting_start = False
+        self.set_status_message(
+            f"{self.current_player} | Chrono lancé : {self.time_attack_seconds}s",
+            duration=1.5,
+        )
+        self.draw_game = True
+        return True
 
     def get_turn_time_remaining(self):
         if not self.is_time_attack_challenge() or self.current_player is None:
             return None
+        if self.time_attack_waiting_start:
+            return float(self.time_attack_seconds)
         elapsed = time.monotonic() - self.turn_started_at
         return max(0.0, self.time_attack_seconds - elapsed)
+
+    def can_score_in_time_attack(self):
+        return self.is_time_attack_challenge() and not self.time_attack_waiting_start
 
     def get_turns_left_for_player(self, player=None):
         player = player or self.current_player
@@ -261,13 +287,17 @@ class GameLogic:
                 "turn_duration": self.time_attack_seconds,
                 "turns_left": self.get_turns_left_for_player(),
                 "max_turns": self.time_attack_turns,
+                "awaiting_start": self.time_attack_waiting_start,
                 "low_time": remaining is not None
+                and not self.time_attack_waiting_start
                 and remaining <= LOW_TIME_WARNING_SECONDS,
             }
         return None
 
     def update_challenge_runtime(self, display):
         if not self.is_time_attack_challenge() or self.game_ended:
+            return
+        if self.time_attack_waiting_start:
             return
         self.draw_game = True
         remaining = self.get_turn_time_remaining()
@@ -512,11 +542,7 @@ class GameLogic:
             eligible_players[0],
         )
         self.current_player.activate()
-        self.start_turn_timer()
-        self.set_status_message(
-            f"{self.current_player} | {self.get_turns_left_for_player()} tours restants",
-            duration=1.6,
-        )
+        self.arm_time_attack_turn()
 
     def run_hole_animation(self, hole, pin, display):
         points = hole.value
@@ -632,6 +658,14 @@ class GameLogic:
 
     def goal(self, pin, display):
         if self.current_player is None:
+            return
+
+        if self.is_time_attack_challenge() and not self.can_score_in_time_attack():
+            self.set_status_message(
+                f"{self.current_player} | appuie sur HAUT pour lancer le chrono",
+                duration=1.6,
+            )
+            self.draw_game = True
             return
 
         hole = self.pin_to_hole.get(pin)
