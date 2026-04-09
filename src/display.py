@@ -1,5 +1,6 @@
 import pygame
 import os
+import glob
 import time
 import logging
 import sys
@@ -28,7 +29,6 @@ from src.constants import (
 )
 
 from src.roulette import RouletteAnimation
-from moviepy.editor import VideoFileClip
 from PIL import Image
 
 
@@ -133,13 +133,12 @@ class Display:
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )
-            path = os.path.join(
-                os.path.dirname(__file__), "..", "assets", "videos", "firework.mkv"
+            frames_dir = os.path.join(
+                os.path.dirname(__file__), "..", "assets", "videos", "firework_frames"
             )
-            clip = VideoFileClip(path)
-            self.resources["firework"] = VideoFileClip(path).subclip(
-                0, clip.duration - 0.05
-            )
+            frame_paths = sorted(glob.glob(os.path.join(frames_dir, "frame_*.jpg")))
+            self.resources["firework_frames"] = frame_paths
+            self.resources["firework_fps"] = 25
 
         except Exception as e:
             logging.error(f"Failed to load resources: {e}")
@@ -1398,35 +1397,20 @@ class Display:
         pygame.display.flip()
 
     def run_fireworks(self):
-        # Play the video
-        playing = True
-        start_time = pygame.time.get_ticks() / 1000.0  # Get the start time in seconds
+        frame_paths = self.resources["firework_frames"]
+        fps = self.resources["firework_fps"]
         clock = pygame.time.Clock()
+        screen_size = self.screen.get_size()
 
-        while playing:
+        for frame_path in frame_paths:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    playing = False
+                    return
 
-            # Calculate the current time in the video
-            current_time = (pygame.time.get_ticks() / 1000.0) - start_time
+            frame_surface = pygame.image.load(frame_path).convert()
+            if frame_surface.get_size() != screen_size:
+                frame_surface = pygame.transform.scale(frame_surface, screen_size)
 
-            # Get the frame for the current time
-            frame = self.resources["firework"].get_frame(current_time)
-
-            # Convert the frame to a Pygame surface
-            frame_surface = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
-
-            # Display the frame
             self.screen.blit(frame_surface, (0, 0))
-            pygame.display.update()
-
-            # Limit the frame rate
-            clock.tick(30)
-
-            # Stop if the video is over
-            if current_time > self.resources["firework"].duration:
-                playing = False
-
-        # Close the video clip and Pygame
-        self.resources["firework"].close()
+            pygame.display.flip()
+            clock.tick(fps)

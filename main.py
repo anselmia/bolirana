@@ -31,7 +31,7 @@ os.makedirs(log_dir, exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.WARNING,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         RotatingFileHandler(log_path, maxBytes=1000000, backupCount=3),

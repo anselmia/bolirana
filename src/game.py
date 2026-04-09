@@ -37,13 +37,14 @@ class Game:
         self.last_next_action_time = time.time()
         self.in_end_menu = False
         self.debug = debug
+        self.clock = pygame.time.Clock()
         logging.info("Game initialized successfully.")
 
     def run(self):
         while self.gamelogic.selecting_mode:
             self.process_events("menu")
             self.display.draw_menu(self.menu)
-            pygame.time.Clock().tick(FPS)
+            self.clock.tick(FPS)
 
         self.play()
 
@@ -128,7 +129,7 @@ class Game:
                 self.update_game_display()
                 self.gamelogic.draw_game = False
 
-            pygame.time.Clock().tick(FPS)
+            self.clock.tick(FPS)
 
         self.display.draw_win(self.gamelogic.players, self.gamelogic.team_mode)
         time.sleep(10)
@@ -140,7 +141,7 @@ class Game:
             self.display.draw_end_menu(self.end_menu)
             self.process_events("end_menu")
             pygame.display.flip()
-            pygame.time.Clock().tick(FPS)
+            self.clock.tick(FPS)
         self.gamelogic.draw_game = True
 
     def update_game_display(self):
