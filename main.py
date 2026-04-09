@@ -4,9 +4,14 @@ import logging
 import platform
 import os
 import argparse
+import gc
 from logging.handlers import RotatingFileHandler
 
 from src.game import Game
+
+# Reduce GC frequency: fewer pauses during gameplay.
+# Default thresholds are (700, 10, 10); increasing gen1/gen2 reduces mid-game collections.
+gc.set_threshold(700, 20, 20)
 
 
 # Define the signal handler

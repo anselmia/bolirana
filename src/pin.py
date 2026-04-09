@@ -133,7 +133,7 @@ class PIN:
 
     def _get_next_pin(self, pin, game_action):
         pin = int(pin)
-        current_time = time.time() * 1000  # Convert to milliseconds
+        current_time = time.monotonic() * 1000  # monotonic ms — no wall-clock jumps
         last_time = self.last_pin_time.get(pin, 0)
 
         if pin in self.pin_hole:
