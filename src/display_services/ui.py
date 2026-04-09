@@ -152,12 +152,12 @@ class DisplayUIService:
         self.display.screen.blit(floor, (0, 0))
 
     def draw_title_panel(self, title, subtitle, phase, y=38):
-        title_rect = pygame.Rect(self.display.screen_width // 2 - 280, y, 560, 98)
+        title_rect = pygame.Rect(self.display.screen_width // 2 - 310, y, 620, 106)
         self.draw_panel_shadow(title_rect, alpha=110, inflate=24, offset=(0, 14))
         panel_surface = pygame.Surface(title_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             panel_surface,
-            (8, 28, 58, 212),
+            (8, 24, 52, 220),
             panel_surface.get_rect(),
             border_radius=26,
         )
@@ -173,14 +173,30 @@ class DisplayUIService:
             ],
         )
         self.display.screen.blit(panel_surface, title_rect.topleft)
+        self.draw_panel_grid(
+            title_rect.inflate(-18, -18), phase, (255, 220, 126), 12, 72
+        )
         self.draw_chrome_rect(title_rect, CHROME_COLORS, 24, 4)
         self.draw_marquee_lights(title_rect, phase, (255, 220, 126), count=18)
+        divider_y = title_rect.top + 68
+        pygame.draw.line(
+            self.display.screen,
+            (255, 214, 118),
+            (title_rect.left + 78, divider_y),
+            (title_rect.right - 78, divider_y),
+            2,
+        )
+        title_font = (
+            self.display.font_title
+            if len(title) <= 10
+            else self.display.font_title_small
+        )
         self.draw_text_with_shadow(
             title,
-            self.display.font_large,
-            WHITE,
+            title_font,
+            (255, 248, 222),
             BLACK,
-            (title_rect.centerx, title_rect.top + 20),
+            (title_rect.centerx, title_rect.top + 34),
             center=True,
         )
         self.draw_text_with_shadow(
@@ -188,7 +204,7 @@ class DisplayUIService:
             self.display.font_verysmall,
             YELLOW,
             BLACK,
-            (title_rect.centerx, title_rect.bottom - 32),
+            (title_rect.centerx, title_rect.bottom - 22),
             center=True,
         )
 
@@ -199,6 +215,7 @@ class DisplayUIService:
             580,
             34,
         )
+        self.draw_panel_shadow(prompt_rect, alpha=54, inflate=14, offset=(0, 8))
         prompt_surface = pygame.Surface(prompt_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             prompt_surface,
@@ -206,8 +223,20 @@ class DisplayUIService:
             prompt_surface.get_rect(),
             border_radius=16,
         )
+        shimmer_x = int((phase * 180) % (prompt_rect.width + 140)) - 70
+        pygame.draw.polygon(
+            prompt_surface,
+            (255, 255, 255, 24),
+            [
+                (shimmer_x, 0),
+                (shimmer_x + 48, 0),
+                (shimmer_x + 96, prompt_rect.height),
+                (shimmer_x + 48, prompt_rect.height),
+            ],
+        )
         self.display.screen.blit(prompt_surface, prompt_rect.topleft)
         self.draw_chrome_rect(prompt_rect, CHROME_COLORS, 14, 2)
+        self.draw_marquee_lights(prompt_rect, phase + 0.4, (255, 218, 118), count=14)
         self.draw_text_with_shadow(
             text,
             self.display.font_verysmall,
@@ -216,6 +245,196 @@ class DisplayUIService:
             (prompt_rect.centerx, prompt_rect.centery + math.sin(phase * 3.2) * 1.5),
             center=True,
         )
+
+    def draw_badge(
+        self,
+        text,
+        rect,
+        fill_color,
+        text_color=WHITE,
+        border_color=(255, 255, 255, 90),
+        font=None,
+        shadow_color=BLACK,
+    ):
+        badge_rect = pygame.Rect(rect)
+        badge_surface = pygame.Surface(badge_rect.size, pygame.SRCALPHA)
+        radius = min(14, max(10, badge_rect.height // 2))
+        fill_alpha = fill_color[3] if len(fill_color) == 4 else 214
+        border_alpha = border_color[3] if len(border_color) == 4 else 90
+        pygame.draw.rect(
+            badge_surface,
+            (*fill_color[:3], fill_alpha),
+            badge_surface.get_rect(),
+            border_radius=radius,
+        )
+        pygame.draw.rect(
+            badge_surface,
+            (*border_color[:3], border_alpha),
+            badge_surface.get_rect(),
+            width=2,
+            border_radius=radius,
+        )
+        self.display.screen.blit(badge_surface, badge_rect.topleft)
+        self.draw_text_with_shadow(
+            text,
+            self.display.font_verysmall if font is None else font,
+            text_color,
+            shadow_color,
+            badge_rect.center,
+            shadow_offset=(1, 1),
+            center=True,
+        )
+
+    def draw_scene_badges(self, left_text, right_text, phase):
+        badge_specs = ((left_text, 28), (right_text, None))
+        for text, fixed_x in badge_specs:
+            width = max(140, self.display.font_verysmall.size(text)[0] + 28)
+            x = (
+                fixed_x
+                if fixed_x is not None
+                else self.display.screen_width - width - 28
+            )
+            rect = pygame.Rect(x, 24, width, 28)
+            self.draw_panel_shadow(rect, alpha=40, inflate=10, offset=(0, 6))
+            badge_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                badge_surface,
+                (8, 24, 44, 182),
+                badge_surface.get_rect(),
+                border_radius=14,
+            )
+            glow_width = 40 + int((0.5 + 0.5 * math.sin(phase * 3.4)) * 34)
+            pygame.draw.rect(
+                badge_surface,
+                (255, 218, 118, 28),
+                (8, 6, min(glow_width, rect.width - 16), rect.height - 12),
+                border_radius=10,
+            )
+            self.display.screen.blit(badge_surface, rect.topleft)
+            self.draw_chrome_rect(rect, CHROME_COLORS, 14, 2)
+            self.draw_text_with_shadow(
+                text,
+                self.display.font_verysmall,
+                WHITE,
+                BLACK,
+                rect.center,
+                shadow_offset=(1, 1),
+                center=True,
+            )
+
+    def draw_screen_frame(
+        self,
+        phase,
+        accent_color=(255, 220, 126),
+        secondary_color=(120, 214, 255),
+    ):
+        overlay = pygame.Surface(
+            (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
+        )
+        outer_rect = pygame.Rect(
+            10,
+            10,
+            self.display.screen_width - 20,
+            self.display.screen_height - 20,
+        )
+        inner_rect = pygame.Rect(
+            24,
+            24,
+            self.display.screen_width - 48,
+            self.display.screen_height - 48,
+        )
+        pygame.draw.rect(
+            overlay,
+            (*secondary_color[:3], 20),
+            outer_rect,
+            width=2,
+            border_radius=30,
+        )
+        pygame.draw.rect(
+            overlay,
+            (*accent_color[:3], 16),
+            inner_rect,
+            width=1,
+            border_radius=24,
+        )
+
+        corner_length = 34
+        corners = [
+            (outer_rect.left + 10, outer_rect.top + 10, 1, 1),
+            (outer_rect.right - 10, outer_rect.top + 10, -1, 1),
+            (outer_rect.left + 10, outer_rect.bottom - 10, 1, -1),
+            (outer_rect.right - 10, outer_rect.bottom - 10, -1, -1),
+        ]
+        for base_x, base_y, direction_x, direction_y in corners:
+            pygame.draw.line(
+                overlay,
+                (*accent_color[:3], 94),
+                (base_x, base_y),
+                (base_x + corner_length * direction_x, base_y),
+                3,
+            )
+            pygame.draw.line(
+                overlay,
+                (*accent_color[:3], 94),
+                (base_x, base_y),
+                (base_x, base_y + corner_length * direction_y),
+                3,
+            )
+
+        for index in range(6):
+            ratio = (index + 1) / 7
+            light_x = int(outer_rect.left + ratio * outer_rect.width)
+            pulse = 0.45 + 0.55 * math.sin(phase * 4.2 + index * 0.7)
+            radius = 3 + int(pulse * 3)
+            pygame.draw.circle(
+                overlay,
+                (*accent_color[:3], 42 + int(pulse * 40)),
+                (light_x, outer_rect.top + 2),
+                radius,
+            )
+            pygame.draw.circle(
+                overlay,
+                (*secondary_color[:3], 38 + int(pulse * 34)),
+                (light_x, outer_rect.bottom - 2),
+                max(2, radius - 1),
+            )
+
+        sweep_x = int((phase * 140) % (self.display.screen_width + 220)) - 110
+        pygame.draw.polygon(
+            overlay,
+            (255, 255, 255, 10),
+            [
+                (sweep_x, 0),
+                (sweep_x + 70, 0),
+                (sweep_x - 50, self.display.screen_height),
+                (sweep_x - 120, self.display.screen_height),
+            ],
+        )
+        self.display.screen.blit(overlay, (0, 0))
+
+    def draw_panel_grid(self, rect, phase, color=(120, 214, 255), alpha=16, step=54):
+        panel_rect = pygame.Rect(rect)
+        grid_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        offset_x = -int((phase * 18) % step)
+        for x in range(offset_x, panel_rect.width + step, step):
+            pygame.draw.line(
+                grid_surface,
+                (*color[:3], alpha),
+                (x, 0),
+                (x, panel_rect.height),
+                1,
+            )
+        row_count = max(3, panel_rect.height // 46)
+        for row in range(row_count + 1):
+            y = int(row * panel_rect.height / row_count)
+            pygame.draw.line(
+                grid_surface,
+                (*color[:3], max(8, alpha - 6)),
+                (0, y),
+                (panel_rect.width, y),
+                1,
+            )
+        self.display.screen.blit(grid_surface, panel_rect.topleft)
 
     def draw_glow_ring(self, center, radius, color, width=4, alpha=130, y_scale=1.0):
         ellipse_width = max(24, int(radius * 2))
@@ -317,9 +536,36 @@ class DisplayUIService:
                 max(2, int(2 + glint * 3)),
             )
 
-    def draw_progress_meter(self, rect, current_progress, score, accent_color):
+    def draw_progress_meter(
+        self,
+        rect,
+        current_progress,
+        score,
+        accent_color,
+        label_left=None,
+        label_right=None,
+    ):
         phase = time.monotonic()
         meter_rect = pygame.Rect(rect)
+        if label_left:
+            self.draw_text_with_shadow(
+                label_left,
+                self.display.font_verysmall,
+                WHITE,
+                BLACK,
+                (meter_rect.left, meter_rect.top - 16),
+            )
+        if label_right:
+            label_surface = self.display.font_verysmall.render(
+                str(label_right), True, WHITE
+            )
+            self.draw_text_with_shadow(
+                str(label_right),
+                self.display.font_verysmall,
+                WHITE,
+                BLACK,
+                (meter_rect.right - label_surface.get_width(), meter_rect.top - 16),
+            )
         self.draw_panel_shadow(
             meter_rect,
             alpha=64,
@@ -367,6 +613,20 @@ class DisplayUIService:
             border_radius=14,
         )
         self.display.screen.blit(shine_surface, shine_rect.topleft)
+        current_label = (
+            f"{int(current_progress)}/{int(score)}"
+            if score > 0
+            else str(int(current_progress))
+        )
+        self.draw_text_with_shadow(
+            current_label,
+            self.display.font_verysmall,
+            BLACK if ratio > 0.35 else WHITE,
+            WHITE if ratio > 0.35 else BLACK,
+            meter_rect.center,
+            shadow_offset=(1, 1),
+            center=True,
+        )
 
     def draw_marquee_lights(self, rect, phase, color, count=16, radius=4):
         x, y, width, height = rect
@@ -530,6 +790,13 @@ class DisplayUIService:
                 border_radius=18,
             )
             self.display.screen.blit(panel_surface, panel_rect.topleft)
+            self.draw_panel_grid(
+                panel_rect.inflate(-16, -16),
+                time.monotonic(),
+                color=(120, 214, 255),
+                alpha=10,
+                step=56,
+            )
             self.draw_chrome_rect(panel_rect, CHROME_COLORS, 22, 4)
 
             title = self.display.font_small.render(
@@ -539,17 +806,22 @@ class DisplayUIService:
             )
             self.display.screen.blit(title, (panel_rect.left + 18, panel_rect.top + 10))
 
-            next_target = self.display.font_verysmall.render(
-                f"Prochaine cible : {challenge_state['next_target']}",
-                True,
-                WHITE,
+            next_target_text = f"Cible : {challenge_state['next_target']}"
+            next_target_width = max(
+                148,
+                self.display.font_verysmall.size(next_target_text)[0] + 24,
             )
-            self.display.screen.blit(
-                next_target,
+            self.draw_badge(
+                next_target_text,
                 (
-                    panel_rect.right - next_target.get_width() - 18,
-                    panel_rect.top + 15,
+                    panel_rect.right - next_target_width - 18,
+                    panel_rect.top + 10,
+                    next_target_width,
+                    24,
                 ),
+                (6, 20, 42, 198),
+                text_color=WHITE,
+                border_color=(255, 255, 255, 70),
             )
 
             available_width = panel_rect.width - 36
@@ -560,6 +832,17 @@ class DisplayUIService:
             )
             start_x = panel_rect.left + 18
             start_y = panel_rect.top + 52
+            track_y = start_y + 17
+            pygame.draw.line(
+                self.display.screen,
+                (255, 255, 255, 20),
+                (start_x + step_width // 2, track_y),
+                (
+                    start_x + (label_count - 1) * (step_width + gap) + step_width // 2,
+                    track_y,
+                ),
+                6,
+            )
             for index, label in enumerate(sequence_labels):
                 step_rect = pygame.Rect(
                     start_x + index * (step_width + gap),
@@ -607,6 +890,7 @@ class DisplayUIService:
                 280,
                 92,
             )
+            self.draw_panel_shadow(panel_rect, alpha=90, inflate=20, offset=(0, 10))
             panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
             if awaiting_start:
                 panel_color = (28, 54, 16, 214)
@@ -619,6 +903,17 @@ class DisplayUIService:
                 border_radius=22,
             )
             self.display.screen.blit(panel_surface, panel_rect.topleft)
+            self.draw_panel_grid(
+                panel_rect.inflate(-14, -14),
+                time.monotonic(),
+                color=(
+                    (210, 255, 180)
+                    if awaiting_start
+                    else (255, 180, 180) if low_time else (120, 214, 255)
+                ),
+                alpha=10,
+                step=52,
+            )
             self.draw_chrome_rect(
                 panel_rect,
                 (
@@ -653,10 +948,48 @@ class DisplayUIService:
                 if awaiting_start
                 else f"Tours restants : {challenge_state['turns_left']}"
             )
-            details = self.display.font_small.render(details_text, True, YELLOW)
+            details = self.display.font_verysmall.render(details_text, True, YELLOW)
             self.display.screen.blit(
                 details,
-                details.get_rect(center=(panel_rect.centerx, panel_rect.bottom - 20)),
+                details.get_rect(center=(panel_rect.centerx, panel_rect.bottom - 26)),
+            )
+            bar_rect = pygame.Rect(panel_rect.left + 20, panel_rect.bottom - 16, 240, 6)
+            pygame.draw.rect(
+                self.display.screen,
+                (255, 255, 255, 28),
+                bar_rect,
+                border_radius=4,
+            )
+            ratio = (
+                1.0
+                if awaiting_start
+                else max(
+                    0.0,
+                    min(
+                        1.0,
+                        remaining / max(1.0, challenge_state.get("turn_duration", 1.0)),
+                    ),
+                )
+            )
+            fill_rect = bar_rect.copy()
+            fill_rect.width = 0 if ratio <= 0 else max(14, int(bar_rect.width * ratio))
+            if fill_rect.width > 0:
+                pygame.draw.rect(
+                    self.display.screen,
+                    (
+                        (140, 255, 180)
+                        if awaiting_start
+                        else (255, 120, 120) if low_time else (120, 214, 255)
+                    ),
+                    fill_rect,
+                    border_radius=4,
+                )
+            self.draw_badge(
+                "CHRONO",
+                (panel_rect.left + 18, panel_rect.top - 12, 82, 22),
+                (255, 214, 82, 214),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
             )
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
@@ -741,6 +1074,12 @@ class DisplayUIService:
         self.draw_vertical_gradient((6, 18, 36), (10, 56, 94), alpha=132)
         self.draw_spotlight_canopy(phase, intensity=1.0, tint=(255, 224, 168))
         self.draw_stage_floor(phase, horizon_ratio=0.74, tint=(120, 214, 255), alpha=24)
+        self.draw_screen_frame(phase)
+        self.draw_scene_badges(
+            "EDITION PRESTIGE",
+            f"OPTION {menu.selected_option + 1:02d}/{len(menu.options):02d}",
+            phase,
+        )
         self.draw_title_panel("BOLIRANA", subtitle, phase)
         self._draw_option_grid(
             menu.options, menu.selected_option, show_value=True, phase=phase
@@ -759,6 +1098,12 @@ class DisplayUIService:
         self.draw_vertical_gradient((8, 16, 30), (46, 14, 28), alpha=144)
         self.draw_spotlight_canopy(phase, intensity=0.88, tint=(255, 204, 150))
         self.draw_stage_floor(phase, horizon_ratio=0.75, tint=(255, 196, 110), alpha=26)
+        self.draw_screen_frame(
+            phase,
+            accent_color=(255, 196, 110),
+            secondary_color=(255, 120, 120),
+        )
+        self.draw_scene_badges("ARENA CONTROL", f"{len(menu.options)} CHOIX", phase)
         self.draw_title_panel(title, subtitle, phase)
         self._draw_option_grid(
             menu.options, menu.selected_option, show_value=False, phase=phase
@@ -828,6 +1173,14 @@ class DisplayUIService:
                 rect_surface,
                 (card_rect.x + border_width, card_rect.y + border_width),
             )
+            index_rect = pygame.Rect(card_rect.right - 54, card_rect.top + 10, 40, 20)
+            self.draw_badge(
+                f"{index + 1:02d}",
+                index_rect,
+                (255, 255, 255, 22 if is_selected else 14),
+                text_color=WHITE,
+                border_color=(255, 255, 255, 32),
+            )
 
             if is_selected:
                 self.draw_marquee_lights(card_rect, phase, (255, 226, 126), count=16)
@@ -849,26 +1202,52 @@ class DisplayUIService:
                     shadow_offset=(1, 1),
                     center=True,
                 )
+                pygame.draw.polygon(
+                    self.display.screen,
+                    (255, 222, 126),
+                    [
+                        (card_rect.left - 14, card_rect.centery),
+                        (card_rect.left - 2, card_rect.centery - 10),
+                        (card_rect.left - 2, card_rect.centery + 10),
+                    ],
+                )
+                pygame.draw.polygon(
+                    self.display.screen,
+                    (255, 222, 126),
+                    [
+                        (card_rect.right + 14, card_rect.centery),
+                        (card_rect.right + 2, card_rect.centery - 10),
+                        (card_rect.right + 2, card_rect.centery + 10),
+                    ],
+                )
 
             if show_value:
                 name_text = self.display.font_medium.render(option["name"], True, WHITE)
-                value_text = self.display.font_medium.render(
-                    str(option["value"]), True, YELLOW
-                )
                 name_text_rect = name_text.get_rect(
                     center=(
                         card_rect.x + box_width // 2,
-                        card_rect.y + box_height // 2 - 20,
+                        card_rect.y + 34,
                     )
                 )
-                value_text_rect = value_text.get_rect(
-                    center=(
-                        card_rect.x + box_width // 2,
-                        card_rect.y + box_height // 2 + 20,
-                    )
+                pygame.draw.line(
+                    self.display.screen,
+                    (255, 255, 255, 36),
+                    (card_rect.left + 24, card_rect.top + 52),
+                    (card_rect.right - 24, card_rect.top + 52),
+                    1,
+                )
+                value_rect = pygame.Rect(
+                    card_rect.left + 108, card_rect.bottom - 34, 184, 24
+                )
+                self.draw_badge(
+                    str(option["value"]),
+                    value_rect,
+                    (6, 20, 42, 198),
+                    text_color=YELLOW,
+                    border_color=(255, 220, 126, 90),
+                    font=self.display.font_small,
                 )
                 self.display.screen.blit(name_text, name_text_rect)
-                self.display.screen.blit(value_text, value_text_rect)
             else:
                 name_text = self.display.font_medium.render(str(option), True, WHITE)
                 name_text_rect = name_text.get_rect(
@@ -905,6 +1284,11 @@ class DisplayUIService:
         self.draw_spotlight_canopy(phase, intensity=0.62, tint=(255, 220, 148))
         self.draw_stage_floor(phase, horizon_ratio=0.66, tint=(132, 222, 255), alpha=18)
         self.draw_ambient_backdrop(phase)
+        self.draw_screen_frame(
+            phase,
+            accent_color=(255, 220, 126),
+            secondary_color=(120, 222, 255),
+        )
         self.draw_static_elements(
             current_player,
             score,
@@ -920,7 +1304,7 @@ class DisplayUIService:
         self.draw_challenge_panel(challenge_state)
         self.draw_low_time_warning(challenge_state)
         if status_text:
-            self.draw_status_banner(status_text)
+            self.draw_status_banner(status_text, challenge_state=challenge_state)
         pygame.display.flip()
 
     def draw_holes(self, holes, challenge_state=None):
@@ -945,7 +1329,19 @@ class DisplayUIService:
             (12, 12, holes_area_rect.width - 24, holes_area_rect.height // 2),
             border_radius=22,
         )
+        pygame.draw.ellipse(
+            holes_surface,
+            (255, 255, 255, 18),
+            (holes_area_rect.width // 2 - 180, -40, 360, 120),
+        )
         self.display.screen.blit(holes_surface, holes_area_rect.topleft)
+        self.draw_panel_grid(
+            holes_area_rect.inflate(-18, -18),
+            phase,
+            color=(120, 214, 255),
+            alpha=10,
+            step=58,
+        )
         self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
         self.draw_marquee_lights(holes_area_rect, phase, (255, 222, 132), count=20)
         arena_label_rect = pygame.Rect(
@@ -993,6 +1389,11 @@ class DisplayUIService:
                 and challenge_state.get("target_hole_type") == hole.type
                 and challenge_state.get("target_hole_text") == hole.text
             )
+            hole_surface = (
+                self.display.resources["hole_score"]
+                if is_target
+                else self.display.resources["hole"]
+            )
             if is_target:
                 self.draw_glow_ring(
                     (int(x1), int(y1)),
@@ -1001,17 +1402,21 @@ class DisplayUIService:
                     width=5,
                     alpha=130,
                 )
-            self.display.screen.blit(
-                self.display.resources["hole"], (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS)
-            )
+            self.display.screen.blit(hole_surface, (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
             font = (
                 self.display.font_medium
                 if hole.type != "large_frog"
                 else self.display.font_small
             )
-            points_text = font.render(hole.text, True, LIGHT_GREY)
-            text_rect = points_text.get_rect(center=(x1, y1))
-            self.display.screen.blit(points_text, text_rect)
+            self.draw_text_with_shadow(
+                hole.text,
+                font,
+                (255, 248, 228) if is_target else LIGHT_GREY,
+                BLACK,
+                (x1, y1),
+                shadow_offset=(2, 2),
+                center=True,
+            )
 
             if hole.type in {"side", "bottle"}:
                 x2, y2 = hole.position2[0], hole.position2[1]
@@ -1029,11 +1434,18 @@ class DisplayUIService:
                         alpha=130,
                     )
                 self.display.screen.blit(
-                    self.display.resources["hole"],
+                    hole_surface,
                     (x2 - HOLE_RADIUS, y2 - HOLE_RADIUS),
                 )
-                text_rect = points_text.get_rect(center=(x2, y2))
-                self.display.screen.blit(points_text, text_rect)
+                self.draw_text_with_shadow(
+                    hole.text,
+                    font,
+                    (255, 248, 228) if is_target else LIGHT_GREY,
+                    BLACK,
+                    (x2, y2),
+                    shadow_offset=(2, 2),
+                    center=True,
+                )
 
     def draw_static_elements(
         self,
@@ -1130,6 +1542,13 @@ class DisplayUIService:
         self.display.screen.blit(
             current_panel_surface, current_player_panel_rect.topleft
         )
+        self.draw_panel_grid(
+            current_player_panel_rect.inflate(-18, -18),
+            phase,
+            color=(124, 255, 190),
+            alpha=10,
+            step=56,
+        )
 
         pygame.draw.rect(
             self.display.screen, PLAYER_OPTION_COLOR, score_rect, border_radius=10
@@ -1211,7 +1630,12 @@ class DisplayUIService:
             20,
         )
         self.draw_progress_meter(
-            progress_meter_rect, current_progress, score, (84, 214, 126)
+            progress_meter_rect,
+            current_progress,
+            score,
+            (84, 214, 126),
+            label_left="PROGRESSION",
+            label_right=str(score),
         )
 
         frame_x = (
@@ -1244,6 +1668,13 @@ class DisplayUIService:
             border_radius=20,
         )
         self.display.screen.blit(mode_surface, game_mode_panel_rect.topleft)
+        self.draw_panel_grid(
+            game_mode_panel_rect.inflate(-18, -18),
+            phase,
+            color=(255, 214, 110),
+            alpha=10,
+            step=56,
+        )
         self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
         self.draw_marquee_lights(game_mode_rect, phase + 0.4, (255, 214, 110), count=18)
 
@@ -1290,14 +1721,31 @@ class DisplayUIService:
             shadow_offset=(2, 2),
             center=True,
         )
-        self.draw_text_with_shadow(
-            f"{team_mode} | {challenge_mode}",
-            self.display.font_medium,
-            DARK_ORANGE,
-            BLACK,
-            team_mode_position,
-            shadow_offset=(2, 2),
-            center=True,
+        team_badge_width = max(82, self.display.font_verysmall.size(team_mode)[0] + 28)
+        challenge_badge_width = max(
+            96, self.display.font_verysmall.size(challenge_mode)[0] + 28
+        )
+        total_badge_width = team_badge_width + challenge_badge_width + 12
+        badge_start_x = int(game_mode_panel_rect.centerx - total_badge_width / 2)
+        badge_y = int(team_mode_position[1] - 12)
+        self.draw_badge(
+            team_mode,
+            (badge_start_x, badge_y, team_badge_width, 24),
+            (6, 20, 42, 198),
+            text_color=WHITE,
+            border_color=(255, 255, 255, 70),
+        )
+        self.draw_badge(
+            challenge_mode,
+            (
+                badge_start_x + team_badge_width + 12,
+                badge_y,
+                challenge_badge_width,
+                24,
+            ),
+            (76, 48, 12, 206),
+            text_color=YELLOW,
+            border_color=(255, 220, 126, 90),
         )
         self.draw_text_with_shadow(
             f"Leader : {leader_progress}",
@@ -1315,7 +1763,12 @@ class DisplayUIService:
             20,
         )
         self.draw_progress_meter(
-            opponent_meter_rect, leader_progress, score, (255, 206, 84)
+            opponent_meter_rect,
+            leader_progress,
+            score,
+            (255, 206, 84),
+            label_left="LEADER",
+            label_right=str(score),
         )
 
     def display_grouped_players(self, players, team_mode, player_in_team):
@@ -1415,6 +1868,13 @@ class DisplayUIService:
                     border_radius=6,
                 )
                 self.display.screen.blit(tint_surface, frame_rect.topleft)
+                self.draw_panel_grid(
+                    frame_rect.inflate(-10, -10),
+                    phase + player.rank * 0.2,
+                    color=group_color[:3],
+                    alpha=8,
+                    step=48,
+                )
 
                 if player.is_active:
                     pulse_surface = pygame.Surface(
@@ -1507,10 +1967,6 @@ class DisplayUIService:
                     BLACK,
                     player_label_pos,
                 )
-                score_text_pos = (
-                    frame_rect.right - 70,
-                    y + height_score + 13,
-                )
                 score_pill_rect = pygame.Rect(
                     frame_rect.right - 88, frame_rect.y + 22, 64, 24
                 )
@@ -1532,6 +1988,24 @@ class DisplayUIService:
                     score_pill_rect.center,
                     center=True,
                 )
+
+                if player.team is not None and team_mode != TEAM_MODE_SOLO:
+                    team_text = str(player.team)
+                    team_badge_width = max(
+                        42, self.display.font_verysmall.size(team_text)[0] + 20
+                    )
+                    self.draw_badge(
+                        team_text,
+                        (
+                            frame_rect.left + 12,
+                            frame_rect.bottom - 20,
+                            team_badge_width,
+                            16,
+                        ),
+                        (*group_color[:3], 182),
+                        text_color=WHITE,
+                        border_color=(255, 255, 255, 68),
+                    )
 
                 if team_mode in [TEAM_MODE_SOLO, TEAM_MODE_DUO] or (
                     team_mode == TEAM_MODE_TEAM and len(group) == 2
@@ -1570,16 +2044,20 @@ class DisplayUIService:
                     x = start_x
                     y += box_height + gap_between_boxes + height_score
 
-    def draw_status_banner(self, status_text):
+    def draw_status_banner(self, status_text, challenge_state=None):
         phase = time.monotonic()
         banner_width = min(self.display.screen_width - 80, 720)
         banner_height = 54
+        banner_bottom = self.display.screen_height - 30
+        if challenge_state and challenge_state.get("type") == "order":
+            banner_bottom = self.display.screen_height - 194
         banner_rect = pygame.Rect(
             (self.display.screen_width - banner_width) // 2,
-            self.display.screen_height - banner_height - 30,
+            banner_bottom - banner_height,
             banner_width,
             banner_height,
         )
+        self.draw_panel_shadow(banner_rect, alpha=72, inflate=18, offset=(0, 10))
         banner_surface = pygame.Surface(banner_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             banner_surface,
@@ -1600,6 +2078,13 @@ class DisplayUIService:
             ],
         )
         self.display.screen.blit(banner_surface, banner_rect.topleft)
+        self.draw_panel_grid(
+            banner_rect.inflate(-14, -14),
+            phase,
+            color=(255, 214, 110),
+            alpha=10,
+            step=56,
+        )
         self.display.screen.blit(shimmer_surface, banner_rect.topleft)
         self.draw_chrome_rect(banner_rect, CHROME_COLORS, 18, 4)
         self.draw_marquee_lights(banner_rect, phase, (255, 228, 148), count=18)

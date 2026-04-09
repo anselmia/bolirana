@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 import time
+from array import array
+from math import pi, sin
 
 import pygame
 
@@ -18,15 +20,24 @@ class Display:
         else:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | flags)
 
-        font_path = os.path.join(
-            os.path.dirname(__file__), "..", "assets", "fonts", "AntonSC-Regular.ttf"
-        )
+        self.screen_width = self.screen.get_width()
+        self.screen_height = self.screen.get_height()
+        font_dir = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
+        font_path = os.path.join(font_dir, "AntonSC-Regular.ttf")
+        title_font_path = os.path.join(font_dir, "GaMaamli-Regular.ttf")
+        self.font_title = pygame.font.Font(title_font_path, 68)
+        self.font_title_small = pygame.font.Font(title_font_path, 54)
         self.font_large = pygame.font.Font(font_path, 50)
         self.font_medium = pygame.font.Font(font_path, 30)
         self.font_small = pygame.font.Font(font_path, 25)
         self.font_verysmall = pygame.font.Font(font_path, 20)
-        self.screen_width = self.screen.get_width()
-        self.screen_height = self.screen.get_height()
+        if self.screen_height >= 900:
+            self.font_title = pygame.font.Font(title_font_path, 78)
+            self.font_title_small = pygame.font.Font(title_font_path, 60)
+            self.font_large = pygame.font.Font(font_path, 56)
+            self.font_medium = pygame.font.Font(font_path, 34)
+            self.font_small = pygame.font.Font(font_path, 28)
+            self.font_verysmall = pygame.font.Font(font_path, 22)
         self.half_width = self.screen_width // 2
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
@@ -92,6 +103,7 @@ class Display:
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
             self.resources["frog_sound"] = self.load_sound("sounds", "frog.mp3")
             self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
+            self.resources["coin_sound"] = self.create_coin_sound()
             self.resources["roulette_sound"] = self.load_sound("sounds", "roulette.mp3")
             self.resources["roulette_end_sound"] = self.load_sound(
                 "sounds", "roulette_end.mp3"
@@ -142,6 +154,35 @@ class Display:
         if (folder, filename) not in self.resources:
             self.resources[(folder, filename)] = pygame.mixer.Sound(path)
         return self.resources[(folder, filename)]
+
+    def create_coin_sound(self):
+        mixer_config = pygame.mixer.get_init()
+        if mixer_config is None:
+            return None
+
+        sample_rate, _, channels = mixer_config
+        duration = 0.12
+        frame_count = int(sample_rate * duration)
+        fade_start = int(frame_count * 0.55)
+        amplitude = 0.34
+        samples = array("h")
+
+        for index in range(frame_count):
+            progress = index / sample_rate
+            envelope = 1.0 - (index / frame_count)
+            if index >= fade_start:
+                envelope *= max(
+                    0.0, 1.0 - ((index - fade_start) / (frame_count - fade_start))
+                )
+
+            tone = sin(2 * pi * 1320 * progress)
+            tone += 0.55 * sin(2 * pi * 1760 * progress)
+            tone += 0.25 * sin(2 * pi * 2640 * progress)
+            sample_value = int(32767 * amplitude * envelope * tone / 1.8)
+            for _ in range(channels):
+                samples.append(sample_value)
+
+        return pygame.mixer.Sound(buffer=samples.tobytes())
 
     def display_error_message(self, message):
         self.screen.fill((0, 0, 0))
@@ -395,6 +436,9 @@ class Display:
 
     def animation_little_frog(self, *args, **kwargs):
         return self.effects.animation_little_frog(*args, **kwargs)
+
+    def animation_roulette(self, *args, **kwargs):
+        return self.effects.animation_roulette(*args, **kwargs)
 
     def animation_large_frog(self, *args, **kwargs):
         return self.effects.animation_large_frog(*args, **kwargs)

@@ -30,6 +30,7 @@ class Player:
         self.best_turn = 0
         self.max_combo = 0
         self.sequence_progress = 0
+        self.little_frog_streak = 0
 
     def activate(self):
         self.is_active = True
@@ -40,6 +41,7 @@ class Player:
     def reset_turn(self):
         self.turn_score = 0
         self.turn_hits = 0
+        self.little_frog_streak = 0
 
     def finish_turn(self):
         self.turns_played += 1

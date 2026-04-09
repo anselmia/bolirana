@@ -131,6 +131,19 @@ class GameLogic:
     def build_pin_lookup(self):
         self.pin_to_hole = {pin: hole for hole in self.holes for pin in hole.pin}
 
+    def get_hole_for_pin(self, pin):
+        if pin in PIN_HSFROG:
+            return next(
+                (hole for hole in self.holes if hole.type == "little_frog"),
+                self.pin_to_hole.get(pin),
+            )
+        if pin in PIN_HLFROG:
+            return next(
+                (hole for hole in self.holes if hole.type == "large_frog"),
+                self.pin_to_hole.get(pin),
+            )
+        return self.pin_to_hole.get(pin)
+
     def is_order_challenge(self):
         return self.challenge_mode == CHALLENGE_ORDER
 
@@ -544,7 +557,25 @@ class GameLogic:
         self.current_player.activate()
         self.arm_time_attack_turn()
 
-    def run_hole_animation(self, hole, pin, display):
+    def should_trigger_little_frog_roulette(self, hole):
+        return (
+            self.current_player is not None
+            and hole.type == "little_frog"
+            and self.current_player.little_frog_streak >= 1
+        )
+
+    def update_little_frog_streak(self, hole, triggered_roulette=False):
+        if self.current_player is None:
+            return
+        if hole.type != "little_frog":
+            self.current_player.little_frog_streak = 0
+            return
+        if triggered_roulette:
+            self.current_player.little_frog_streak = 0
+            return
+        self.current_player.little_frog_streak += 1
+
+    def run_hole_animation(self, hole, pin, display, force_roulette=False):
         points = hole.value
         display.draw_goal_animation(hole, pin)
 
@@ -552,6 +583,8 @@ class GameLogic:
             display.animation_bottle()
         elif hole.type == "little_frog":
             display.animation_little_frog()
+            if force_roulette:
+                points = display.animation_roulette()
         elif hole.type == "large_frog":
             points = display.animation_large_frog()
 
@@ -668,13 +701,25 @@ class GameLogic:
             self.draw_game = True
             return
 
-        hole = self.pin_to_hole.get(pin)
+        hole = self.get_hole_for_pin(pin)
         if hole is not None:
             if self.is_order_challenge():
                 self.handle_order_goal(hole, pin, display)
                 return
 
-            points = self.run_hole_animation(hole, pin, display)
+            triggered_little_frog_roulette = self.should_trigger_little_frog_roulette(
+                hole
+            )
+            points = self.run_hole_animation(
+                hole,
+                pin,
+                display,
+                force_roulette=triggered_little_frog_roulette,
+            )
+            self.update_little_frog_streak(
+                hole,
+                triggered_roulette=triggered_little_frog_roulette,
+            )
 
             bonus_points = 0
             bonus_messages = []
@@ -690,13 +735,27 @@ class GameLogic:
                 float("inf") if self.is_time_attack_challenge() else self.score
             )
             self.apply_points_to_current_player(points, win_threshold)
+            status_message = f"{self.current_player} +{points}"
+            if triggered_little_frog_roulette:
+                status_message = (
+                    f"{self.current_player} petite grenouille x2 -> roulette +{points}"
+                )
             if bonus_messages:
-                status_message = " | ".join(bonus_messages)
-            else:
-                status_message = f"{self.current_player} +{points}"
+                status_message = " | ".join([status_message] + bonus_messages)
 
             if self.is_time_attack_challenge():
-                status_message = f"{self.current_player} +{points} | {self.get_turns_left_for_player()} tours"
+                if triggered_little_frog_roulette:
+                    status_message = (
+                        f"{self.current_player} petite grenouille x2 -> roulette +{points}"
+                        f" | {self.get_turns_left_for_player()} tours"
+                    )
+                else:
+                    status_message = (
+                        f"{self.current_player} +{points}"
+                        f" | {self.get_turns_left_for_player()} tours"
+                    )
+                if bonus_messages:
+                    status_message = " | ".join([status_message] + bonus_messages)
                 self.set_status_message(status_message)
                 return
 

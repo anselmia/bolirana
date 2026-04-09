@@ -971,12 +971,25 @@ class DisplayEffectsService:
         return channel
 
     def trigger_cue(
-        self, tracker, cue_name, threshold, progress, sound_name, volume=1.0, fade_ms=0
+        self,
+        tracker,
+        cue_name,
+        threshold,
+        progress,
+        sound_name,
+        volume=1.0,
+        fade_ms=0,
+        maxtime=0,
     ):
         if cue_name in tracker or progress < threshold:
             return
         tracker.add(cue_name)
-        self.play_sound_cue(sound_name, volume=volume, fade_ms=fade_ms)
+        self.play_sound_cue(
+            sound_name,
+            volume=volume,
+            fade_ms=fade_ms,
+            maxtime=maxtime,
+        )
 
     def draw_goal_animation(self, hole, pin):
         if pin == hole.pin[0]:
@@ -997,6 +1010,9 @@ class DisplayEffectsService:
             self.display.font_large if hole.type != "side" else self.display.font_medium
         )
         cues_triggered = set()
+        score_sound_name = "coin_sound" if hole.type == "side" else "applause"
+        score_sound_volume = 0.42 if hole.type == "side" else 0.28
+        score_sound_maxtime = 140 if hole.type == "side" else 0
 
         def render(progress):
             self.trigger_cue(
@@ -1004,9 +1020,10 @@ class DisplayEffectsService:
                 "cheer",
                 0.18,
                 progress,
-                "applause",
-                volume=0.28,
+                score_sound_name,
+                volume=score_sound_volume,
                 fade_ms=80,
+                maxtime=score_sound_maxtime,
             )
             flash = max(0.0, 1 - progress * 3.8)
             if flash > 0:
@@ -2479,6 +2496,9 @@ class DisplayEffectsService:
         frog_sound = self.display.resources.get("frog_sound")
         if frog_sound is not None:
             frog_sound.stop()
+        return self.animation_roulette()
+
+    def animation_roulette(self):
         roulette_animation = RouletteAnimation(
             self.display.screen,
             self.display.resources["roulette_sound"],
