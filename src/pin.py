@@ -60,7 +60,7 @@ class PIN:
         )
         self.button_pin = {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
         self.menu_pins = {PIN_BENTER, PIN_RIGHT, PIN_BNEXT}
-        self.game_pins = self.pin_hole | {PIN_BNEXT, PIN_BENTER}
+        self.game_pins = self.pin_hole | {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
         self.end_menu_pins = {PIN_BENTER, PIN_BNEXT}
         logging.info("Initializing communication with the I2C slave...")
 
