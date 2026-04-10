@@ -83,17 +83,18 @@ class PIN:
             5,
             13,
             14,
+            15,
+            16,
             17,
             18,
-            19,
-            21,
-            22,
             23,
             25,
             26,
             27,
             32,
+            33,
         }
+        self.firmware_button_reference_pins = {0, 12, 19}
         self.schematic_reference_pins = {
             4,
             5,
@@ -113,7 +114,7 @@ class PIN:
             33,
         }
         self.pull_mode_reference = {
-            "firmware": "INPUT_PULLUP",
+            "firmware": "PULLDOWN interne",
             "schematic": "PULLDOWN interne",
         }
         self.wiring_notes = [
@@ -121,6 +122,8 @@ class PIN:
             "Recepteur IR: collecteur long, emetteur court.",
             "R1/R2: 100 Ohm en 3.3V d'apres le schema.",
             "Le schema recommande un pull-down interne sur les GPIO.",
+            "Les boutons firmware sont sur GPIO 19, 0 et 12 en INPUT_PULLUP.",
+            "GPIO 21 et 22 restent reserves au bus I2C cote ESP32.",
         ]
         self.pin_labels = {}
         for group in self.diagnostic_groups:
@@ -482,6 +485,9 @@ class PIN:
             self.schematic_reference_pins - self.game_sensor_reference_pins
         )
         button_conflicts = sorted(self.button_pin & self.firmware_reference_pins)
+        boot_strap_buttons = sorted(
+            self.firmware_button_reference_pins & {0, 2, 12, 15}
+        )
 
         if missing_in_firmware:
             alerts.insert(
@@ -497,6 +503,23 @@ class PIN:
                 f"Mettre a jour inputPins dans l'ESP32 avec: {', '.join(map(str, missing_in_firmware))}."
             )
 
+        if missing_in_schematic or extra_in_schematic:
+            alerts.insert(
+                0,
+                {
+                    "severity": "warning",
+                    "title": "Schema / carte jeu divergents",
+                    "detail": (
+                        f"Schema manque {', '.join(map(str, missing_in_schematic)) or 'aucun'}"
+                        f" | schema en plus {', '.join(map(str, extra_in_schematic)) or 'aucun'}"
+                    ),
+                    "fix": "Verifier si le schema est a jour par rapport au cablage reel et au mapping jeu/ESP32.",
+                },
+            )
+            actions.append(
+                "Comparer les GPIO du schema detecteur avec la carte jeu actuelle avant de changer du code."
+            )
+
         if button_conflicts:
             alerts.insert(
                 0,
@@ -506,6 +529,20 @@ class PIN:
                     "detail": f"GPIO partages avec un bouton jeu: {', '.join(map(str, button_conflicts))}",
                     "fix": "Verifier qu'aucun bouton Raspberry ne partage une entree capteur ESP32.",
                 },
+            )
+
+        if boot_strap_buttons:
+            alerts.insert(
+                0,
+                {
+                    "severity": "watch",
+                    "title": "Boutons sur GPIO de boot",
+                    "detail": f"Boutons branches sur GPIO de strapping: {', '.join(map(str, boot_strap_buttons))}",
+                    "fix": "Garder ces boutons relaches au demarrage ou migrer ces boutons vers des GPIO non critiques.",
+                },
+            )
+            actions.append(
+                "Si des boots aleatoires apparaissent, deplacer les boutons de GPIO0/GPIO12 vers des GPIO non strap."
             )
 
         if (
@@ -522,7 +559,7 @@ class PIN:
                 },
             )
             actions.append(
-                "Comparer INPUT_PULLUP du firmware avec la note 'Use Pull down internal on GPIO' du schema."
+                "Comparer le mode d'entree declare dans le firmware avec la note de pull-down du schema."
             )
 
         if not actions:
@@ -570,6 +607,8 @@ class PIN:
                 "missing_in_schematic": missing_in_schematic,
                 "extra_in_schematic": extra_in_schematic,
                 "button_conflicts": button_conflicts,
+                "firmware_button_pins": sorted(self.firmware_button_reference_pins),
+                "boot_strap_buttons": boot_strap_buttons,
                 "pull_mode_firmware": self.pull_mode_reference["firmware"],
                 "pull_mode_schematic": self.pull_mode_reference["schematic"],
                 "wiring_notes": list(self.wiring_notes),
