@@ -7,6 +7,19 @@ from src.constants import BLACK, WHITE
 
 
 class UICommonMixin:
+    def get_cached_surface(self, cache_name, cache_key, builder, max_entries=192):
+        full_key = (cache_name, cache_key)
+        cached_surface = self._surface_cache.get(full_key)
+        if cached_surface is not None:
+            return cached_surface
+
+        if len(self._surface_cache) >= max_entries:
+            self._surface_cache.clear()
+
+        cached_surface = builder()
+        self._surface_cache[full_key] = cached_surface
+        return cached_surface
+
     def draw_halftone_dots(
         self,
         rect,
@@ -42,23 +55,34 @@ class UICommonMixin:
         panel_rect = pygame.Rect(rect)
         if panel_rect.width < 90 or panel_rect.height < 50:
             return
-        screw_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
-        positions = [
-            (inset, inset),
-            (panel_rect.width - inset, inset),
-            (inset, panel_rect.height - inset),
-            (panel_rect.width - inset, panel_rect.height - inset),
-        ]
-        red, green, blue = color[:3]
-        for x, y in positions:
-            pygame.draw.circle(screw_surface, (red, green, blue, alpha), (x, y), radius)
-            pygame.draw.line(
-                screw_surface,
-                (40, 40, 40, alpha),
-                (x - radius + 1, y - radius + 1),
-                (x + radius - 1, y + radius - 1),
-                1,
-            )
+
+        def build_screw_surface():
+            screw_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+            positions = [
+                (inset, inset),
+                (panel_rect.width - inset, inset),
+                (inset, panel_rect.height - inset),
+                (panel_rect.width - inset, panel_rect.height - inset),
+            ]
+            red, green, blue = color[:3]
+            for x, y in positions:
+                pygame.draw.circle(
+                    screw_surface, (red, green, blue, alpha), (x, y), radius
+                )
+                pygame.draw.line(
+                    screw_surface,
+                    (40, 40, 40, alpha),
+                    (x - radius + 1, y - radius + 1),
+                    (x + radius - 1, y + radius - 1),
+                    1,
+                )
+            return screw_surface
+
+        screw_surface = self.get_cached_surface(
+            "arcade_screws",
+            (panel_rect.size, color[:3], alpha, inset, radius),
+            build_screw_surface,
+        )
         self.display.screen.blit(screw_surface, panel_rect.topleft)
 
     def draw_panel_shadow(
@@ -71,29 +95,40 @@ class UICommonMixin:
         color=(0, 0, 0),
     ):
         panel_rect = pygame.Rect(rect)
-        shadow_surface = pygame.Surface(
-            (panel_rect.width + inflate * 2, panel_rect.height + inflate * 2),
-            pygame.SRCALPHA,
-        )
-        for layer in range(3, 0, -1):
-            layer_inset = (3 - layer) * 4
-            layer_alpha = max(0, int(alpha * (0.22 + layer * 0.18)))
+
+        def build_shadow_surface():
+            shadow_surface = pygame.Surface(
+                (panel_rect.width + inflate * 2, panel_rect.height + inflate * 2),
+                pygame.SRCALPHA,
+            )
+            for layer in range(3, 0, -1):
+                layer_inset = (3 - layer) * 4
+                layer_alpha = max(0, int(alpha * (0.22 + layer * 0.18)))
+                pygame.draw.rect(
+                    shadow_surface,
+                    (*color, layer_alpha),
+                    shadow_surface.get_rect().inflate(
+                        -layer_inset * 2, -layer_inset * 2
+                    ),
+                    border_radius=max(0, border_radius + layer * 6),
+                )
+            glow_rect = pygame.Rect(
+                0, 0, panel_rect.width + inflate, panel_rect.height + inflate
+            )
+            glow_rect.center = shadow_surface.get_rect().center
             pygame.draw.rect(
                 shadow_surface,
-                (*color, layer_alpha),
-                shadow_surface.get_rect().inflate(-layer_inset * 2, -layer_inset * 2),
-                border_radius=max(0, border_radius + layer * 6),
+                (255, 214, 110, max(8, alpha // 5)),
+                glow_rect,
+                width=3,
+                border_radius=max(0, border_radius + 4),
             )
-        glow_rect = pygame.Rect(
-            0, 0, panel_rect.width + inflate, panel_rect.height + inflate
-        )
-        glow_rect.center = shadow_surface.get_rect().center
-        pygame.draw.rect(
-            shadow_surface,
-            (255, 214, 110, max(8, alpha // 5)),
-            glow_rect,
-            width=3,
-            border_radius=max(0, border_radius + 4),
+            return shadow_surface
+
+        shadow_surface = self.get_cached_surface(
+            "panel_shadow",
+            (panel_rect.size, alpha, inflate, border_radius, color),
+            build_shadow_surface,
         )
         self.display.screen.blit(
             shadow_surface,

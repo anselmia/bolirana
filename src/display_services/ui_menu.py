@@ -8,7 +8,37 @@ from src.constants import BLACK, CHROME_COLORS, WHITE, YELLOW
 
 
 class UIMenuMixin:
+    MENU_CACHE_FPS = 8
+
+    def freeze_menu_cache_value(self, value):
+        if isinstance(value, dict):
+            return tuple(
+                (key, self.freeze_menu_cache_value(item))
+                for key, item in sorted(value.items())
+            )
+        if isinstance(value, (list, tuple)):
+            return tuple(self.freeze_menu_cache_value(item) for item in value)
+        return value
+
+    def get_menu_frame_cache_key(self, menu, mode):
+        options_signature = tuple(
+            self.freeze_menu_cache_value(option) for option in menu.options
+        )
+        return (
+            mode,
+            int(time.monotonic() * self.MENU_CACHE_FPS),
+            menu.selected_option,
+            options_signature,
+        )
+
     def draw_menu(self, menu):
+        cache_key = self.get_menu_frame_cache_key(menu, "menu")
+        cached_surface = self._menu_frame_cache.get(cache_key)
+        if cached_surface is not None:
+            self.display.screen.blit(cached_surface, (0, 0))
+            pygame.display.update()
+            return
+
         phase = time.monotonic()
         selected_option = menu.options[menu.selected_option]
         subtitle = f"{selected_option['name']} : {selected_option['value']}"
@@ -31,9 +61,17 @@ class UIMenuMixin:
             "NEXT pour naviguer  |  RIGHT pour changer  |  ENTER pour lancer",
             phase,
         )
+        self._menu_frame_cache = {cache_key: self.display.screen.copy()}
         pygame.display.update()
 
     def draw_end_menu(self, menu):
+        cache_key = self.get_menu_frame_cache_key(menu, "end_menu")
+        cached_surface = self._menu_frame_cache.get(cache_key)
+        if cached_surface is not None:
+            self.display.screen.blit(cached_surface, (0, 0))
+            pygame.display.update()
+            return
+
         phase = time.monotonic()
         title = "PAUSE" if "Continuer" in menu.options else "FIN DE PARTIE"
         subtitle = "Choisis la suite du show"
@@ -53,6 +91,7 @@ class UIMenuMixin:
             menu.options, menu.selected_option, show_value=False, phase=phase
         )
         self.draw_footer_prompt("NEXT pour naviguer  |  ENTER pour valider", phase)
+        self._menu_frame_cache = {cache_key: self.display.screen.copy()}
         pygame.display.update()
 
     def _draw_option_grid(self, options, selected_option, show_value, phase=None):

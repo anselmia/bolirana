@@ -8,65 +8,79 @@ from src.constants import BLACK, CHROME_COLORS, WHITE, YELLOW
 
 class UISceneMixin:
     def draw_vertical_gradient(self, top_color, bottom_color, alpha=150, steps=24):
-        gradient = pygame.Surface(
-            (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
-        )
-        mid_color = (
-            int((top_color[0] + bottom_color[0]) / 2 + 16),
-            int((top_color[1] + bottom_color[1]) / 2 + 8),
-            int((top_color[2] + bottom_color[2]) / 2 + 24),
-        )
-        for index in range(steps):
-            ratio = index / max(1, steps - 1)
-            band_top = int(self.display.screen_height * index / steps)
-            band_height = max(
-                2,
-                int(self.display.screen_height * (index + 1) / steps) - band_top,
+        def build_gradient_surface():
+            gradient = pygame.Surface(
+                (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
             )
-            if ratio < 0.5:
-                local = ratio / 0.5
-                color = (
-                    int(top_color[0] + (mid_color[0] - top_color[0]) * local),
-                    int(top_color[1] + (mid_color[1] - top_color[1]) * local),
-                    int(top_color[2] + (mid_color[2] - top_color[2]) * local),
-                )
-            else:
-                local = (ratio - 0.5) / 0.5
-                color = (
-                    int(mid_color[0] + (bottom_color[0] - mid_color[0]) * local),
-                    int(mid_color[1] + (bottom_color[1] - mid_color[1]) * local),
-                    int(mid_color[2] + (bottom_color[2] - mid_color[2]) * local),
-                )
-            pygame.draw.rect(
-                gradient,
-                (*color, alpha),
-                (0, band_top, self.display.screen_width, band_height),
+            mid_color = (
+                int((top_color[0] + bottom_color[0]) / 2 + 16),
+                int((top_color[1] + bottom_color[1]) / 2 + 8),
+                int((top_color[2] + bottom_color[2]) / 2 + 24),
             )
-        glow_surface = pygame.Surface(
-            (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
-        )
-        pygame.draw.ellipse(
-            glow_surface,
-            (255, 214, 110, max(20, alpha // 4)),
+            for index in range(steps):
+                ratio = index / max(1, steps - 1)
+                band_top = int(self.display.screen_height * index / steps)
+                band_height = max(
+                    2,
+                    int(self.display.screen_height * (index + 1) / steps) - band_top,
+                )
+                if ratio < 0.5:
+                    local = ratio / 0.5
+                    color = (
+                        int(top_color[0] + (mid_color[0] - top_color[0]) * local),
+                        int(top_color[1] + (mid_color[1] - top_color[1]) * local),
+                        int(top_color[2] + (mid_color[2] - top_color[2]) * local),
+                    )
+                else:
+                    local = (ratio - 0.5) / 0.5
+                    color = (
+                        int(mid_color[0] + (bottom_color[0] - mid_color[0]) * local),
+                        int(mid_color[1] + (bottom_color[1] - mid_color[1]) * local),
+                        int(mid_color[2] + (bottom_color[2] - mid_color[2]) * local),
+                    )
+                pygame.draw.rect(
+                    gradient,
+                    (*color, alpha),
+                    (0, band_top, self.display.screen_width, band_height),
+                )
+            glow_surface = pygame.Surface(
+                (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
+            )
+            pygame.draw.ellipse(
+                glow_surface,
+                (255, 214, 110, max(20, alpha // 4)),
+                (
+                    -140,
+                    -120,
+                    self.display.screen_width + 280,
+                    int(self.display.screen_height * 0.44),
+                ),
+            )
+            pygame.draw.ellipse(
+                glow_surface,
+                (120, 214, 255, max(14, alpha // 6)),
+                (
+                    40,
+                    int(self.display.screen_height * 0.52),
+                    self.display.screen_width - 80,
+                    int(self.display.screen_height * 0.34),
+                ),
+            )
+            gradient.blit(glow_surface, (0, 0))
+            return gradient
+
+        gradient = self.get_cached_surface(
+            "vertical_gradient",
             (
-                -140,
-                -120,
-                self.display.screen_width + 280,
-                int(self.display.screen_height * 0.44),
+                (self.display.screen_width, self.display.screen_height),
+                top_color,
+                bottom_color,
+                alpha,
+                steps,
             ),
-        )
-        pygame.draw.ellipse(
-            glow_surface,
-            (120, 214, 255, max(14, alpha // 6)),
-            (
-                40,
-                int(self.display.screen_height * 0.52),
-                self.display.screen_width - 80,
-                int(self.display.screen_height * 0.34),
-            ),
+            build_gradient_surface,
         )
         self.display.screen.blit(gradient, (0, 0))
-        self.display.screen.blit(glow_surface, (0, 0))
 
     def draw_spotlight_canopy(self, phase, intensity=1.0, tint=(255, 228, 170)):
         canopy = pygame.Surface(

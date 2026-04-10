@@ -23,6 +23,100 @@ from src.constants import (
 
 
 class UIGameMixin:
+    GAMEPLAY_CACHE_FPS = 8
+    GAMEPLAY_ALERT_CACHE_FPS = 12
+
+    def freeze_challenge_state(self, challenge_state):
+        if not challenge_state:
+            return None
+        challenge_type = challenge_state.get("type")
+        if challenge_type == "order":
+            return (
+                challenge_type,
+                int(challenge_state.get("progress", 0)),
+                int(challenge_state.get("total", 0)),
+                str(challenge_state.get("next_target", "")),
+                tuple(challenge_state.get("sequence_labels", [])),
+                challenge_state.get("target_hole_type"),
+                challenge_state.get("target_hole_text"),
+            )
+        if challenge_type == "time_attack":
+            remaining = challenge_state.get("remaining_seconds")
+            remaining_bucket = None if remaining is None else round(float(remaining), 1)
+            return (
+                challenge_type,
+                remaining_bucket,
+                int(challenge_state.get("turn_duration", 0)),
+                int(challenge_state.get("turns_left", 0) or 0),
+                int(challenge_state.get("max_turns", 0) or 0),
+                bool(challenge_state.get("awaiting_start")),
+                bool(challenge_state.get("low_time")),
+            )
+        return tuple(sorted(challenge_state.items()))
+
+    def get_players_render_signature(self, players):
+        return tuple(
+            (
+                player.id,
+                player.team,
+                player.score,
+                player.rank,
+                player.won,
+                player.is_active,
+                player.turns_played,
+            )
+            for player in players
+        )
+
+    def get_holes_render_signature(self, holes):
+        return tuple(
+            (
+                hole.type,
+                hole.text,
+                hole.value,
+                getattr(hole, "bonus_active", False),
+                round(getattr(hole, "bonus_activated_at", 0.0), 1),
+                round(getattr(hole, "bonus_duration", 0.0), 1),
+            )
+            for hole in holes
+        )
+
+    def get_game_frame_cache_key(
+        self,
+        players,
+        current_player,
+        holes,
+        score,
+        game_mode,
+        team_mode,
+        player_in_team,
+        current_progress,
+        leader_progress,
+        challenge_mode,
+        status_text,
+        challenge_state,
+    ):
+        now = time.monotonic()
+        cache_fps = self.GAMEPLAY_ALERT_CACHE_FPS
+        if not challenge_state or not challenge_state.get("low_time"):
+            cache_fps = self.GAMEPLAY_CACHE_FPS
+        animation_bucket = int(now * cache_fps)
+        return (
+            animation_bucket,
+            game_mode,
+            team_mode,
+            player_in_team,
+            int(score),
+            int(current_progress),
+            int(leader_progress),
+            challenge_mode,
+            status_text,
+            None if current_player is None else current_player.id,
+            self.freeze_challenge_state(challenge_state),
+            self.get_players_render_signature(players),
+            self.get_holes_render_signature(holes),
+        )
+
     def should_draw_status_banner(self, status_text, challenge_state=None):
         if not status_text:
             return False
@@ -1268,6 +1362,29 @@ class UIGameMixin:
         if current_player is None:
             return
 
+        cache_key = self.get_game_frame_cache_key(
+            players,
+            current_player,
+            holes,
+            score,
+            game_mode,
+            team_mode,
+            player_in_team,
+            current_progress,
+            leader_progress,
+            challenge_mode,
+            status_text,
+            challenge_state,
+        )
+        if (
+            self._game_frame_cache_key == cache_key
+            and self._game_frame_cache_surface is not None
+        ):
+            self.display.update_time_warning_audio(challenge_state)
+            self.display.screen.blit(self._game_frame_cache_surface, (0, 0))
+            pygame.display.flip()
+            return
+
         phase = time.monotonic()
         self.display.update_time_warning_audio(challenge_state)
         self.display.screen.blit(self.display.resources["game_background"], (0, 0))
@@ -1306,6 +1423,8 @@ class UIGameMixin:
         self.draw_low_time_warning(challenge_state)
         if self.should_draw_status_banner(status_text, challenge_state=challenge_state):
             self.draw_status_banner(status_text, challenge_state=challenge_state)
+        self._game_frame_cache_key = cache_key
+        self._game_frame_cache_surface = self.display.screen.copy()
         pygame.display.flip()
 
     def draw_holes(self, holes, challenge_state=None):
