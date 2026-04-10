@@ -104,6 +104,7 @@ class EffectsVictoryMixin:
                 "applause",
                 volume=0.34,
                 fade_ms=80,
+                maxtime=1100,
             )
             self.trigger_cue(
                 cues_triggered,
@@ -113,15 +114,7 @@ class EffectsVictoryMixin:
                 "applause",
                 volume=0.5,
                 fade_ms=40,
-            )
-            self.trigger_cue(
-                cues_triggered,
-                "champion-flash",
-                0.38,
-                progress,
-                "win_sound",
-                volume=0.14,
-                fade_ms=80,
+                maxtime=900,
             )
             self.draw_overlay((4, 10, 30), 88)
             self.display.ui.draw_spotlight_canopy(

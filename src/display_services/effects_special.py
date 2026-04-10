@@ -25,15 +25,6 @@ class EffectsSpecialMixin:
                 volume=0.24,
                 fade_ms=30,
             )
-            self.trigger_cue(
-                cues_triggered,
-                "spray",
-                0.32,
-                progress,
-                "win_sound",
-                volume=0.16,
-                fade_ms=80,
-            )
             anticipation = self.clamp(progress / 0.16)
             launch = self.clamp((progress - 0.12) / 0.22)
             settle = self.clamp((progress - 0.54) / 0.26)
@@ -585,15 +576,6 @@ class EffectsSpecialMixin:
                 "applause",
                 volume=0.32,
                 fade_ms=40,
-            )
-            self.trigger_cue(
-                cues_triggered,
-                "victory-croak",
-                0.84,
-                progress,
-                "win_sound",
-                volume=0.12,
-                fade_ms=80,
             )
             self.draw_crowd_bounce(progress * 0.85)
 

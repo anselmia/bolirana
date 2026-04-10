@@ -40,9 +40,9 @@ class EffectsScoreMixin:
             self.display.font_large if hole.type != "side" else self.display.font_medium
         )
         cues_triggered = set()
-        score_sound_name = "coin_sound" if hole.type == "side" else "applause"
+        score_sound_name = "roulette_end_sound" if hole.type == "side" else "applause"
         score_sound_volume = 0.42 if hole.type == "side" else 0.28
-        score_sound_maxtime = 140 if hole.type == "side" else 0
+        score_sound_maxtime = 0 if hole.type == "side" else 420
 
         def render(progress):
             phase = time.monotonic()
@@ -298,6 +298,7 @@ class EffectsScoreMixin:
                 "applause",
                 volume=0.22,
                 fade_ms=40,
+                maxtime=320,
             )
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 5)
             self.draw_overlay((32, 0, 0), int(120 + 60 * pulse))
@@ -528,7 +529,7 @@ class EffectsScoreMixin:
         return roulette_animation.run()
 
     def draw_player_win(self, winner):
-        self.play_sound_cue("applause", volume=0.75, fade_ms=120)
+        self.play_sound_cue("applause", volume=0.75, fade_ms=120, maxtime=1200)
         backdrop = self.display.screen.copy()
         message = f"Bravo {winner}"
         center = (self.display.screen_width // 2, self.display.screen_height // 2)

@@ -145,15 +145,6 @@ class EffectsBossMixin:
                 volume=0.8,
                 fade_ms=80,
             )
-            self.trigger_cue(
-                cues_triggered,
-                "title-hit",
-                0.76,
-                progress,
-                "win_sound",
-                volume=0.24,
-                fade_ms=100,
-            )
             self.draw_crowd_bounce(progress * 0.9)
 
             self.draw_lily_pad(
@@ -444,15 +435,6 @@ class EffectsBossMixin:
                 progress,
                 "applause",
                 volume=0.24,
-                fade_ms=80,
-            )
-            self.trigger_cue(
-                cues_triggered,
-                "roulette-hit",
-                0.7,
-                progress,
-                "win_sound",
-                volume=0.16,
                 fade_ms=80,
             )
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 4)
