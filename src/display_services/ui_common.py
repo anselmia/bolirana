@@ -117,6 +117,7 @@ class UICommonMixin:
         badge_surface = pygame.Surface(badge_rect.size, pygame.SRCALPHA)
         radius = min(14, max(10, badge_rect.height // 2))
         fill_alpha = fill_color[3] if len(fill_color) == 4 else 214
+        fill_alpha = max(228, fill_alpha)
         border_alpha = border_color[3] if len(border_color) == 4 else 90
         badge_shadow = pygame.Surface(
             (badge_rect.width + 10, badge_rect.height + 10), pygame.SRCALPHA
@@ -160,15 +161,55 @@ class UICommonMixin:
             border_radius=radius,
         )
         self.display.screen.blit(badge_surface, badge_rect.topleft)
-        self.draw_text_with_shadow(
-            text,
-            self.display.font_verysmall if font is None else font,
-            text_color,
-            shadow_color,
-            badge_rect.center,
-            shadow_offset=(1, 1),
-            center=True,
-        )
+        candidate_fonts = [self.display.font_verysmall if font is None else font]
+        for fallback_name in ("font_micro", "font_tiny"):
+            fallback_font = getattr(self.display, fallback_name, None)
+            if fallback_font is not None and fallback_font not in candidate_fonts:
+                candidate_fonts.append(fallback_font)
+        badge_font = candidate_fonts[-1]
+        max_text_width = max(10, badge_rect.width - 12)
+        max_text_height = max(10, badge_rect.height - 4)
+        for candidate in candidate_fonts:
+            text_width, text_height = candidate.size(str(text))
+            if text_width <= max_text_width and text_height <= max_text_height:
+                badge_font = candidate
+                break
+        text_components = tuple(text_color)
+        red = text_components[0] if len(text_components) >= 1 else 255
+        green = text_components[1] if len(text_components) >= 2 else red
+        blue = text_components[2] if len(text_components) >= 3 else green
+        text_luma = (red * 299 + green * 587 + blue * 114) / 1000
+        text_surface = badge_font.render(str(text), True, text_color)
+        text_rect = text_surface.get_rect(center=badge_rect.center)
+        if text_luma < 96:
+            outline_surface = badge_font.render(str(text), True, (255, 248, 228))
+            for offset_x, offset_y, alpha in (
+                (-1, 0, 235),
+                (1, 0, 235),
+                (0, -1, 235),
+                (0, 1, 235),
+                (1, 1, 125),
+            ):
+                outline_layer = outline_surface.copy()
+                outline_layer.set_alpha(alpha)
+                self.display.screen.blit(
+                    outline_layer,
+                    (text_rect.x + offset_x, text_rect.y + offset_y),
+                )
+            self.display.screen.blit(text_surface, text_rect)
+        else:
+            effective_shadow = shadow_color
+            if shadow_color == BLACK and text_luma < 140:
+                effective_shadow = (255, 248, 228)
+            self.draw_text_with_shadow(
+                text,
+                badge_font,
+                text_color,
+                effective_shadow,
+                badge_rect.center,
+                shadow_offset=(1, 1),
+                center=True,
+            )
 
     def draw_panel_grid(self, rect, phase, color=(120, 214, 255), alpha=16, step=54):
         panel_rect = pygame.Rect(rect)

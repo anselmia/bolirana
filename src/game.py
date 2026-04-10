@@ -23,7 +23,7 @@ from src.game_logic import GameLogic
 
 
 class Game:
-    def __init__(self, debug=False):
+    def __init__(self, debug=False, keyboard_mode=False):
         pygame.init()
         pygame.mixer.init()
         pygame.display.set_caption("Bolirana Game")
@@ -31,7 +31,8 @@ class Game:
         self.display = Display(debug)
         self.menu = Menu()
         self.end_menu = EndMenu()
-        self.pin = PIN(self.display.screen)
+        self.keyboard_mode = keyboard_mode
+        self.pin = PIN(self.display.screen, use_i2c=not keyboard_mode)
         self.gamelogic = GameLogic()
         self.gamelogic.reset_game()
         self.last_next_action_time = time.monotonic()
@@ -67,25 +68,27 @@ class Game:
         self.in_end_menu = False
 
     def process_events(self, mode):
-        if self.debug:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.cleanup()
-                    return "quit"
-                elif event.type == pygame.KEYDOWN:
-                    if event.key in KEY_TO_PIN_MAP:
-                        pin = KEY_TO_PIN_MAP[event.key]
-                        action = self.handle_event(mode, pin)
-                        if action is not None:
-                            return action
-        else:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.cleanup()
-                    return "quit"
-            pin = self.pin.read_pin_states(mode)
-            if pin is not None:
-                return self.handle_event(mode, pin)
+        keyboard_enabled = self.debug or self.keyboard_mode
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.cleanup()
+                return "quit"
+            if event.type == pygame.KEYDOWN and keyboard_enabled:
+                if event.key == pygame.K_ESCAPE:
+                    if mode == "menu":
+                        self.cleanup()
+                        return "quit"
+                    if mode == "game":
+                        return "open_end_menu"
+                if event.key in KEY_TO_PIN_MAP:
+                    pin = KEY_TO_PIN_MAP[event.key]
+                    action = self.handle_event(mode, pin)
+                    if action is not None:
+                        return action
+
+        pin = self.pin.read_pin_states(mode)
+        if pin is not None:
+            return self.handle_event(mode, pin)
 
         return None
 
@@ -175,9 +178,9 @@ class Game:
 
                 self.gamelogic.update_challenge_runtime(self.display)
                 self.gamelogic.check_game_end(self.display)
-                if self.gamelogic.draw_game:
-                    self.update_game_display()
-                    self.gamelogic.draw_game = False
+                # Keep the HUD animating even when gameplay state is idle.
+                self.update_game_display()
+                self.gamelogic.draw_game = False
 
                 self.clock.tick(FPS)
 
@@ -218,6 +221,10 @@ class Game:
             else self.gamelogic.players_per_team
         )
 
+        status_text = self.gamelogic.get_status_message()
+        if self.keyboard_mode and not status_text:
+            status_text = "TEST MODE  |  Left/Down: next  |  Right/Up: action  |  Enter/Space: menu/select  |  1-8 or Q-N: score"
+
         self.display.draw_game(
             self.gamelogic.players,
             self.gamelogic.current_player,
@@ -229,7 +236,7 @@ class Game:
             self.gamelogic.get_current_progress_score(),
             self.gamelogic.get_leader_progress_score(),
             self.gamelogic.challenge_mode,
-            self.gamelogic.get_status_message(),
+            status_text,
             challenge_state=self.gamelogic.get_challenge_state(),
         )
 

@@ -16,8 +16,8 @@ class DisplayEffectsService(
     EffectsParticlesMixin,
     EffectsCoreMixin,
 ):
-    LITTLE_FROG_SOUND_MAXTIME_MS = 1450
-    LARGE_FROG_SOUND_MAXTIME_MS = 1750
+    LITTLE_FROG_SOUND_MAXTIME_MS = 420
+    LARGE_FROG_SOUND_MAXTIME_MS = 520
 
     def __init__(self, display):
         self.display = display

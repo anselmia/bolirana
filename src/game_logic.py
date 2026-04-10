@@ -1,4 +1,5 @@
 import logging
+import random
 import time
 
 from src.holes import Hole
@@ -39,6 +40,8 @@ from src.player import Player
 
 
 class GameLogic:
+    SIDE_HOLE_BONUS_DURATION = 10.0
+
     def __init__(self):
         logging.info("Initializing GameLogic...")
         self.reset_game()
@@ -67,6 +70,9 @@ class GameLogic:
         self.time_attack_waiting_start = False
         self.status_message = ""
         self.status_message_until = 0.0
+        self.active_side_bonus_hole = None
+        self.active_side_bonus_started_at = 0.0
+        self.active_side_bonus_switch_at = 0.0
         self.draw_game = True
         logging.info("Game reset complete.")
 
@@ -84,6 +90,7 @@ class GameLogic:
         self.challenge_progress = {}
         self.time_attack_waiting_start = False
         self.initialize_challenge_state()
+        self.initialize_side_hole_bonus()
         logging.info("Game restarted.")
 
     def setup_game(self, display):
@@ -116,6 +123,7 @@ class GameLogic:
             Hole(display, "large_frog", 0, PIN_HLFROG, "ROUL"),
         ]
         self.build_pin_lookup()
+        self.initialize_side_hole_bonus()
 
     def setup_grenouille_mode(self, display):
         self.holes = [
@@ -123,10 +131,12 @@ class GameLogic:
             Hole(display, "large_frog", 0, PIN_HLFROG, "ROUL"),
         ]
         self.build_pin_lookup()
+        self.clear_side_hole_bonus()
 
     def setup_bouteille_mode(self, display):
         self.holes = [Hole(display, "bottle", 150, PIN_HBOTTLE, "150")]
         self.build_pin_lookup()
+        self.clear_side_hole_bonus()
 
     def build_pin_lookup(self):
         self.pin_to_hole = {pin: hole for hole in self.holes for pin in hole.pin}
@@ -143,6 +153,95 @@ class GameLogic:
                 self.pin_to_hole.get(pin),
             )
         return self.pin_to_hole.get(pin)
+
+    def clear_side_hole_bonus(self):
+        self.active_side_bonus_hole = None
+        self.active_side_bonus_started_at = 0.0
+        self.active_side_bonus_switch_at = 0.0
+        for hole in self.holes:
+            hole.bonus_active = False
+            hole.bonus_activated_at = 0.0
+            hole.bonus_duration = 0.0
+
+    def supports_side_hole_bonus(self):
+        return (
+            self.game_mode == MODE_NORMAL
+            and not self.is_order_challenge()
+            and not self.is_time_attack_challenge()
+        )
+
+    def get_bonus_side_holes(self):
+        return [hole for hole in self.holes if hole.type == "side"]
+
+    def activate_side_hole_bonus(self, hole, notify=True):
+        now = time.monotonic()
+        for candidate in self.holes:
+            candidate.bonus_active = False
+            candidate.bonus_activated_at = 0.0
+            candidate.bonus_duration = 0.0
+
+        self.active_side_bonus_hole = hole
+        self.active_side_bonus_started_at = now
+        self.active_side_bonus_switch_at = now + self.SIDE_HOLE_BONUS_DURATION
+        if hole is not None:
+            hole.bonus_active = True
+            hole.bonus_activated_at = now
+            hole.bonus_duration = self.SIDE_HOLE_BONUS_DURATION
+            if notify:
+                self.set_status_message(
+                    f"Bonus roulette sur {hole.text} !",
+                    duration=1.8,
+                )
+        self.draw_game = True
+
+    def initialize_side_hole_bonus(self):
+        if not self.supports_side_hole_bonus():
+            self.clear_side_hole_bonus()
+            return
+        candidates = self.get_bonus_side_holes()
+        if not candidates:
+            self.clear_side_hole_bonus()
+            return
+        self.activate_side_hole_bonus(random.choice(candidates), notify=False)
+
+    def rotate_side_hole_bonus(self, notify=True, exclude_current=False):
+        if not self.supports_side_hole_bonus():
+            self.clear_side_hole_bonus()
+            return
+        candidates = self.get_bonus_side_holes()
+        if not candidates:
+            self.clear_side_hole_bonus()
+            return
+        if (
+            exclude_current
+            and len(candidates) > 1
+            and self.active_side_bonus_hole in candidates
+        ):
+            candidates = [
+                hole for hole in candidates if hole is not self.active_side_bonus_hole
+            ]
+        self.activate_side_hole_bonus(random.choice(candidates), notify=notify)
+
+    def update_side_hole_bonus_runtime(self):
+        if self.game_ended:
+            return
+        if not self.supports_side_hole_bonus():
+            if self.active_side_bonus_hole is not None:
+                self.clear_side_hole_bonus()
+            return
+        if self.active_side_bonus_hole is None:
+            self.initialize_side_hole_bonus()
+            return
+        if time.monotonic() >= self.active_side_bonus_switch_at:
+            self.rotate_side_hole_bonus(notify=True, exclude_current=True)
+
+    def should_trigger_side_hole_bonus_roulette(self, hole):
+        return (
+            hole is not None
+            and hole.type == "side"
+            and hole is self.active_side_bonus_hole
+            and self.supports_side_hole_bonus()
+        )
 
     def is_order_challenge(self):
         return self.challenge_mode == CHALLENGE_ORDER
@@ -308,6 +407,7 @@ class GameLogic:
         return None
 
     def update_challenge_runtime(self, display):
+        self.update_side_hole_bonus_runtime()
         if not self.is_time_attack_challenge() or self.game_ended:
             return
         if self.time_attack_waiting_start:
@@ -583,10 +683,11 @@ class GameLogic:
             display.animation_bottle()
         elif hole.type == "little_frog":
             display.animation_little_frog()
-            if force_roulette:
-                points = display.animation_roulette()
         elif hole.type == "large_frog":
             points = display.animation_large_frog()
+
+        if force_roulette and hole.type != "large_frog":
+            points = display.animation_roulette()
 
         self.draw_game = True
         return points
@@ -710,16 +811,23 @@ class GameLogic:
             triggered_little_frog_roulette = self.should_trigger_little_frog_roulette(
                 hole
             )
+            triggered_side_hole_bonus_roulette = (
+                self.should_trigger_side_hole_bonus_roulette(hole)
+            )
             points = self.run_hole_animation(
                 hole,
                 pin,
                 display,
-                force_roulette=triggered_little_frog_roulette,
+                force_roulette=(
+                    triggered_little_frog_roulette or triggered_side_hole_bonus_roulette
+                ),
             )
             self.update_little_frog_streak(
                 hole,
                 triggered_roulette=triggered_little_frog_roulette,
             )
+            if triggered_side_hole_bonus_roulette:
+                self.rotate_side_hole_bonus(notify=True, exclude_current=True)
 
             bonus_points = 0
             bonus_messages = []
@@ -740,6 +848,10 @@ class GameLogic:
                 status_message = (
                     f"{self.current_player} petite grenouille x2 -> roulette +{points}"
                 )
+            elif triggered_side_hole_bonus_roulette:
+                status_message = (
+                    f"{self.current_player} bonus {hole.text} -> roulette +{points}"
+                )
             if bonus_messages:
                 status_message = " | ".join([status_message] + bonus_messages)
 
@@ -747,6 +859,11 @@ class GameLogic:
                 if triggered_little_frog_roulette:
                     status_message = (
                         f"{self.current_player} petite grenouille x2 -> roulette +{points}"
+                        f" | {self.get_turns_left_for_player()} tours"
+                    )
+                elif triggered_side_hole_bonus_roulette:
+                    status_message = (
+                        f"{self.current_player} bonus {hole.text} -> roulette +{points}"
                         f" | {self.get_turns_left_for_player()} tours"
                     )
                 else:

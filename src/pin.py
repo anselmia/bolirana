@@ -43,8 +43,9 @@ I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
 
 
 class PIN:
-    def __init__(self, screen):
-        self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
+    def __init__(self, screen, use_i2c=True):
+        self.use_i2c = use_i2c
+        self.bus = None
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
         self.COOLDOWN_MS_PIN = 1200  # Cooldown period in milliseconds
         self.COOLDOWN_MS_Button = 500  # Cooldown period in milliseconds
@@ -62,6 +63,12 @@ class PIN:
         self.menu_pins = {PIN_BENTER, PIN_RIGHT, PIN_BNEXT}
         self.game_pins = self.pin_hole | {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
         self.end_menu_pins = {PIN_BENTER, PIN_BNEXT}
+
+        if not self.use_i2c:
+            logging.info("Keyboard/test mode enabled: skipping I2C initialization.")
+            return
+
+        self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
         logging.info("Initializing communication with the I2C slave...")
 
         self.display_waiting_popup(screen)
@@ -98,6 +105,8 @@ class PIN:
         pygame.display.flip()
 
     def read_pin_states(self, game_action):
+        if not self.use_i2c or self.bus is None:
+            return None
         try:
             # Request data from the ESP32, assuming 2 bytes are needed
             raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)

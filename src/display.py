@@ -31,6 +31,8 @@ class Display:
         self.font_medium = pygame.font.Font(font_path, 30)
         self.font_small = pygame.font.Font(font_path, 25)
         self.font_verysmall = pygame.font.Font(font_path, 20)
+        self.font_micro = pygame.font.Font(font_path, 17)
+        self.font_tiny = pygame.font.Font(font_path, 15)
         if self.screen_height >= 900:
             self.font_title = pygame.font.Font(title_font_path, 78)
             self.font_title_small = pygame.font.Font(title_font_path, 60)
@@ -38,19 +40,32 @@ class Display:
             self.font_medium = pygame.font.Font(font_path, 34)
             self.font_small = pygame.font.Font(font_path, 28)
             self.font_verysmall = pygame.font.Font(font_path, 22)
+            self.font_micro = pygame.font.Font(font_path, 19)
+            self.font_tiny = pygame.font.Font(font_path, 17)
         self.half_width = self.screen_width // 2
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
-        self.hole_frame_width = self.half_width
-        self.frame_score_width = self.screen_width // 5
-        self.frame_player_width = self.screen_width // 5
-        self.hole_rect_height = int(self.screen_height / 2.4)
-        self.frame_space_x = (
-            int(
-                self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
-            )
-            // 4
+        min_horizontal_gap = max(12, self.screen_width // 58)
+        preferred_side_width = max(180, min(320, int(self.screen_width * 0.215)))
+        minimum_hole_width = int(self.screen_width * 0.44)
+        maximum_hole_width = int(self.screen_width * 0.52)
+        max_side_width = (
+            self.screen_width - minimum_hole_width - 4 * min_horizontal_gap
+        ) // 2
+        self.frame_score_width = max(156, min(preferred_side_width, max_side_width))
+        self.hole_frame_width = (
+            self.screen_width - 2 * self.frame_score_width - 4 * min_horizontal_gap
         )
+        self.hole_frame_width = max(
+            minimum_hole_width,
+            min(maximum_hole_width, self.hole_frame_width),
+        )
+        remaining_width = (
+            self.screen_width - (2 * self.frame_score_width) - self.hole_frame_width
+        )
+        self.frame_space_x = max(min_horizontal_gap, remaining_width // 4)
+        self.frame_player_width = self.frame_score_width
+        self.hole_rect_height = int(self.screen_height / 2.4)
         self.frame_space_y = 20
         self.border_holes = 0
         self.hole_frame_border = 7
