@@ -25,7 +25,22 @@ class EffectsSpecialMixin:
                 volume=0.24,
                 fade_ms=30,
             )
-            wobble = math.sin(progress * math.tau * 3) * (1 - progress) * 14
+            self.trigger_cue(
+                cues_triggered,
+                "spray",
+                0.32,
+                progress,
+                "win_sound",
+                volume=0.16,
+                fade_ms=80,
+            )
+            anticipation = self.clamp(progress / 0.16)
+            launch = self.clamp((progress - 0.12) / 0.22)
+            settle = self.clamp((progress - 0.54) / 0.26)
+            wobble = math.sin(progress * math.tau * 3.8) * (1 - progress) * 16
+            bottle_bounce = self.lerp(24, -18, self.ease_out_back(launch))
+            bottle_bounce += math.sin(settle * math.tau * 1.2) * (1 - settle) * 10
+            bottle_center = (center[0], center[1] + int(bottle_bounce))
             self.draw_overlay((40, 20, 0), 90)
             self.display.ui.draw_spotlight_canopy(
                 phase, intensity=0.8, tint=(255, 214, 156)
@@ -51,11 +66,32 @@ class EffectsSpecialMixin:
             )
             self.draw_crowd_bounce(progress * 0.85)
             self.draw_light_beam(center, progress, (255, 196, 64), width=250, alpha=54)
+            self.draw_cartoon_flash(
+                center, min(1.0, progress * 0.92), (255, 214, 96), radius=220, alpha=78
+            )
             self.draw_star_field(
                 progress, density=18, color=(255, 220, 130), drift=10, alpha=80
             )
             self.draw_speed_lines(
                 progress, (255, 214, 96), count=7, alpha=42, angle=0.1
+            )
+            self.draw_bubble_fountain(
+                (center[0], center[1] + 120),
+                progress,
+                color=(255, 244, 220),
+                count=24,
+                width=190,
+                height=340,
+                sway=20,
+            )
+            self.draw_confetti_fountain(
+                (center[0], center[1] + 184),
+                self.clamp((progress - 0.18) / 0.42),
+                palette=[(255, 214, 110), (255, 170, 86), WHITE],
+                count=18,
+                spread=220,
+                height=170,
+                alpha=180,
             )
             self.draw_radial_burst(
                 center,
@@ -178,6 +214,55 @@ class EffectsSpecialMixin:
             pygame.draw.rect(
                 bottle_surface, (236, 176, 42, 195), fill_rect, border_radius=28
             )
+            shine_rect = pygame.Rect(66, 118, 28, 216)
+            pygame.draw.rect(
+                bottle_surface,
+                (255, 248, 220, 74),
+                shine_rect,
+                border_radius=16,
+            )
+            label_rect = pygame.Rect(60, 164, 100, 94)
+            pygame.draw.rect(
+                bottle_surface,
+                (246, 222, 164, 228),
+                label_rect,
+                border_radius=22,
+            )
+            pygame.draw.rect(
+                bottle_surface,
+                (168, 98, 24, 214),
+                label_rect,
+                width=3,
+                border_radius=22,
+            )
+            eye_blink = self.clamp((math.sin(progress * math.tau * 6.5) - 0.7) / 0.3)
+            smile_curve = 0.35 + 0.65 * self.ease_out_cubic(progress)
+            for eye_x in (92, 128):
+                pygame.draw.circle(
+                    bottle_surface, (255, 255, 255, 240), (eye_x, 196), 11
+                )
+                pygame.draw.circle(bottle_surface, BLACK, (eye_x + 1, 197), 5)
+                if eye_blink > 0:
+                    pygame.draw.rect(
+                        bottle_surface,
+                        (246, 222, 164, 228),
+                        (eye_x - 12, 184, 24, int(22 * eye_blink)),
+                        border_radius=10,
+                    )
+            mouth_rect = pygame.Rect(0, 0, 48, 24)
+            mouth_rect.center = (110, 226)
+            pygame.draw.arc(
+                bottle_surface,
+                (148, 72, 14),
+                mouth_rect,
+                0.15,
+                math.pi - 0.15,
+                max(3, int(4 + smile_curve * 2)),
+            )
+            pygame.draw.circle(bottle_surface, (255, 170, 190, 84), (82, 220), 9)
+            pygame.draw.circle(bottle_surface, (255, 170, 190, 84), (138, 220), 9)
+            label_text = self.display.font_verysmall.render("FIZZ!", True, BLACK)
+            bottle_surface.blit(label_text, label_text.get_rect(center=(110, 246)))
 
             foam_y = fill_rect.top - 12
             for bubble_index in range(6):
@@ -192,9 +277,18 @@ class EffectsSpecialMixin:
                 )
 
             bottle_surface = pygame.transform.rotate(bottle_surface, wobble)
-            self.draw_glow_circle(center, 95, YELLOW, glow_radius=46, alpha=150)
+            self.draw_motion_smear(
+                (center[0] - 52, center[1] + 10),
+                (bottle_center[0] + wobble * 2.8, bottle_center[1] - 8),
+                min(1.0, abs(wobble) / 12),
+                (255, 224, 150),
+                width=44,
+                trail=4,
+                alpha=36,
+            )
+            self.draw_glow_circle(bottle_center, 102, YELLOW, glow_radius=52, alpha=164)
             self.display.screen.blit(
-                bottle_surface, bottle_surface.get_rect(center=center)
+                bottle_surface, bottle_surface.get_rect(center=bottle_center)
             )
 
             cap_progress = self.clamp((progress - 0.08) / 0.3)
@@ -205,6 +299,42 @@ class EffectsSpecialMixin:
             if cap_progress > 0:
                 pygame.draw.circle(self.display.screen, (232, 184, 52), cap_center, 16)
                 pygame.draw.circle(self.display.screen, WHITE, cap_center, 16, width=2)
+                self.draw_cartoon_starburst(
+                    cap_center,
+                    cap_progress,
+                    (255, 220, 120),
+                    rays=9,
+                    inner_radius=14,
+                    outer_radius=86,
+                    alpha=215,
+                    twist=0.18,
+                )
+                self.draw_cartoon_smoke(
+                    cap_center,
+                    cap_progress,
+                    color=(255, 248, 224),
+                    puff_count=9,
+                    spread=92,
+                    alpha=168,
+                )
+                self.draw_liquid_splash(
+                    (center[0], center[1] - 138),
+                    cap_progress,
+                    (255, 226, 150),
+                    droplet_count=15,
+                    spread=134,
+                    height=210,
+                    alpha=188,
+                )
+                self.draw_confetti_fountain(
+                    (center[0], center[1] - 58),
+                    cap_progress,
+                    palette=[(255, 214, 110), (255, 244, 214), (255, 170, 86)],
+                    count=14,
+                    spread=150,
+                    height=120,
+                    alpha=174,
+                )
                 self.draw_impact_cloud(
                     cap_center,
                     cap_progress,
@@ -222,6 +352,17 @@ class EffectsSpecialMixin:
                     distance=70,
                     size=12,
                     twist=0.5,
+                )
+
+            if anticipation < 1.0:
+                shake_progress = self.ease_out_cubic(anticipation)
+                self.draw_comic_caption(
+                    "SHAKE!",
+                    (center[0] - 168, center[1] - 132),
+                    shake_progress,
+                    fill_color=(255, 232, 164),
+                    outline_color=(188, 120, 20),
+                    wobble=12.0,
                 )
 
             for droplet_index in range(10):
@@ -266,7 +407,7 @@ class EffectsSpecialMixin:
                 self.display.screen.blit(bubble_surface, (bubble_x, bubble_y))
 
             self.draw_comic_caption(
-                "GLUG GLUG!",
+                "POPFIZZ!",
                 (center[0] + 170, center[1] - 120),
                 min(1.0, progress * 1.1),
                 fill_color=(255, 238, 176),
@@ -291,16 +432,16 @@ class EffectsSpecialMixin:
             self.display.screen.blit(footer_surface, footer_rect.topleft)
             self.display.ui.draw_chrome_rect(footer_rect, CHROME_COLORS, 18, 3)
             self.display.ui.draw_text_with_shadow(
-                "Le bouchon saute et la salle explose.",
+                "La bouteille explose en mode cartoon.",
                 self.display.font_small,
                 WHITE,
                 BLACK,
                 footer_rect.center,
                 center=True,
             )
-            self.draw_reaction_signs(progress, ["POP!", "SANTE!", "HAHA!"])
+            self.draw_reaction_signs(progress, ["POP!", "FIZZ!", "OLE!"])
 
-        self.animate_scene(1.35, render, background=backdrop)
+        self.animate_scene(1.72, render, background=backdrop)
 
     def animation_little_frog(self):
         backdrop = self.display.screen.copy()
@@ -445,6 +586,15 @@ class EffectsSpecialMixin:
                 volume=0.32,
                 fade_ms=40,
             )
+            self.trigger_cue(
+                cues_triggered,
+                "victory-croak",
+                0.84,
+                progress,
+                "win_sound",
+                volume=0.12,
+                fade_ms=80,
+            )
             self.draw_crowd_bounce(progress * 0.85)
 
             if progress < 0.2:
@@ -466,6 +616,9 @@ class EffectsSpecialMixin:
             )
             lift = airborne * 170
             drift_x = self.lerp(-34, 44, flight_progress)
+            blink = self.clamp((math.sin(progress * math.tau * 8.5) - 0.76) / 0.24)
+            blush = self.clamp(0.12 + airborne * 0.42)
+            firefly_pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 6)
 
             for ripple_index in range(4):
                 ripple_progress = progress * 1.4 - ripple_index * 0.16
@@ -495,6 +648,13 @@ class EffectsSpecialMixin:
                 rotation=math.sin(progress * math.tau * 1.5) * 4,
                 glow=0.28 + airborne * 0.42,
             )
+            self.draw_cartoon_flash(
+                lily_center,
+                min(1.0, progress * 0.88),
+                (120, 255, 210),
+                radius=160,
+                alpha=70,
+            )
             self.draw_orbiting_particles(
                 lily_center,
                 progress,
@@ -506,7 +666,6 @@ class EffectsSpecialMixin:
                 vertical_scale=0.4,
             )
 
-            firefly_pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 6)
             if progress < 0.57:
                 self.draw_glow_circle(
                     fly_center, 6 + firefly_pulse * 4, YELLOW, glow_radius=18, alpha=150
@@ -533,11 +692,63 @@ class EffectsSpecialMixin:
                         rotated_wing, rotated_wing.get_rect(center=fly_center)
                     )
 
+            smear_progress = self.clamp((progress - 0.22) / 0.12) * (
+                1 - self.clamp((progress - 0.48) / 0.18)
+            )
+            if smear_progress > 0:
+                self.draw_motion_smear(
+                    (center[0] - 68, center[1] + 28),
+                    (center[0] + int(drift_x), center[1] - int(lift)),
+                    smear_progress,
+                    (120, 255, 210),
+                    width=54,
+                    trail=5,
+                    alpha=42,
+                )
+                self.draw_cartoon_starburst(
+                    (center[0] - 26, center[1] + 74),
+                    smear_progress,
+                    (120, 255, 210),
+                    rays=7,
+                    inner_radius=10,
+                    outer_radius=56,
+                    alpha=126,
+                    twist=0.22,
+                )
+
             tongue_window = self.clamp((progress - 0.34) / 0.18)
             tongue_release = self.clamp((progress - 0.56) / 0.14)
             tongue_progress = max(0.0, tongue_window * (1 - tongue_release))
             eye_focus = (0.7, -0.45) if progress < 0.62 else (0.0, 0.0)
             croak = 0.1 + 0.18 * (1 - airborne)
+            grin = self.clamp(0.18 + airborne * 0.8 + tongue_progress * 0.35)
+            shimmer = 0.18 + firefly_pulse * 0.42
+
+            if tongue_progress > 0:
+                tongue_tip = (
+                    center[0]
+                    + int(drift_x)
+                    + int(math.cos(-0.38) * 180 * tongue_progress),
+                    center[1]
+                    - int(lift)
+                    + int(math.sin(-0.38) * 180 * tongue_progress),
+                )
+                self.draw_motion_smear(
+                    (center[0] + int(drift_x) + 18, center[1] - int(lift) - 18),
+                    tongue_tip,
+                    tongue_progress,
+                    (255, 136, 176),
+                    width=20,
+                    trail=3,
+                    alpha=52,
+                )
+                self.draw_cartoon_flash(
+                    tongue_tip,
+                    tongue_progress,
+                    (255, 136, 176),
+                    radius=48,
+                    alpha=94,
+                )
 
             self.draw_frog_character(
                 (center[0] + int(drift_x), center[1] - int(lift)),
@@ -550,10 +761,24 @@ class EffectsSpecialMixin:
                 tongue_angle=-0.38,
                 eye_focus=eye_focus,
                 glow_strength=0.18 + airborne * 0.28,
+                blink=blink,
+                grin=grin,
+                blush=blush,
+                shimmer=shimmer,
             )
 
             if progress >= 0.5:
                 burst_progress = self.clamp((progress - 0.5) / 0.16)
+                self.draw_cartoon_starburst(
+                    fly_center,
+                    burst_progress,
+                    (255, 236, 164),
+                    rays=8,
+                    inner_radius=10,
+                    outer_radius=74,
+                    alpha=220,
+                    twist=0.1,
+                )
                 self.draw_radial_burst(
                     fly_center,
                     burst_progress,
@@ -589,9 +814,26 @@ class EffectsSpecialMixin:
                     size=10,
                     twist=0.2,
                 )
+                self.draw_confetti_fountain(
+                    fly_center,
+                    burst_progress,
+                    palette=[YELLOW, WHITE, (255, 170, 190)],
+                    count=10,
+                    spread=90,
+                    height=70,
+                    alpha=170,
+                )
 
             if progress > 0.68:
                 landing_progress = self.clamp((progress - 0.68) / 0.18)
+                self.draw_cartoon_smoke(
+                    lily_center,
+                    landing_progress,
+                    color=(206, 255, 226),
+                    puff_count=8,
+                    spread=82,
+                    alpha=120,
+                )
                 self.draw_shockwave(
                     lily_center,
                     landing_progress,
@@ -637,6 +879,15 @@ class EffectsSpecialMixin:
                     size=12,
                     twist=0.6,
                 )
+                self.draw_confetti_fountain(
+                    (lily_center[0], lily_center[1] + 32),
+                    landing_progress,
+                    palette=[(120, 255, 210), YELLOW, WHITE],
+                    count=12,
+                    spread=120,
+                    height=92,
+                    alpha=160,
+                )
 
             if progress > 0.7:
                 caption_alpha = self.clamp((progress - 0.7) / 0.18)
@@ -667,16 +918,16 @@ class EffectsSpecialMixin:
                     radius=3,
                 )
                 self.display.ui.draw_text_with_shadow(
-                    "Super saut",
+                    "Super saut cartoon",
                     self.display.font_medium,
                     WHITE,
                     BLACK,
                     footer_rect.center,
                     center=True,
                 )
-            self.draw_reaction_signs(progress, ["MIAM!", "BOING!", "YES!"])
+            self.draw_reaction_signs(progress, ["MIAM!", "BOING!", "HERO!"])
 
-        self.animate_scene(1.55, render, background=backdrop)
+        self.animate_scene(1.92, render, background=backdrop)
         frog_sound = self.display.resources.get("frog_sound")
         if frog_sound is not None:
             frog_sound.stop()

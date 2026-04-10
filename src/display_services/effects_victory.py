@@ -114,6 +114,15 @@ class EffectsVictoryMixin:
                 volume=0.5,
                 fade_ms=40,
             )
+            self.trigger_cue(
+                cues_triggered,
+                "champion-flash",
+                0.38,
+                progress,
+                "win_sound",
+                volume=0.14,
+                fade_ms=80,
+            )
             self.draw_overlay((4, 10, 30), 88)
             self.display.ui.draw_spotlight_canopy(
                 phase, intensity=0.88, tint=(255, 226, 164)
@@ -139,6 +148,16 @@ class EffectsVictoryMixin:
                 alpha=118,
             )
             self.draw_party_ribbons(progress, alpha=34, speed=0.4)
+            self.draw_confetti(progress * 0.95, density=34)
+            self.draw_confetti_fountain(
+                (self.display.screen_width // 2, self.display.screen_height - 48),
+                self.clamp((progress - 0.18) / 0.46),
+                palette=[YELLOW, WHITE, (120, 220, 255), (255, 142, 214)],
+                count=24,
+                spread=340,
+                height=220,
+                alpha=186,
+            )
             self.draw_aurora_ribbon(
                 progress,
                 (140, 220, 255),
@@ -148,6 +167,13 @@ class EffectsVictoryMixin:
                 speed=0.32,
                 alpha=44,
                 phase=0.8,
+            )
+            self.draw_cartoon_flash(
+                (self.display.screen_width // 2, 178),
+                min(1.0, progress * 0.92),
+                (255, 220, 126),
+                radius=280,
+                alpha=76,
             )
             self.draw_crowd_bounce(progress)
 
@@ -218,6 +244,16 @@ class EffectsVictoryMixin:
                 fill_color=(255, 232, 152),
                 wobble=8.0,
             )
+            self.draw_cartoon_starburst(
+                (title_rect.centerx, title_rect.centery - 6),
+                min(1.0, progress * 1.04),
+                (255, 220, 126),
+                rays=12,
+                inner_radius=22,
+                outer_radius=140,
+                alpha=96,
+                twist=0.06,
+            )
             self.draw_sticker_burst(
                 title_rect.midtop,
                 min(1.0, progress * 1.08),
@@ -282,6 +318,22 @@ class EffectsVictoryMixin:
                 BLACK,
                 (summary_rect.centerx, summary_rect.top + 48),
                 center=True,
+            )
+            self.draw_cartoon_flash(
+                summary_rect.center,
+                self.clamp((progress - 0.28) / 0.34),
+                (120, 220, 255),
+                radius=180,
+                alpha=64,
+            )
+            self.draw_sticker_burst(
+                (summary_rect.centerx, summary_rect.bottom - 8),
+                self.clamp((progress - 0.32) / 0.28),
+                [YELLOW, WHITE, (120, 220, 255)],
+                count=6,
+                distance=84,
+                size=12,
+                twist=0.18,
             )
 
             hall_rect = pygame.Rect(
@@ -416,6 +468,17 @@ class EffectsVictoryMixin:
                     )
 
                     if player.rank == 1:
+                        crown_progress = min(1.0, progress * 1.08)
+                        self.draw_cartoon_starburst(
+                            (row_rect.centerx, row_rect.centery),
+                            crown_progress,
+                            YELLOW,
+                            rays=10,
+                            inner_radius=14,
+                            outer_radius=96,
+                            alpha=82,
+                            twist=0.12,
+                        )
                         self.draw_glow_circle(
                             (row_rect.left + 16, row_rect.centery),
                             10,
@@ -438,6 +501,15 @@ class EffectsVictoryMixin:
                             (255, 220, 126),
                             count=12,
                             radius=3,
+                        )
+                        self.draw_confetti_fountain(
+                            (row_rect.centerx, row_rect.bottom + 6),
+                            local,
+                            palette=[YELLOW, WHITE, group_color],
+                            count=10,
+                            spread=92,
+                            height=72,
+                            alpha=144,
                         )
 
                     medal_text = f"#{player.rank}"
@@ -485,7 +557,7 @@ class EffectsVictoryMixin:
                     x += hor_gap + box_width
                     y = margin_top
 
-        self.animate_scene(1.7, render, background=background)
+        self.animate_scene(1.92, render, background=background)
         self.display.screen.blit(background, (0, 0))
         render(1.0)
         pygame.display.flip()
@@ -532,6 +604,7 @@ class EffectsVictoryMixin:
             )
             self.draw_vignette(66, (0, 4, 18))
             self.draw_party_ribbons(progress, alpha=26, speed=0.35)
+            self.draw_confetti(progress, density=22)
             self.draw_star_field(
                 progress, density=34, color=(255, 255, 255), drift=20, alpha=120
             )
@@ -564,6 +637,13 @@ class EffectsVictoryMixin:
                 alpha = max(0, int(220 * (1 - local_progress)))
                 center = burst["center"]
                 color = burst["color"]
+                self.draw_cartoon_flash(
+                    center,
+                    local_progress,
+                    color,
+                    radius=max(96, int(burst["radius"] * 0.78)),
+                    alpha=120,
+                )
                 self.draw_shockwave(
                     center,
                     local_progress,
@@ -580,6 +660,33 @@ class EffectsVictoryMixin:
                     color,
                     glow_radius=28,
                     alpha=alpha,
+                )
+                self.draw_cartoon_starburst(
+                    center,
+                    local_progress,
+                    color,
+                    rays=9,
+                    inner_radius=16,
+                    outer_radius=max(72, int(burst["radius"] * 0.72)),
+                    alpha=132,
+                    twist=burst["twist"],
+                )
+                self.draw_cartoon_smoke(
+                    center,
+                    local_progress,
+                    color=(255, 248, 224),
+                    puff_count=7,
+                    spread=max(82, int(burst["radius"] * 0.52)),
+                    alpha=112,
+                )
+                self.draw_confetti_fountain(
+                    (center[0], center[1] + 18),
+                    local_progress,
+                    palette=[color, WHITE, YELLOW],
+                    count=8,
+                    spread=92,
+                    height=64,
+                    alpha=136,
                 )
 
                 for particle_index in range(burst["particles"]):
@@ -608,4 +715,4 @@ class EffectsVictoryMixin:
                         particle_surface, (particle_x - 10, particle_y - 10)
                     )
 
-        self.animate_scene(1.5, render, background=background)
+        self.animate_scene(1.72, render, background=background)

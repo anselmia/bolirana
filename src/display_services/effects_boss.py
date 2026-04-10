@@ -26,6 +26,7 @@ class EffectsBossMixin:
         def render(progress):
             phase = time.monotonic()
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 3.5)
+            blink = self.clamp((math.sin(progress * math.tau * 7.4) - 0.8) / 0.2)
             self.draw_overlay((2, 18, 16), 145)
             self.display.ui.draw_spotlight_canopy(
                 phase, intensity=0.86, tint=(166, 255, 214)
@@ -161,6 +162,16 @@ class EffectsBossMixin:
                 rotation=math.sin(progress * math.tau * 0.9) * 3,
                 glow=0.4 + pulse * 0.3,
             )
+            self.draw_cartoon_starburst(
+                (center[0], lily_center[1] - 12),
+                min(1.0, progress * 0.92),
+                (140, 255, 220),
+                rays=11,
+                inner_radius=18,
+                outer_radius=118,
+                alpha=132,
+                twist=0.12,
+            )
             self.draw_orbiting_particles(
                 center,
                 progress,
@@ -222,6 +233,9 @@ class EffectsBossMixin:
             stretch = self.clamp((progress - 0.18) / 0.24) * 0.55
             croak = 0.24 + self.clamp((progress - 0.44) / 0.22) * (0.5 + pulse * 0.2)
             heroic_glow = 0.34 + pulse * 0.4
+            grin = self.clamp(0.22 + pulse * 0.58)
+            blush = self.clamp(0.08 + pulse * 0.18)
+            shimmer = 0.24 + pulse * 0.44
             eye_focus = (
                 (0.0, -0.2)
                 if progress <= 0.58
@@ -229,6 +243,17 @@ class EffectsBossMixin:
             )
             shake_x = math.sin(progress * 70) * 6 if progress > 0.58 else 0
             shake_y = math.cos(progress * 54) * 4 if progress > 0.58 else 0
+
+            if summon > 0:
+                self.draw_motion_smear(
+                    (center[0], lily_center[1] + 84),
+                    (center[0], center[1] + 18),
+                    summon,
+                    (120, 255, 210),
+                    width=72,
+                    trail=6,
+                    alpha=52,
+                )
 
             self.draw_frog_character(
                 (
@@ -243,6 +268,10 @@ class EffectsBossMixin:
                 eye_focus=eye_focus,
                 heroic=True,
                 glow_strength=heroic_glow,
+                blink=blink,
+                grin=grin,
+                blush=blush,
+                shimmer=shimmer,
             )
 
             if progress > 0.26:
@@ -270,6 +299,14 @@ class EffectsBossMixin:
                     self.display.screen.blit(lightning_surface, (0, 0))
 
             portal_progress = self.clamp((progress - 0.08) / 0.5)
+            self.draw_cartoon_smoke(
+                (center[0], lily_center[1] - 8),
+                portal_progress,
+                color=(210, 255, 236),
+                puff_count=10,
+                spread=124,
+                alpha=138,
+            )
             self.draw_impact_cloud(
                 (center[0], lily_center[1] - 8),
                 portal_progress,
@@ -307,6 +344,15 @@ class EffectsBossMixin:
                 distance=136,
                 size=16,
                 twist=0.15,
+            )
+            self.draw_liquid_splash(
+                (center[0], lily_center[1] - 16),
+                min(1.0, progress * 0.92),
+                (120, 255, 210),
+                droplet_count=12,
+                spread=168,
+                height=150,
+                alpha=146,
             )
 
             if progress > 0.5:
@@ -378,7 +424,7 @@ class EffectsBossMixin:
                 )
             self.draw_reaction_signs(progress, ["BOSS!", "CROAK!", "RUN!"])
 
-        self.animate_scene(1.9, render, background=backdrop)
+        self.animate_scene(2.1, render, background=backdrop)
         frog_sound = self.display.resources.get("frog_sound")
         if frog_sound is not None:
             frog_sound.stop()
@@ -400,7 +446,17 @@ class EffectsBossMixin:
                 volume=0.24,
                 fade_ms=80,
             )
+            self.trigger_cue(
+                cues_triggered,
+                "roulette-hit",
+                0.7,
+                progress,
+                "win_sound",
+                volume=0.16,
+                fade_ms=80,
+            )
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 4)
+            stage_pop = self.clamp((progress - 0.16) / 0.26)
             self.draw_overlay((4, 10, 28), 128)
             self.display.ui.draw_spotlight_canopy(
                 phase, intensity=0.92, tint=(255, 224, 164)
@@ -414,13 +470,40 @@ class EffectsBossMixin:
                 secondary_color=(120, 214, 255),
             )
             self.display.ui.draw_scene_badges("ROULETTE", "SHOWTIME", phase)
+            self.draw_cartoon_flash(
+                center,
+                min(1.0, progress * 0.95),
+                (255, 220, 126),
+                radius=250,
+                alpha=94,
+            )
             self.draw_star_field(
                 progress, density=30, color=(255, 244, 186), drift=14, alpha=118
             )
             self.draw_party_ribbons(progress, alpha=28, speed=0.42)
+            self.draw_confetti(progress * 0.85, density=18)
+            self.draw_confetti_fountain(
+                (center[0], center[1] + 200),
+                self.clamp((progress - 0.18) / 0.48),
+                palette=[YELLOW, WHITE, (120, 214, 255), (255, 144, 190)],
+                count=18,
+                spread=230,
+                height=160,
+                alpha=180,
+            )
             self.draw_light_beam(center, progress, YELLOW, width=320, alpha=54)
             self.draw_glow_circle(
                 center, 98 + pulse * 18, YELLOW, glow_radius=70, alpha=138
+            )
+            self.draw_cartoon_starburst(
+                center,
+                min(1.0, progress * 1.04),
+                (255, 220, 126),
+                rays=12,
+                inner_radius=28,
+                outer_radius=164,
+                alpha=128,
+                twist=0.08,
             )
 
             frame_rect = pygame.Rect(center[0] - 272, center[1] - 54, 544, 132)
@@ -491,8 +574,71 @@ class EffectsBossMixin:
                 size=13,
                 twist=0.12,
             )
+            medallion_center = (center[0], center[1] + 132)
+            medallion_surface = pygame.Surface((220, 220), pygame.SRCALPHA)
+            pygame.draw.circle(medallion_surface, (16, 36, 72, 216), (110, 110), 88)
+            pygame.draw.circle(
+                medallion_surface, (255, 220, 126, 238), (110, 110), 88, width=8
+            )
+            pygame.draw.circle(medallion_surface, (255, 255, 255, 18), (110, 88), 54)
+            self.display.screen.blit(
+                medallion_surface,
+                medallion_surface.get_rect(center=medallion_center),
+            )
+            pointer_length = 72 + int(stage_pop * 18)
+            pointer_angle = -math.pi / 2 + math.sin(progress * math.tau * 5.4) * 0.18
+            pointer_tip = (
+                medallion_center[0] + int(math.cos(pointer_angle) * pointer_length),
+                medallion_center[1] + int(math.sin(pointer_angle) * pointer_length),
+            )
+            self.draw_motion_smear(
+                medallion_center,
+                pointer_tip,
+                min(1.0, 0.32 + pulse * 0.68),
+                (255, 220, 126),
+                width=20,
+                trail=3,
+                alpha=30,
+            )
+            pygame.draw.line(
+                self.display.screen,
+                (255, 220, 126),
+                medallion_center,
+                pointer_tip,
+                6,
+            )
+            pygame.draw.circle(self.display.screen, WHITE, medallion_center, 10)
+            self.draw_comic_caption(
+                "SPIN!",
+                (center[0] + 192, center[1] + 120),
+                min(1.0, progress * 1.14),
+                fill_color=(255, 232, 164),
+                outline_color=(86, 138, 196),
+                wobble=9.0,
+            )
+            if progress > 0.52:
+                hit_progress = self.clamp((progress - 0.52) / 0.2)
+                self.draw_cartoon_smoke(
+                    medallion_center,
+                    hit_progress,
+                    color=(255, 244, 214),
+                    puff_count=8,
+                    spread=92,
+                    alpha=126,
+                )
+                self.draw_shockwave(
+                    medallion_center,
+                    hit_progress,
+                    (255, 220, 126),
+                    start_radius=28,
+                    end_radius=130,
+                    width=5,
+                    y_scale=0.9,
+                    alpha=118,
+                )
+            self.draw_reaction_signs(progress, ["SPIN!", "JACKPOT!", "WOW!"])
 
-        self.animate_scene(0.9, render, background=backdrop)
+        self.animate_scene(1.18, render, background=backdrop)
         roulette_animation = RouletteAnimation(
             self.display.screen,
             self.display.resources["roulette_sound"],

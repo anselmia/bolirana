@@ -1,4 +1,5 @@
 from src.display_services.effects_boss import EffectsBossMixin
+from src.display_services.effects_cartoon import EffectsCartoonMixin
 from src.display_services.effects_core import EffectsCoreMixin
 from src.display_services.effects_particles import EffectsParticlesMixin
 from src.display_services.effects_score import EffectsScoreMixin
@@ -11,6 +12,7 @@ class DisplayEffectsService(
     EffectsVictoryMixin,
     EffectsSpecialMixin,
     EffectsBossMixin,
+    EffectsCartoonMixin,
     EffectsParticlesMixin,
     EffectsCoreMixin,
 ):

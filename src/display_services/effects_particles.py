@@ -634,6 +634,10 @@ class EffectsParticlesMixin:
         eye_focus=(0.0, 0.0),
         heroic=False,
         glow_strength=0.0,
+        blink=0.0,
+        grin=0.0,
+        blush=0.0,
+        shimmer=0.0,
     ):
         scale = max(0.4, scale)
         crouch = self.clamp(crouch)
@@ -641,6 +645,10 @@ class EffectsParticlesMixin:
         airborne = self.clamp(airborne)
         croak = self.clamp(croak)
         tongue_progress = self.clamp(tongue_progress)
+        blink = self.clamp(blink)
+        grin = self.clamp(grin)
+        blush = self.clamp(blush)
+        shimmer = self.clamp(shimmer)
         eye_focus_x = self.clamp(eye_focus[0], -1.0, 1.0)
         eye_focus_y = self.clamp(eye_focus[1], -1.0, 1.0)
 
@@ -749,6 +757,13 @@ class EffectsParticlesMixin:
             (82, 186, 96, 240),
             body_rect.inflate(-int(24 * scale), -int(22 * scale)),
         )
+        body_highlight = body_rect.inflate(-int(44 * scale), -int(68 * scale))
+        body_highlight.move_ip(int(22 * scale), -int(14 * scale))
+        pygame.draw.ellipse(
+            surface,
+            (255, 255, 255, int(18 + shimmer * 52)),
+            body_highlight,
+        )
         belly_rect = body_rect.inflate(-int(78 * scale), -int(42 * scale))
         belly_rect.centery += int(12 * scale)
         pygame.draw.ellipse(surface, (175, 238, 172, 220), belly_rect)
@@ -787,6 +802,25 @@ class EffectsParticlesMixin:
             (84, 194, 102, 235),
             head_rect.inflate(-int(20 * scale), -int(18 * scale)),
         )
+        head_highlight = head_rect.inflate(-int(38 * scale), -int(46 * scale))
+        head_highlight.move_ip(-int(18 * scale), -int(14 * scale))
+        pygame.draw.ellipse(
+            surface,
+            (255, 255, 255, int(24 + shimmer * 56)),
+            head_highlight,
+        )
+        if heroic:
+            crown_points = [
+                (cx - int(42 * scale), head_rect.top - int(6 * scale)),
+                (cx - int(24 * scale), head_rect.top - int(34 * scale)),
+                (cx - int(6 * scale), head_rect.top - int(10 * scale)),
+                (cx + int(10 * scale), head_rect.top - int(36 * scale)),
+                (cx + int(28 * scale), head_rect.top - int(8 * scale)),
+            ]
+            pygame.draw.polygon(surface, (255, 214, 82, 235), crown_points)
+            pygame.draw.polygon(
+                surface, WHITE, crown_points, width=max(2, int(3 * scale))
+            )
         eye_stalk_height = int((28 + stretch * 10 + (8 if heroic else 0)) * scale)
         eye_spacing = int((46 + (8 if heroic else 0)) * scale)
         eye_radius = int((18 + (4 if heroic else 0)) * scale)
@@ -824,16 +858,58 @@ class EffectsParticlesMixin:
                 (eye_x - max(2, eye_radius // 3), eye_y - max(2, eye_radius // 3)),
                 max(2, eye_radius // 5),
             )
+            eyelid_height = int((eye_radius * 2 + 6) * blink)
+            if eyelid_height > 0:
+                eyelid_rect = pygame.Rect(
+                    eye_x - eye_radius - 2,
+                    eye_y - eye_radius - 2,
+                    eye_radius * 2 + 4,
+                    eyelid_height,
+                )
+                pygame.draw.rect(
+                    surface,
+                    (84, 194, 102, 235),
+                    eyelid_rect,
+                    border_radius=eye_radius,
+                )
+            brow_y = eye_y - eye_radius - int((6 + heroic * 4) * scale)
+            pygame.draw.line(
+                surface,
+                (36, 92, 44, 230),
+                (eye_x - eye_radius + 2, brow_y + direction * int(2 * scale)),
+                (eye_x + eye_radius - 2, brow_y - direction * int(2 * scale)),
+                max(2, int(3 * scale)),
+            )
+
+        cheek_y = mouth_y - int(8 * scale)
+        for cheek_x in (cx - int(52 * scale), cx + int(52 * scale)):
+            pygame.draw.circle(
+                surface,
+                (255, 170, 190, int(blush * 120)),
+                (cheek_x, cheek_y),
+                max(8, int(16 * scale)),
+            )
 
         mouth_points = [
             (cx - int(34 * scale), mouth_y),
-            (cx - int(12 * scale), mouth_y + int((8 + croak * 14) * scale)),
-            (cx + int(12 * scale), mouth_y + int((8 + croak * 14) * scale)),
+            (cx - int(12 * scale), mouth_y + int((8 + croak * 14 + grin * 18) * scale)),
+            (cx + int(12 * scale), mouth_y + int((8 + croak * 14 + grin * 18) * scale)),
             (cx + int(34 * scale), mouth_y),
         ]
         pygame.draw.lines(
             surface, (28, 80, 38, 240), False, mouth_points, max(3, int(5 * scale))
         )
+        if grin > 0:
+            grin_rect = pygame.Rect(0, 0, int(64 * scale), int(24 * scale))
+            grin_rect.center = (cx, mouth_y + int(8 * scale))
+            pygame.draw.arc(
+                surface,
+                (255, 228, 214, int(120 + grin * 80)),
+                grin_rect,
+                0.1,
+                math.pi - 0.1,
+                max(2, int(3 * scale)),
+            )
 
         if tongue_progress > 0:
             tongue_start = (cx + int(34 * scale), mouth_y - int(2 * scale))
@@ -866,6 +942,15 @@ class EffectsParticlesMixin:
             )
             pygame.draw.circle(
                 surface, (255, 170, 190, 240), tongue_tip, max(6, int(10 * scale))
+            )
+            pygame.draw.circle(
+                surface,
+                (255, 236, 244, 215),
+                (
+                    tongue_tip[0] - max(2, int(3 * scale)),
+                    tongue_tip[1] - max(2, int(2 * scale)),
+                ),
+                max(3, int(4 * scale)),
             )
 
         self.display.screen.blit(surface, surface.get_rect(center=center))
