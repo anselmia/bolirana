@@ -16,21 +16,37 @@ class EffectsCartoonMixin:
         local = self.clamp(progress)
         if local <= 0:
             return
-        flash_radius = max(12, int(radius * (0.24 + 0.76 * local)))
+        progress_bucket = self.get_progress_bucket(local, buckets=10)
+        quantized = progress_bucket / 10
+        flash_radius = max(12, int(radius * (0.24 + 0.76 * quantized)))
+        rgb = self.get_rgb(color)
+        flash_surface = self.get_cached_surface(
+            "cartoon_flash",
+            (flash_radius, rgb, int(alpha), progress_bucket),
+            lambda: self._build_cartoon_flash_surface(
+                flash_radius,
+                rgb,
+                alpha,
+                quantized,
+            ),
+        )
+        self.display.screen.blit(flash_surface, flash_surface.get_rect(center=center))
+
+    def _build_cartoon_flash_surface(self, flash_radius, rgb, alpha, progress):
         flash_surface = pygame.Surface(
             (flash_radius * 2, flash_radius * 2), pygame.SRCALPHA
         )
-        red, green, blue = self.get_rgb(color)
+        red, green, blue = rgb
         for layer in range(4, 0, -1):
             layer_radius = int(flash_radius * layer / 4)
-            layer_alpha = max(0, int(alpha * (1 - local * 0.72) * (layer / 4)))
+            layer_alpha = max(0, int(alpha * (1 - progress * 0.72) * (layer / 4)))
             pygame.draw.circle(
                 flash_surface,
                 (red, green, blue, layer_alpha),
                 (flash_radius, flash_radius),
                 layer_radius,
             )
-        self.display.screen.blit(flash_surface, flash_surface.get_rect(center=center))
+        return flash_surface
 
     def draw_cartoon_starburst(
         self,
@@ -46,26 +62,62 @@ class EffectsCartoonMixin:
         local = self.clamp(progress)
         if local <= 0:
             return
+        progress_bucket = self.get_progress_bucket(local, buckets=10)
+        quantized = progress_bucket / 10
+        rgb = self.get_rgb(color)
+        burst_surface = self.get_cached_surface(
+            "cartoon_starburst",
+            (
+                outer_radius,
+                inner_radius,
+                rays,
+                rgb,
+                int(alpha),
+                round(twist, 2),
+                progress_bucket,
+            ),
+            lambda: self._build_cartoon_starburst_surface(
+                outer_radius,
+                inner_radius,
+                rays,
+                rgb,
+                alpha,
+                twist,
+                quantized,
+            ),
+        )
+        self.display.screen.blit(burst_surface, burst_surface.get_rect(center=center))
+
+    def _build_cartoon_starburst_surface(
+        self,
+        outer_radius,
+        inner_radius,
+        rays,
+        rgb,
+        alpha,
+        twist,
+        progress,
+    ):
         burst_surface = pygame.Surface(
             (outer_radius * 3, outer_radius * 3), pygame.SRCALPHA
         )
         local_center = burst_surface.get_width() // 2
         points = []
-        rotation = twist + local * 0.55
+        rotation = twist + progress * 0.55
         for index in range(rays * 2):
             angle = rotation + index * math.pi / rays
             radius = outer_radius if index % 2 == 0 else inner_radius
-            radius *= 0.82 + 0.18 * math.sin(local * math.tau * 2.0 + index)
+            radius *= 0.82 + 0.18 * math.sin(progress * math.tau * 2.0 + index)
             points.append(
                 (
                     local_center + math.cos(angle) * radius,
                     local_center + math.sin(angle) * radius,
                 )
             )
-        current_alpha = max(0, int(alpha * (1 - local * 0.55)))
+        current_alpha = max(0, int(alpha * (1 - progress * 0.55)))
         pygame.draw.polygon(
             burst_surface,
-            (*self.get_rgb(color), current_alpha),
+            (*rgb, current_alpha),
             points,
         )
         pygame.draw.polygon(
@@ -74,7 +126,7 @@ class EffectsCartoonMixin:
             points,
             width=4,
         )
-        self.display.screen.blit(burst_surface, burst_surface.get_rect(center=center))
+        return burst_surface
 
     def draw_motion_smear(
         self,

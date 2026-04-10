@@ -8,30 +8,47 @@ from src.constants import BLACK, GROUP_COLORS, WHITE, YELLOW
 
 class EffectsParticlesMixin:
     def draw_overlay(self, color, alpha):
-        overlay = pygame.Surface(self.display.screen.get_size(), pygame.SRCALPHA)
-        overlay.fill((*self.get_rgb(color), alpha))
+        rgb = self.get_rgb(color)
+        overlay = self.get_cached_surface(
+            "overlay",
+            (self.display.screen.get_size(), rgb, int(alpha)),
+            lambda: self._build_overlay_surface(rgb, alpha),
+        )
         self.display.screen.blit(overlay, (0, 0))
+
+    def _build_overlay_surface(self, rgb, alpha):
+        overlay = pygame.Surface(self.display.screen.get_size(), pygame.SRCALPHA)
+        overlay.fill((*rgb, int(alpha)))
+        return overlay
 
     def draw_glow_circle(self, center, radius, color, glow_radius=26, alpha=140):
         radius = max(1, int(radius))
         glow_radius = max(1, int(glow_radius))
         extent = radius + glow_radius
+        rgb = self.get_rgb(color)
+        surface = self.get_cached_surface(
+            "glow_circle",
+            (radius, glow_radius, rgb, int(alpha)),
+            lambda: self._build_glow_circle_surface(radius, glow_radius, rgb, alpha),
+        )
+        self.display.screen.blit(surface, (center[0] - extent, center[1] - extent))
+
+    def _build_glow_circle_surface(self, radius, glow_radius, rgb, alpha):
+        extent = radius + glow_radius
         surface = pygame.Surface((extent * 2, extent * 2), pygame.SRCALPHA)
         local_center = (extent, extent)
-        red, green, blue = self.get_rgb(color)
-
+        red, green, blue = rgb
         for layer in range(4, 0, -1):
             current_radius = radius + int(glow_radius * layer / 4)
-            current_alpha = max(12, alpha // (layer + 1))
+            current_alpha = max(12, int(alpha) // (layer + 1))
             pygame.draw.circle(
                 surface,
                 (red, green, blue, current_alpha),
                 local_center,
                 current_radius,
             )
-
         pygame.draw.circle(surface, (red, green, blue, 235), local_center, radius)
-        self.display.screen.blit(surface, (center[0] - extent, center[1] - extent))
+        return surface
 
     def draw_radial_burst(
         self,
@@ -87,8 +104,17 @@ class EffectsParticlesMixin:
             self.display.screen.blit(rotated, (x, y))
 
     def draw_vignette(self, alpha=110, color=(0, 0, 0)):
+        rgb = self.get_rgb(color)
+        overlay = self.get_cached_surface(
+            "vignette",
+            (self.display.screen.get_size(), int(alpha), rgb),
+            lambda: self._build_vignette_surface(alpha, rgb),
+        )
+        self.display.screen.blit(overlay, (0, 0))
+
+    def _build_vignette_surface(self, alpha, rgb):
         overlay = pygame.Surface(self.display.screen.get_size(), pygame.SRCALPHA)
-        red, green, blue = self.get_rgb(color)
+        red, green, blue = rgb
         max_width = max(
             24, min(self.display.screen_width, self.display.screen_height) // 14
         )
@@ -107,14 +133,32 @@ class EffectsParticlesMixin:
                 border_radius=36,
                 width=max(4, max_width // 5),
             )
-        self.display.screen.blit(overlay, (0, 0))
+        return overlay
 
     def draw_light_beam(
         self, center, progress, color, width=220, height=None, alpha=90
     ):
         height = height or self.display.screen_height
+        progress_bucket = self.get_progress_bucket(progress, buckets=10)
+        rgb = self.get_rgb(color)
+        beam_surface = self.get_cached_surface(
+            "light_beam",
+            (width, height, rgb, int(alpha), progress_bucket),
+            lambda: self._build_light_beam_surface(
+                width,
+                height,
+                rgb,
+                alpha,
+                progress_bucket / 10,
+            ),
+        )
+        self.display.screen.blit(
+            beam_surface, beam_surface.get_rect(midtop=(center[0], 0))
+        )
+
+    def _build_light_beam_surface(self, width, height, rgb, alpha, progress):
         beam_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-        red, green, blue = self.get_rgb(color)
+        red, green, blue = rgb
         for layer in range(4, 0, -1):
             beam_width = int(width * (0.18 + layer * 0.18))
             top_width = int(beam_width * (0.18 + 0.08 * progress))
@@ -126,9 +170,7 @@ class EffectsParticlesMixin:
                 (width // 2 - beam_width // 2, height),
             ]
             pygame.draw.polygon(beam_surface, (red, green, blue, current_alpha), points)
-        self.display.screen.blit(
-            beam_surface, beam_surface.get_rect(midtop=(center[0], 0))
-        )
+        return beam_surface
 
     def draw_orbiting_particles(
         self,
@@ -200,17 +242,26 @@ class EffectsParticlesMixin:
         )
 
     def draw_scanlines(self, alpha=22, spacing=6, color=(255, 255, 255)):
-        red, green, blue = self.get_rgb(color)
+        rgb = self.get_rgb(color)
+        overlay = self.get_cached_surface(
+            "scanlines",
+            (self.display.screen.get_size(), int(alpha), int(spacing), rgb),
+            lambda: self._build_scanline_surface(alpha, spacing, rgb),
+        )
+        self.display.screen.blit(overlay, (0, 0))
+
+    def _build_scanline_surface(self, alpha, spacing, rgb):
         overlay = pygame.Surface(self.display.screen.get_size(), pygame.SRCALPHA)
+        red, green, blue = rgb
         for y in range(0, self.display.screen_height, spacing):
             pygame.draw.line(
                 overlay,
-                (red, green, blue, alpha),
+                (red, green, blue, int(alpha)),
                 (0, y),
                 (self.display.screen_width, y),
                 1,
             )
-        self.display.screen.blit(overlay, (0, 0))
+        return overlay
 
     def draw_shockwave(
         self,

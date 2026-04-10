@@ -21,3 +21,4 @@ class DisplayEffectsService(
 
     def __init__(self, display):
         self.display = display
+        self._surface_cache = {}

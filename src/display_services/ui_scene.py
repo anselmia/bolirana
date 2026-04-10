@@ -83,6 +83,22 @@ class UISceneMixin:
         self.display.screen.blit(gradient, (0, 0))
 
     def draw_spotlight_canopy(self, phase, intensity=1.0, tint=(255, 228, 170)):
+        phase_bucket = int(round(((phase % math.tau) / math.tau) * 16)) % 16
+        canopy = self.get_cached_surface(
+            "spotlight_canopy",
+            (
+                (self.display.screen_width, self.display.screen_height),
+                tuple(tint[:3]),
+                round(float(intensity), 2),
+                phase_bucket,
+            ),
+            lambda: self._build_spotlight_canopy(phase_bucket, intensity, tint),
+            max_entries=96,
+        )
+        self.display.screen.blit(canopy, (0, 0))
+
+    def _build_spotlight_canopy(self, phase_bucket, intensity, tint):
+        quantized_phase = (phase_bucket * math.tau) / 16
         canopy = pygame.Surface(
             (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
         )
@@ -93,7 +109,7 @@ class UISceneMixin:
             self.display.screen_width * 0.82,
         ]
         for index, base_x in enumerate(centers):
-            sweep = math.sin(phase * (0.85 + index * 0.18) + index) * 95
+            sweep = math.sin(quantized_phase * (0.85 + index * 0.18) + index) * 95
             beam_width = 170 + index * 34
             beam_alpha = int((18 + index * 7) * intensity)
             points = [
@@ -104,18 +120,51 @@ class UISceneMixin:
             ]
             pygame.draw.polygon(canopy, (red, green, blue, beam_alpha), points)
 
-        beam_center = int(self.display.screen_width * 0.5 + math.sin(phase * 0.9) * 80)
+        beam_center = int(
+            self.display.screen_width * 0.5 + math.sin(quantized_phase * 0.9) * 80
+        )
         pygame.draw.ellipse(
             canopy,
             (255, 255, 255, int(30 * intensity)),
             (beam_center - 180, -120, 360, 220),
         )
-        self.display.screen.blit(canopy, (0, 0))
+        return canopy
 
     def draw_stage_floor(
         self, phase, horizon_ratio=0.68, tint=(255, 214, 120), alpha=34
     ):
         horizon_y = int(self.display.screen_height * horizon_ratio)
+        floor = self.get_cached_surface(
+            "stage_floor_base",
+            (
+                (self.display.screen_width, self.display.screen_height),
+                horizon_y,
+                tuple(tint[:3]),
+                alpha,
+            ),
+            lambda: self._build_stage_floor_base(horizon_y, tint, alpha),
+            max_entries=64,
+        )
+        self.display.screen.blit(floor, (0, 0))
+
+        center_x = self.display.screen_width // 2
+        spokes_surface = pygame.Surface(
+            (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
+        )
+        for spoke_index in range(9):
+            ratio = spoke_index / 8 if spoke_index else 0
+            x = int(80 + ratio * (self.display.screen_width - 160))
+            wobble = math.sin(phase * 1.6 + spoke_index * 0.7) * 18
+            pygame.draw.line(
+                spokes_surface,
+                (*tint, max(10, alpha - 8)),
+                (int(center_x + wobble), horizon_y),
+                (x, self.display.screen_height),
+                1,
+            )
+        self.display.screen.blit(spokes_surface, (0, 0))
+
+    def _build_stage_floor_base(self, horizon_y, tint, alpha):
         floor = pygame.Surface(
             (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
         )
@@ -140,19 +189,6 @@ class UISceneMixin:
                 (self.display.screen_width - 60, y),
                 1,
             )
-
-        center_x = self.display.screen_width // 2
-        for spoke_index in range(9):
-            ratio = spoke_index / 8 if spoke_index else 0
-            x = int(80 + ratio * (self.display.screen_width - 160))
-            wobble = math.sin(phase * 1.6 + spoke_index * 0.7) * 18
-            pygame.draw.line(
-                floor,
-                (*tint, max(10, alpha - 8)),
-                (int(center_x + wobble), horizon_y),
-                (x, self.display.screen_height),
-                1,
-            )
         tile_rows = 5
         for row in range(tile_rows):
             row_ratio = (row + 1) / (tile_rows + 1)
@@ -173,7 +209,7 @@ class UISceneMixin:
                 )
                 tile_color = (*tint, max(8, int(alpha * (0.18 + row_ratio * 0.44))))
                 pygame.draw.rect(floor, tile_color, tile_rect, border_radius=4)
-        self.display.screen.blit(floor, (0, 0))
+            return floor
 
     def draw_title_panel(self, title, subtitle, phase, y=38):
         title_rect = pygame.Rect(self.display.screen_width // 2 - 330, y, 660, 122)

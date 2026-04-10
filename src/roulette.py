@@ -14,6 +14,9 @@ VALUES = [400, 50, 350, 250, 300, 200, 450, 0, 400, 50, 350, 250, 300, 200, 450,
 
 
 class RouletteAnimation:
+    FAST_ROTATION_STEP_DEGREES = 12.0
+    FAST_ROTATION_THRESHOLD = 1.35
+
     def __init__(
         self,
         screen,
@@ -51,6 +54,8 @@ class RouletteAnimation:
         self.medium_font = self._get_font("font_medium", 52)
         self.small_font = self._get_font("font_small", 34)
         self.tiny_font = self._get_font("font_verysmall", 24)
+        self._surface_cache = {}
+        self._fast_rotation_cache = {}
 
         roulette_height = self.roulette_image.get_height()
         self.circle_radius = max(42, int(roulette_height * 0.29) // 2)
@@ -70,6 +75,40 @@ class RouletteAnimation:
 
     def ease_out_cubic(self, progress):
         return 1 - (1 - progress) ** 3
+
+    def get_cached_surface(self, cache_name, cache_key, builder, max_entries=48):
+        full_key = (cache_name, cache_key)
+        cached_surface = self._surface_cache.get(full_key)
+        if cached_surface is not None:
+            return cached_surface
+
+        if len(self._surface_cache) >= max_entries:
+            self._surface_cache.clear()
+
+        cached_surface = builder()
+        self._surface_cache[full_key] = cached_surface
+        return cached_surface
+
+    def render_to_surface(self, builder):
+        surface = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        original_screen = self.screen
+        original_ui_screen = None
+        if self.ui is not None:
+            original_ui_screen = self.ui.display.screen
+            self.ui.display.screen = surface
+        self.screen = surface
+        try:
+            builder()
+        finally:
+            self.screen = original_screen
+            if self.ui is not None and original_ui_screen is not None:
+                self.ui.display.screen = original_ui_screen
+        return surface
+
+    def quantize_angle(self, angle, step_degrees):
+        if step_degrees <= 0:
+            return angle % 360
+        return (round(angle / step_degrees) * step_degrees) % 360
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -156,76 +195,155 @@ class RouletteAnimation:
 
     def draw_panel(self, rect, phase, accent_color, border_colors, title=None):
         panel_rect = pygame.Rect(rect)
-        if self.ui is not None:
-            self.ui.draw_panel_shadow(
-                panel_rect,
-                alpha=90,
-                inflate=18,
-                offset=(0, 12),
+        if self.ui is None:
+            surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                surface,
+                (8, 22, 44, 214),
+                surface.get_rect(),
                 border_radius=24,
             )
-        surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                surface,
+                (255, 255, 255, 14),
+                (12, 10, panel_rect.width - 24, 24),
+                border_radius=12,
+            )
+            self.screen.blit(surface, panel_rect.topleft)
+            return panel_rect
+
+        self.ui.draw_panel_shadow(
+            panel_rect,
+            alpha=90,
+            inflate=18,
+            offset=(0, 12),
+            border_radius=24,
+        )
+        panel_surface, top_padding = self.get_cached_surface(
+            "panel_shell",
+            (
+                panel_rect.size,
+                tuple(accent_color[:3]),
+                tuple(tuple(color[:4]) for color in border_colors),
+                title,
+                int(round(((phase + 0.2) % math.tau) / math.tau * 12)) % 12,
+            ),
+            lambda: self._build_panel_surface(
+                panel_rect.size,
+                accent_color,
+                border_colors,
+                title,
+                phase,
+            ),
+            max_entries=96,
+        )
+        self.screen.blit(panel_surface, (panel_rect.left, panel_rect.top - top_padding))
+        return panel_rect
+
+    def _build_panel_surface(
+        self,
+        panel_size,
+        accent_color,
+        border_colors,
+        title,
+        phase,
+    ):
+        top_padding = 18 if title else 0
+        panel_surface = pygame.Surface(
+            (panel_size[0], panel_size[1] + top_padding), pygame.SRCALPHA
+        )
+        body_rect = pygame.Rect(0, top_padding, panel_size[0], panel_size[1])
+        quantized_phase = (
+            int(round(((phase + 0.2) % math.tau) / math.tau * 12)) % 12
+        ) * (math.tau / 12)
+
         pygame.draw.rect(
-            surface,
+            panel_surface,
             (8, 22, 44, 214),
-            surface.get_rect(),
+            body_rect,
             border_radius=24,
         )
         pygame.draw.rect(
-            surface,
+            panel_surface,
             (255, 255, 255, 14),
-            (12, 10, panel_rect.width - 24, 24),
+            (12, top_padding + 10, panel_size[0] - 24, 24),
             border_radius=12,
         )
-        self.screen.blit(surface, panel_rect.topleft)
-        if self.ui is not None:
-            self.ui.draw_panel_grid(
-                panel_rect.inflate(-16, -14),
-                phase,
+
+        local_ui = self.ui
+        assert local_ui is not None
+        original_screen = self.screen
+        original_ui_screen = local_ui.display.screen
+        self.screen = panel_surface
+        local_ui.display.screen = panel_surface
+        try:
+            local_ui.draw_panel_grid(
+                body_rect.inflate(-16, -14),
+                quantized_phase,
                 color=accent_color,
                 alpha=10,
                 step=56,
             )
-            self.ui.draw_chrome_rect(panel_rect, border_colors, 22, 4)
-            self.ui.draw_marquee_lights(
-                panel_rect,
-                phase + 0.2,
+            local_ui.draw_chrome_rect(body_rect, border_colors, 22, 4)
+            local_ui.draw_marquee_lights(
+                body_rect,
+                quantized_phase,
                 (255, 220, 126),
                 count=12,
                 radius=3,
             )
             if title:
                 title_width = max(94, self.tiny_font.size(title)[0] + 22)
-                self.ui.draw_badge(
+                local_ui.draw_badge(
                     title,
-                    (panel_rect.left + 18, panel_rect.top - 12, title_width, 24),
+                    (18, 6, title_width, 24),
                     (255, 214, 82, 220),
                     text_color=BLACK,
                     border_color=(255, 255, 255, 90),
                     font=self.tiny_font,
                 )
-        return panel_rect
+        finally:
+            self.screen = original_screen
+            local_ui.display.screen = original_ui_screen
+
+        return panel_surface, top_padding
 
     def draw_base_scene(self, phase, status_text, highlighted_value):
+        base_scene = self.get_cached_surface(
+            "base_scene",
+            (status_text, highlighted_value, self.ui is not None),
+            lambda: self.render_to_surface(
+                lambda: self._draw_cached_base_scene(status_text, highlighted_value)
+            ),
+            max_entries=24,
+        )
+        self.screen.blit(base_scene, (0, 0))
+
+    def _draw_cached_base_scene(self, status_text, highlighted_value):
         self.screen.fill((4, 10, 28))
         if self.ui is not None:
+            static_phase = 0.0
             self.ui.draw_vertical_gradient((6, 16, 34), (10, 46, 84), alpha=138)
-            self.ui.draw_spotlight_canopy(phase, intensity=0.95, tint=(255, 224, 164))
+            self.ui.draw_spotlight_canopy(
+                static_phase, intensity=0.95, tint=(255, 224, 164)
+            )
             self.ui.draw_stage_floor(
-                phase, horizon_ratio=0.8, tint=(120, 214, 255), alpha=22
+                static_phase, horizon_ratio=0.8, tint=(120, 214, 255), alpha=22
             )
             self.ui.draw_screen_frame(
-                phase,
+                static_phase,
                 accent_color=(255, 220, 126),
                 secondary_color=(120, 214, 255),
             )
-            self.ui.draw_ambient_backdrop(phase)
+            self.ui.draw_ambient_backdrop(static_phase)
             self.ui.draw_scene_badges(
-                "ROULETTE PRESTIGE", f"{highlighted_value} pts", phase
+                "ROULETTE PRESTIGE",
+                f"{highlighted_value} pts",
+                static_phase,
             )
-            self.ui.draw_title_panel("ROULETTE", status_text, phase, y=28)
+            self.ui.draw_title_panel("ROULETTE", status_text, static_phase, y=28)
         self.draw_overlay((2, 8, 24), 44)
-        self.draw_star_field(phase)
+        self.draw_star_field(0.0)
 
     def draw_wheel_stage(self, phase):
         pedestal_rect = pygame.Rect(self.center_x - 220, self.center_y + 210, 440, 76)
@@ -266,6 +384,24 @@ class RouletteAnimation:
         self.rotated_image = pygame.transform.rotate(
             self.roulette_image, self.current_angle
         )
+
+    def rotate_roulette_fast(self, angular_speed):
+        self.current_angle = (self.current_angle + angular_speed) % 360
+        display_angle = self.quantize_angle(
+            self.current_angle,
+            self.FAST_ROTATION_STEP_DEGREES,
+        )
+        cache_key = int(display_angle)
+        rotated_image = self._fast_rotation_cache.get(cache_key)
+        if rotated_image is None:
+            if (
+                len(self._fast_rotation_cache)
+                >= int(360 // self.FAST_ROTATION_STEP_DEGREES) + 2
+            ):
+                self._fast_rotation_cache.clear()
+            rotated_image = pygame.transform.rotate(self.roulette_image, display_angle)
+            self._fast_rotation_cache[cache_key] = rotated_image
+        self.rotated_image = rotated_image
 
     def draw_pointer(self, phase):
         pointer_rect = self.roulette_pointer.get_rect(
@@ -499,7 +635,10 @@ class RouletteAnimation:
                 )
 
             step = min(frame_speed, total_rotation - rotated)
-            self.rotate_roulette(step)
+            if frame_speed >= self.base_speed * self.FAST_ROTATION_THRESHOLD:
+                self.rotate_roulette_fast(step)
+            else:
+                self.rotate_roulette(step)
             rotated += step
             phase = time.monotonic()
             current_value = self.get_live_value()

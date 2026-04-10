@@ -149,145 +149,213 @@ class UICommonMixin:
         shadow_color=BLACK,
     ):
         badge_rect = pygame.Rect(rect)
-        badge_surface = pygame.Surface(badge_rect.size, pygame.SRCALPHA)
         radius = min(14, max(10, badge_rect.height // 2))
         fill_alpha = fill_color[3] if len(fill_color) == 4 else 214
         fill_alpha = max(228, fill_alpha)
         border_alpha = border_color[3] if len(border_color) == 4 else 90
-        badge_shadow = pygame.Surface(
-            (badge_rect.width + 10, badge_rect.height + 10), pygame.SRCALPHA
-        )
-        pygame.draw.rect(
-            badge_shadow,
-            (0, 0, 0, 58),
-            badge_shadow.get_rect(),
-            border_radius=radius + 4,
+        text_value = str(text)
+
+        def build_badge_shadow():
+            badge_shadow = pygame.Surface(
+                (badge_rect.width + 10, badge_rect.height + 10), pygame.SRCALPHA
+            )
+            pygame.draw.rect(
+                badge_shadow,
+                (0, 0, 0, 58),
+                badge_shadow.get_rect(),
+                border_radius=radius + 4,
+            )
+            return badge_shadow
+
+        badge_shadow = self.get_cached_surface(
+            "badge_shadow",
+            (badge_rect.size, radius),
+            build_badge_shadow,
+            max_entries=256,
         )
         self.display.screen.blit(
             badge_shadow, (badge_rect.left - 5, badge_rect.top + 3)
         )
-        pygame.draw.rect(
-            badge_surface,
-            (*fill_color[:3], fill_alpha),
-            badge_surface.get_rect(),
-            border_radius=radius,
-        )
-        pygame.draw.rect(
-            badge_surface,
-            (255, 255, 255, max(24, fill_alpha // 6)),
-            (4, 3, badge_rect.width - 8, max(8, badge_rect.height // 2 - 2)),
-            border_radius=max(8, radius - 2),
-        )
-        pygame.draw.polygon(
-            badge_surface,
-            (255, 255, 255, 32),
-            [
-                (badge_rect.width - 30, 0),
-                (badge_rect.width, 0),
-                (badge_rect.width, badge_rect.height),
-                (badge_rect.width - 14, badge_rect.height),
-            ],
-        )
-        pygame.draw.rect(
-            badge_surface,
-            (*border_color[:3], border_alpha),
-            badge_surface.get_rect(),
-            width=2,
-            border_radius=radius,
+
+        def build_badge_surface():
+            badge_surface = pygame.Surface(badge_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                badge_surface,
+                (*fill_color[:3], fill_alpha),
+                badge_surface.get_rect(),
+                border_radius=radius,
+            )
+            pygame.draw.rect(
+                badge_surface,
+                (255, 255, 255, max(24, fill_alpha // 6)),
+                (4, 3, badge_rect.width - 8, max(8, badge_rect.height // 2 - 2)),
+                border_radius=max(8, radius - 2),
+            )
+            pygame.draw.polygon(
+                badge_surface,
+                (255, 255, 255, 32),
+                [
+                    (badge_rect.width - 30, 0),
+                    (badge_rect.width, 0),
+                    (badge_rect.width, badge_rect.height),
+                    (badge_rect.width - 14, badge_rect.height),
+                ],
+            )
+            pygame.draw.rect(
+                badge_surface,
+                (*border_color[:3], border_alpha),
+                badge_surface.get_rect(),
+                width=2,
+                border_radius=radius,
+            )
+            candidate_fonts = [self.display.font_verysmall if font is None else font]
+            for fallback_name in ("font_micro", "font_tiny"):
+                fallback_font = getattr(self.display, fallback_name, None)
+                if fallback_font is not None and fallback_font not in candidate_fonts:
+                    candidate_fonts.append(fallback_font)
+            badge_font = candidate_fonts[-1]
+            max_text_width = max(10, badge_rect.width - 12)
+            max_text_height = max(10, badge_rect.height - 4)
+            for candidate in candidate_fonts:
+                text_width, text_height = candidate.size(text_value)
+                if text_width <= max_text_width and text_height <= max_text_height:
+                    badge_font = candidate
+                    break
+            text_components = tuple(text_color)
+            red = text_components[0] if len(text_components) >= 1 else 255
+            green = text_components[1] if len(text_components) >= 2 else red
+            blue = text_components[2] if len(text_components) >= 3 else green
+            text_luma = (red * 299 + green * 587 + blue * 114) / 1000
+            text_surface = badge_font.render(text_value, True, text_color)
+            text_rect = text_surface.get_rect(center=badge_surface.get_rect().center)
+            if text_luma < 96:
+                outline_surface = badge_font.render(text_value, True, (255, 248, 228))
+                for offset_x, offset_y, alpha in (
+                    (-1, 0, 235),
+                    (1, 0, 235),
+                    (0, -1, 235),
+                    (0, 1, 235),
+                    (1, 1, 125),
+                ):
+                    outline_layer = outline_surface.copy()
+                    outline_layer.set_alpha(alpha)
+                    badge_surface.blit(
+                        outline_layer,
+                        (text_rect.x + offset_x, text_rect.y + offset_y),
+                    )
+                badge_surface.blit(text_surface, text_rect)
+            else:
+                effective_shadow = shadow_color
+                if shadow_color == BLACK and text_luma < 140:
+                    effective_shadow = (255, 248, 228)
+                actual_text, shadow_text = self.get_cached_surface(
+                    "badge_text_shadow",
+                    (
+                        text_value,
+                        id(badge_font),
+                        tuple(text_color),
+                        tuple(effective_shadow),
+                    ),
+                    lambda: (
+                        badge_font.render(text_value, True, text_color),
+                        badge_font.render(text_value, True, effective_shadow),
+                    ),
+                    max_entries=512,
+                )
+                text_rect = actual_text.get_rect(center=badge_surface.get_rect().center)
+                for offset_x, offset_y, alpha in ((3, 3, 90), (1, 1, 150)):
+                    layer = shadow_text.copy()
+                    layer.set_alpha(alpha)
+                    badge_surface.blit(
+                        layer, (text_rect.x + offset_x, text_rect.y + offset_y)
+                    )
+                badge_surface.blit(actual_text, text_rect)
+            return badge_surface
+
+        badge_surface = self.get_cached_surface(
+            "badge",
+            (
+                text_value,
+                badge_rect.size,
+                tuple(fill_color),
+                tuple(text_color),
+                tuple(border_color),
+                id(font) if font is not None else None,
+                tuple(shadow_color),
+            ),
+            build_badge_surface,
+            max_entries=256,
         )
         self.display.screen.blit(badge_surface, badge_rect.topleft)
-        candidate_fonts = [self.display.font_verysmall if font is None else font]
-        for fallback_name in ("font_micro", "font_tiny"):
-            fallback_font = getattr(self.display, fallback_name, None)
-            if fallback_font is not None and fallback_font not in candidate_fonts:
-                candidate_fonts.append(fallback_font)
-        badge_font = candidate_fonts[-1]
-        max_text_width = max(10, badge_rect.width - 12)
-        max_text_height = max(10, badge_rect.height - 4)
-        for candidate in candidate_fonts:
-            text_width, text_height = candidate.size(str(text))
-            if text_width <= max_text_width and text_height <= max_text_height:
-                badge_font = candidate
-                break
-        text_components = tuple(text_color)
-        red = text_components[0] if len(text_components) >= 1 else 255
-        green = text_components[1] if len(text_components) >= 2 else red
-        blue = text_components[2] if len(text_components) >= 3 else green
-        text_luma = (red * 299 + green * 587 + blue * 114) / 1000
-        text_surface = badge_font.render(str(text), True, text_color)
-        text_rect = text_surface.get_rect(center=badge_rect.center)
-        if text_luma < 96:
-            outline_surface = badge_font.render(str(text), True, (255, 248, 228))
-            for offset_x, offset_y, alpha in (
-                (-1, 0, 235),
-                (1, 0, 235),
-                (0, -1, 235),
-                (0, 1, 235),
-                (1, 1, 125),
-            ):
-                outline_layer = outline_surface.copy()
-                outline_layer.set_alpha(alpha)
-                self.display.screen.blit(
-                    outline_layer,
-                    (text_rect.x + offset_x, text_rect.y + offset_y),
-                )
-            self.display.screen.blit(text_surface, text_rect)
-        else:
-            effective_shadow = shadow_color
-            if shadow_color == BLACK and text_luma < 140:
-                effective_shadow = (255, 248, 228)
-            self.draw_text_with_shadow(
-                text,
-                badge_font,
-                text_color,
-                effective_shadow,
-                badge_rect.center,
-                shadow_offset=(1, 1),
-                center=True,
-            )
 
     def draw_panel_grid(self, rect, phase, color=(120, 214, 255), alpha=16, step=54):
         panel_rect = pygame.Rect(rect)
-        grid_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        step = max(1, step)
+        dot_spacing = max(14, step // 3)
         offset_x = -int((phase * 18) % step)
-        for x in range(offset_x, panel_rect.width + step, step):
-            pygame.draw.line(
+        diagonal_x = int((phase * 110) % max(1, panel_rect.width + 120)) - 60
+        dot_offset = int((phase * 10) % dot_spacing)
+
+        def build_panel_grid_surface():
+            grid_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+            for x in range(offset_x, panel_rect.width + step, step):
+                pygame.draw.line(
+                    grid_surface,
+                    (*color[:3], alpha),
+                    (x, 0),
+                    (x, panel_rect.height),
+                    1,
+                )
+            row_count = max(3, panel_rect.height // 46)
+            for row in range(row_count + 1):
+                y = int(row * panel_rect.height / row_count)
+                pygame.draw.line(
+                    grid_surface,
+                    (*color[:3], max(8, alpha - 6)),
+                    (0, y),
+                    (panel_rect.width, y),
+                    1,
+                )
+            pygame.draw.polygon(
                 grid_surface,
-                (*color[:3], alpha),
-                (x, 0),
-                (x, panel_rect.height),
-                1,
+                (*color[:3], max(10, alpha + 6)),
+                [
+                    (diagonal_x, 0),
+                    (diagonal_x + 36, 0),
+                    (diagonal_x - 22, panel_rect.height),
+                    (diagonal_x - 58, panel_rect.height),
+                ],
             )
-        row_count = max(3, panel_rect.height // 46)
-        for row in range(row_count + 1):
-            y = int(row * panel_rect.height / row_count)
-            pygame.draw.line(
-                grid_surface,
-                (*color[:3], max(8, alpha - 6)),
-                (0, y),
-                (panel_rect.width, y),
-                1,
-            )
-        diagonal_x = int((phase * 110) % (panel_rect.width + 120)) - 60
-        pygame.draw.polygon(
-            grid_surface,
-            (*color[:3], max(10, alpha + 6)),
-            [
-                (diagonal_x, 0),
-                (diagonal_x + 36, 0),
-                (diagonal_x - 22, panel_rect.height),
-                (diagonal_x - 58, panel_rect.height),
-            ],
+            for row, y in enumerate(
+                range(dot_spacing // 2, panel_rect.height, dot_spacing)
+            ):
+                row_shift = (dot_spacing // 2) if row % 2 else 0
+                for x in range(
+                    -dot_spacing, panel_rect.width + dot_spacing, dot_spacing
+                ):
+                    pygame.draw.circle(
+                        grid_surface,
+                        (*color[:3], max(8, alpha - 2)),
+                        (x + row_shift + dot_offset, y),
+                        1,
+                    )
+            return grid_surface
+
+        grid_surface = self.get_cached_surface(
+            "panel_grid",
+            (
+                panel_rect.size,
+                tuple(color[:3]),
+                alpha,
+                step,
+                offset_x,
+                diagonal_x,
+                dot_offset,
+            ),
+            build_panel_grid_surface,
+            max_entries=320,
         )
         self.display.screen.blit(grid_surface, panel_rect.topleft)
-        self.draw_halftone_dots(
-            panel_rect,
-            color=color,
-            alpha=max(8, alpha - 2),
-            spacing=max(14, step // 3),
-            radius=1,
-            drift=phase * 10,
-        )
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
         x, y, rect_width, rect_height = rect
@@ -365,8 +433,16 @@ class UICommonMixin:
         shadow_offset=(2, 2),
         center=False,
     ):
-        actual_text = font.render(text, True, text_color)
-        shadow_text = font.render(text, True, shadow_color)
+        text_value = str(text)
+        actual_text, shadow_text = self.get_cached_surface(
+            "text_with_shadow",
+            (text_value, id(font), tuple(text_color), tuple(shadow_color)),
+            lambda: (
+                font.render(text_value, True, text_color),
+                font.render(text_value, True, shadow_color),
+            ),
+            max_entries=768,
+        )
         actual_position = position
         shadow_layers = [
             (shadow_offset[0] + 2, shadow_offset[1] + 2, 90),
@@ -389,39 +465,61 @@ class UICommonMixin:
     def draw_marquee_lights(self, rect, phase, color, count=16, radius=4):
         x, y, width, height = rect
         red, green, blue = color[:3]
-        for index in range(count):
-            ratio = index / count
-            if ratio < 0.25:
-                light_x = x + width * ratio * 4
-                light_y = y
-            elif ratio < 0.5:
-                light_x = x + width
-                light_y = y + height * (ratio - 0.25) * 4
-            elif ratio < 0.75:
-                light_x = x + width - width * (ratio - 0.5) * 4
-                light_y = y + height
-            else:
-                light_x = x
-                light_y = y + height - height * (ratio - 0.75) * 4
+        phase_bucket = int(round(((phase * 4.2) % math.tau) / math.tau * 20)) % 20
+        quantized_phase = phase_bucket * math.tau / 20
+        margin = max(12, radius * 4)
 
-            pulse = 0.45 + 0.55 * math.sin(phase * 4.2 + index * 0.9)
-            light_radius = max(2, int(radius + pulse * 2))
-            glow = pygame.Surface((light_radius * 6, light_radius * 6), pygame.SRCALPHA)
-            glow_center = glow.get_width() // 2
-            bulb_color = (255, 228, 148) if index % 2 == 0 else (red, green, blue)
-            pygame.draw.circle(
-                glow,
-                (red, green, blue, int(34 + pulse * 54)),
-                (glow_center, glow_center),
-                light_radius * 2,
+        def build_marquee_surface():
+            marquee_surface = pygame.Surface(
+                (width + margin * 2, height + margin * 2), pygame.SRCALPHA
             )
-            pygame.draw.circle(
-                glow,
-                (*bulb_color[:3], int(115 + pulse * 100)),
-                (glow_center, glow_center),
-                light_radius,
-            )
-            self.display.screen.blit(
-                glow,
-                (int(light_x) - glow_center, int(light_y) - glow_center),
-            )
+            for index in range(count):
+                ratio = index / count
+                if ratio < 0.25:
+                    light_x = width * ratio * 4
+                    light_y = 0
+                elif ratio < 0.5:
+                    light_x = width
+                    light_y = height * (ratio - 0.25) * 4
+                elif ratio < 0.75:
+                    light_x = width - width * (ratio - 0.5) * 4
+                    light_y = height
+                else:
+                    light_x = 0
+                    light_y = height - height * (ratio - 0.75) * 4
+
+                pulse = 0.45 + 0.55 * math.sin(quantized_phase + index * 0.9)
+                light_radius = max(2, int(radius + pulse * 2))
+                glow = pygame.Surface(
+                    (light_radius * 6, light_radius * 6), pygame.SRCALPHA
+                )
+                glow_center = glow.get_width() // 2
+                bulb_color = (255, 228, 148) if index % 2 == 0 else (red, green, blue)
+                pygame.draw.circle(
+                    glow,
+                    (red, green, blue, int(34 + pulse * 54)),
+                    (glow_center, glow_center),
+                    light_radius * 2,
+                )
+                pygame.draw.circle(
+                    glow,
+                    (*bulb_color[:3], int(115 + pulse * 100)),
+                    (glow_center, glow_center),
+                    light_radius,
+                )
+                marquee_surface.blit(
+                    glow,
+                    (
+                        int(light_x) + margin - glow_center,
+                        int(light_y) + margin - glow_center,
+                    ),
+                )
+            return marquee_surface
+
+        marquee_surface = self.get_cached_surface(
+            "marquee_lights",
+            (width, height, tuple(color[:3]), count, radius, phase_bucket),
+            build_marquee_surface,
+            max_entries=256,
+        )
+        self.display.screen.blit(marquee_surface, (x - margin, y - margin))

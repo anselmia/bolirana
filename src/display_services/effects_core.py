@@ -6,6 +6,22 @@ import pygame
 
 
 class EffectsCoreMixin:
+    def get_cached_surface(self, cache_name, cache_key, builder, max_entries=256):
+        full_key = (cache_name, cache_key)
+        cached_surface = self._surface_cache.get(full_key)
+        if cached_surface is not None:
+            return cached_surface
+
+        if len(self._surface_cache) >= max_entries:
+            self._surface_cache.clear()
+
+        cached_surface = builder()
+        self._surface_cache[full_key] = cached_surface
+        return cached_surface
+
+    def get_progress_bucket(self, progress, buckets=12):
+        return max(0, min(buckets, int(round(self.clamp(progress) * buckets))))
+
     def handle_animation_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
