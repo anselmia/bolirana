@@ -7,6 +7,60 @@ from src.constants import BLACK, WHITE
 
 
 class UICommonMixin:
+    def draw_halftone_dots(
+        self,
+        rect,
+        color=(255, 255, 255),
+        alpha=22,
+        spacing=18,
+        radius=2,
+        drift=0.0,
+    ):
+        panel_rect = pygame.Rect(rect)
+        dots_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        red, green, blue = color[:3]
+        offset = int(drift % max(1, spacing))
+        for row, y in enumerate(range(spacing // 2, panel_rect.height, spacing)):
+            row_shift = (spacing // 2) if row % 2 else 0
+            for x in range(-spacing, panel_rect.width + spacing, spacing):
+                pygame.draw.circle(
+                    dots_surface,
+                    (red, green, blue, alpha),
+                    (x + row_shift + offset, y),
+                    radius,
+                )
+        self.display.screen.blit(dots_surface, panel_rect.topleft)
+
+    def draw_arcade_screws(
+        self,
+        rect,
+        color=(255, 248, 220),
+        alpha=140,
+        inset=12,
+        radius=4,
+    ):
+        panel_rect = pygame.Rect(rect)
+        if panel_rect.width < 90 or panel_rect.height < 50:
+            return
+        screw_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        positions = [
+            (inset, inset),
+            (panel_rect.width - inset, inset),
+            (inset, panel_rect.height - inset),
+            (panel_rect.width - inset, panel_rect.height - inset),
+        ]
+        red, green, blue = color[:3]
+        for x, y in positions:
+            pygame.draw.circle(screw_surface, (red, green, blue, alpha), (x, y), radius)
+            pygame.draw.line(
+                screw_surface,
+                (40, 40, 40, alpha),
+                (x - radius + 1, y - radius + 1),
+                (x + radius - 1, y + radius - 1),
+                1,
+            )
+        self.display.screen.blit(screw_surface, panel_rect.topleft)
+
     def draw_panel_shadow(
         self,
         rect,
@@ -21,11 +75,25 @@ class UICommonMixin:
             (panel_rect.width + inflate * 2, panel_rect.height + inflate * 2),
             pygame.SRCALPHA,
         )
+        for layer in range(3, 0, -1):
+            layer_inset = (3 - layer) * 4
+            layer_alpha = max(0, int(alpha * (0.22 + layer * 0.18)))
+            pygame.draw.rect(
+                shadow_surface,
+                (*color, layer_alpha),
+                shadow_surface.get_rect().inflate(-layer_inset * 2, -layer_inset * 2),
+                border_radius=max(0, border_radius + layer * 6),
+            )
+        glow_rect = pygame.Rect(
+            0, 0, panel_rect.width + inflate, panel_rect.height + inflate
+        )
+        glow_rect.center = shadow_surface.get_rect().center
         pygame.draw.rect(
             shadow_surface,
-            (*color, alpha),
-            shadow_surface.get_rect(),
-            border_radius=border_radius,
+            (255, 214, 110, max(8, alpha // 5)),
+            glow_rect,
+            width=3,
+            border_radius=max(0, border_radius + 4),
         )
         self.display.screen.blit(
             shadow_surface,
@@ -50,11 +118,39 @@ class UICommonMixin:
         radius = min(14, max(10, badge_rect.height // 2))
         fill_alpha = fill_color[3] if len(fill_color) == 4 else 214
         border_alpha = border_color[3] if len(border_color) == 4 else 90
+        badge_shadow = pygame.Surface(
+            (badge_rect.width + 10, badge_rect.height + 10), pygame.SRCALPHA
+        )
+        pygame.draw.rect(
+            badge_shadow,
+            (0, 0, 0, 58),
+            badge_shadow.get_rect(),
+            border_radius=radius + 4,
+        )
+        self.display.screen.blit(
+            badge_shadow, (badge_rect.left - 5, badge_rect.top + 3)
+        )
         pygame.draw.rect(
             badge_surface,
             (*fill_color[:3], fill_alpha),
             badge_surface.get_rect(),
             border_radius=radius,
+        )
+        pygame.draw.rect(
+            badge_surface,
+            (255, 255, 255, max(24, fill_alpha // 6)),
+            (4, 3, badge_rect.width - 8, max(8, badge_rect.height // 2 - 2)),
+            border_radius=max(8, radius - 2),
+        )
+        pygame.draw.polygon(
+            badge_surface,
+            (255, 255, 255, 32),
+            [
+                (badge_rect.width - 30, 0),
+                (badge_rect.width, 0),
+                (badge_rect.width, badge_rect.height),
+                (badge_rect.width - 14, badge_rect.height),
+            ],
         )
         pygame.draw.rect(
             badge_surface,
@@ -96,7 +192,26 @@ class UICommonMixin:
                 (panel_rect.width, y),
                 1,
             )
+        diagonal_x = int((phase * 110) % (panel_rect.width + 120)) - 60
+        pygame.draw.polygon(
+            grid_surface,
+            (*color[:3], max(10, alpha + 6)),
+            [
+                (diagonal_x, 0),
+                (diagonal_x + 36, 0),
+                (diagonal_x - 22, panel_rect.height),
+                (diagonal_x - 58, panel_rect.height),
+            ],
+        )
         self.display.screen.blit(grid_surface, panel_rect.topleft)
+        self.draw_halftone_dots(
+            panel_rect,
+            color=color,
+            alpha=max(8, alpha - 2),
+            spacing=max(14, step // 3),
+            radius=1,
+            drift=phase * 10,
+        )
 
     def draw_chrome_rect(self, rect, colors, border_radius, width):
         x, y, rect_width, rect_height = rect
@@ -113,6 +228,29 @@ class UICommonMixin:
                 border_radius=border_radius - index if border_radius > index else 0,
                 width=1,
             )
+        if rect_width >= 110 and rect_height >= 42:
+            accent = colors[0]
+            corners = [
+                (x + 10, y + 10, 1, 1),
+                (x + rect_width - 10, y + 10, -1, 1),
+                (x + 10, y + rect_height - 10, 1, -1),
+                (x + rect_width - 10, y + rect_height - 10, -1, -1),
+            ]
+            for base_x, base_y, direction_x, direction_y in corners:
+                pygame.draw.line(
+                    self.display.screen,
+                    accent,
+                    (base_x, base_y),
+                    (base_x + direction_x * 14, base_y),
+                    2,
+                )
+                pygame.draw.line(
+                    self.display.screen,
+                    accent,
+                    (base_x, base_y),
+                    (base_x, base_y + direction_y * 14),
+                    2,
+                )
 
     def draw_text_with_outline(
         self,
@@ -151,24 +289,24 @@ class UICommonMixin:
         shadow_offset=(2, 2),
         center=False,
     ):
-        shadow_text = font.render(text, True, shadow_color)
-        shadow_position = (
-            position[0] + shadow_offset[0],
-            position[1] + shadow_offset[1],
-        )
-        if center:
-            shadow_position = (
-                shadow_position[0] - shadow_text.get_width() // 2,
-                shadow_position[1] - shadow_text.get_height() // 2,
-            )
-        self.display.screen.blit(shadow_text, shadow_position)
-
         actual_text = font.render(text, True, text_color)
+        shadow_text = font.render(text, True, shadow_color)
         actual_position = position
+        shadow_layers = [
+            (shadow_offset[0] + 2, shadow_offset[1] + 2, 90),
+            (shadow_offset[0], shadow_offset[1], 150),
+        ]
         if center:
             actual_position = (
                 actual_position[0] - actual_text.get_width() // 2,
                 actual_position[1] - actual_text.get_height() // 2,
+            )
+        for offset_x, offset_y, alpha in shadow_layers:
+            layer = shadow_text.copy()
+            layer.set_alpha(alpha)
+            self.display.screen.blit(
+                layer,
+                (actual_position[0] + offset_x, actual_position[1] + offset_y),
             )
         self.display.screen.blit(actual_text, actual_position)
 
@@ -194,6 +332,7 @@ class UICommonMixin:
             light_radius = max(2, int(radius + pulse * 2))
             glow = pygame.Surface((light_radius * 6, light_radius * 6), pygame.SRCALPHA)
             glow_center = glow.get_width() // 2
+            bulb_color = (255, 228, 148) if index % 2 == 0 else (red, green, blue)
             pygame.draw.circle(
                 glow,
                 (red, green, blue, int(34 + pulse * 54)),
@@ -202,7 +341,7 @@ class UICommonMixin:
             )
             pygame.draw.circle(
                 glow,
-                (255, 255, 255, int(115 + pulse * 100)),
+                (*bulb_color[:3], int(115 + pulse * 100)),
                 (glow_center, glow_center),
                 light_radius,
             )

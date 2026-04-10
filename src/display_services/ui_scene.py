@@ -11,6 +11,11 @@ class UISceneMixin:
         gradient = pygame.Surface(
             (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
         )
+        mid_color = (
+            int((top_color[0] + bottom_color[0]) / 2 + 16),
+            int((top_color[1] + bottom_color[1]) / 2 + 8),
+            int((top_color[2] + bottom_color[2]) / 2 + 24),
+        )
         for index in range(steps):
             ratio = index / max(1, steps - 1)
             band_top = int(self.display.screen_height * index / steps)
@@ -18,17 +23,50 @@ class UISceneMixin:
                 2,
                 int(self.display.screen_height * (index + 1) / steps) - band_top,
             )
-            color = (
-                int(top_color[0] + (bottom_color[0] - top_color[0]) * ratio),
-                int(top_color[1] + (bottom_color[1] - top_color[1]) * ratio),
-                int(top_color[2] + (bottom_color[2] - top_color[2]) * ratio),
-            )
+            if ratio < 0.5:
+                local = ratio / 0.5
+                color = (
+                    int(top_color[0] + (mid_color[0] - top_color[0]) * local),
+                    int(top_color[1] + (mid_color[1] - top_color[1]) * local),
+                    int(top_color[2] + (mid_color[2] - top_color[2]) * local),
+                )
+            else:
+                local = (ratio - 0.5) / 0.5
+                color = (
+                    int(mid_color[0] + (bottom_color[0] - mid_color[0]) * local),
+                    int(mid_color[1] + (bottom_color[1] - mid_color[1]) * local),
+                    int(mid_color[2] + (bottom_color[2] - mid_color[2]) * local),
+                )
             pygame.draw.rect(
                 gradient,
                 (*color, alpha),
                 (0, band_top, self.display.screen_width, band_height),
             )
+        glow_surface = pygame.Surface(
+            (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
+        )
+        pygame.draw.ellipse(
+            glow_surface,
+            (255, 214, 110, max(20, alpha // 4)),
+            (
+                -140,
+                -120,
+                self.display.screen_width + 280,
+                int(self.display.screen_height * 0.44),
+            ),
+        )
+        pygame.draw.ellipse(
+            glow_surface,
+            (120, 214, 255, max(14, alpha // 6)),
+            (
+                40,
+                int(self.display.screen_height * 0.52),
+                self.display.screen_width - 80,
+                int(self.display.screen_height * 0.34),
+            ),
+        )
         self.display.screen.blit(gradient, (0, 0))
+        self.display.screen.blit(glow_surface, (0, 0))
 
     def draw_spotlight_canopy(self, phase, intensity=1.0, tint=(255, 228, 170)):
         canopy = pygame.Surface(
@@ -101,17 +139,37 @@ class UISceneMixin:
                 (x, self.display.screen_height),
                 1,
             )
+        tile_rows = 5
+        for row in range(tile_rows):
+            row_ratio = (row + 1) / (tile_rows + 1)
+            tile_y = int(
+                horizon_y + (self.display.screen_height - horizon_y) * row_ratio**1.52
+            )
+            tile_height = max(10, int(14 + row * 6))
+            tile_width = max(36, int(86 - row * 8))
+            tile_count = max(6, self.display.screen_width // (tile_width + 8))
+            start_x = int((self.display.screen_width - tile_count * tile_width) / 2)
+            start_x -= ((row % 2) * tile_width) // 2
+            for column in range(tile_count + 2):
+                tile_rect = pygame.Rect(
+                    start_x + column * tile_width,
+                    tile_y,
+                    tile_width - 8,
+                    tile_height,
+                )
+                tile_color = (*tint, max(8, int(alpha * (0.18 + row_ratio * 0.44))))
+                pygame.draw.rect(floor, tile_color, tile_rect, border_radius=4)
         self.display.screen.blit(floor, (0, 0))
 
     def draw_title_panel(self, title, subtitle, phase, y=38):
-        title_rect = pygame.Rect(self.display.screen_width // 2 - 310, y, 620, 106)
+        title_rect = pygame.Rect(self.display.screen_width // 2 - 330, y, 660, 122)
         self.draw_panel_shadow(title_rect, alpha=110, inflate=24, offset=(0, 14))
         panel_surface = pygame.Surface(title_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             panel_surface,
-            (8, 24, 52, 220),
+            (10, 24, 58, 222),
             panel_surface.get_rect(),
-            border_radius=26,
+            border_radius=30,
         )
         shimmer_x = int((phase * 160) % (title_rect.width + 180)) - 90
         pygame.draw.polygon(
@@ -124,13 +182,28 @@ class UISceneMixin:
                 (shimmer_x + 60, title_rect.height),
             ],
         )
+        pygame.draw.rect(
+            panel_surface,
+            (255, 214, 110, 24),
+            (12, 12, title_rect.width - 24, 34),
+            border_radius=18,
+        )
         self.display.screen.blit(panel_surface, title_rect.topleft)
         self.draw_panel_grid(
             title_rect.inflate(-18, -18), phase, (255, 220, 126), 12, 72
         )
-        self.draw_chrome_rect(title_rect, CHROME_COLORS, 24, 4)
-        self.draw_marquee_lights(title_rect, phase, (255, 220, 126), count=18)
-        divider_y = title_rect.top + 68
+        self.draw_halftone_dots(
+            title_rect.inflate(-34, -22),
+            color=(255, 255, 255),
+            alpha=10,
+            spacing=22,
+            radius=2,
+            drift=phase * 6,
+        )
+        self.draw_chrome_rect(title_rect, CHROME_COLORS, 28, 4)
+        self.draw_marquee_lights(title_rect, phase, (255, 220, 126), count=22)
+        self.draw_arcade_screws(title_rect, inset=14, radius=4)
+        divider_y = title_rect.top + 78
         pygame.draw.line(
             self.display.screen,
             (255, 214, 118),
@@ -156,9 +229,20 @@ class UISceneMixin:
             self.display.font_verysmall,
             YELLOW,
             BLACK,
-            (title_rect.centerx, title_rect.bottom - 22),
+            (title_rect.centerx, title_rect.bottom - 24),
             center=True,
         )
+        wing_color = (255, 214, 110, 110)
+        for direction in (-1, 1):
+            pygame.draw.polygon(
+                self.display.screen,
+                wing_color,
+                [
+                    (title_rect.centerx + direction * 286, title_rect.top + 30),
+                    (title_rect.centerx + direction * 340, title_rect.top + 52),
+                    (title_rect.centerx + direction * 286, title_rect.top + 86),
+                ],
+            )
 
     def draw_footer_prompt(self, text, phase):
         prompt_rect = pygame.Rect(
@@ -189,6 +273,7 @@ class UISceneMixin:
         self.display.screen.blit(prompt_surface, prompt_rect.topleft)
         self.draw_chrome_rect(prompt_rect, CHROME_COLORS, 14, 2)
         self.draw_marquee_lights(prompt_rect, phase + 0.4, (255, 218, 118), count=14)
+        self.draw_arcade_screws(prompt_rect, inset=10, radius=3)
         self.draw_text_with_shadow(
             text,
             self.display.font_verysmall,
@@ -225,6 +310,14 @@ class UISceneMixin:
             )
             self.display.screen.blit(badge_surface, rect.topleft)
             self.draw_chrome_rect(rect, CHROME_COLORS, 14, 2)
+            self.draw_halftone_dots(
+                rect.inflate(-10, -8),
+                color=(255, 255, 255),
+                alpha=10,
+                spacing=16,
+                radius=1,
+                drift=phase * 5,
+            )
             self.draw_text_with_shadow(
                 text,
                 self.display.font_verysmall,
@@ -260,16 +353,38 @@ class UISceneMixin:
             overlay,
             (*secondary_color[:3], 20),
             outer_rect,
-            width=2,
-            border_radius=30,
+            width=4,
+            border_radius=34,
         )
         pygame.draw.rect(
             overlay,
             (*accent_color[:3], 16),
             inner_rect,
-            width=1,
-            border_radius=24,
+            width=2,
+            border_radius=28,
         )
+
+        side_rects = [
+            pygame.Rect(24, self.display.screen_height // 2 - 120, 10, 240),
+            pygame.Rect(
+                self.display.screen_width - 34,
+                self.display.screen_height // 2 - 120,
+                10,
+                240,
+            ),
+        ]
+        for side_rect in side_rects:
+            pygame.draw.rect(
+                overlay, (*accent_color[:3], 42), side_rect, border_radius=6
+            )
+            for index in range(10):
+                hole_y = side_rect.top + 14 + index * 22
+                pygame.draw.circle(
+                    overlay,
+                    (255, 255, 255, 28),
+                    (side_rect.centerx, hole_y),
+                    2,
+                )
 
         corner_length = 34
         corners = [
@@ -328,6 +443,16 @@ class UISceneMixin:
     def draw_ambient_backdrop(self, phase):
         overlay = pygame.Surface(
             (self.display.screen_width, self.display.screen_height), pygame.SRCALPHA
+        )
+        self.draw_halftone_dots(
+            pygame.Rect(
+                40, 72, self.display.screen_width - 80, self.display.screen_height - 144
+            ),
+            color=(255, 255, 255),
+            alpha=8,
+            spacing=24,
+            radius=2,
+            drift=phase * 4,
         )
         for ribbon_index, color in enumerate(
             ((120, 220, 255), (255, 210, 120), (140, 255, 190))

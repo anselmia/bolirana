@@ -161,10 +161,18 @@ class UIGameMixin:
             border_radius=18,
         )
         pygame.draw.rect(
-            self.display.screen, (18, 24, 32), meter_rect, border_radius=18
+            self.display.screen, (14, 20, 34), meter_rect, border_radius=18
         )
         pygame.draw.rect(
             self.display.screen, (255, 255, 255), meter_rect, width=2, border_radius=18
+        )
+        self.draw_halftone_dots(
+            meter_rect.inflate(-10, -8),
+            color=(255, 255, 255),
+            alpha=10,
+            spacing=16,
+            radius=1,
+            drift=phase * 4,
         )
         ratio = 0 if score <= 0 else max(0.0, min(1.0, current_progress / score))
         if ratio <= 0:
@@ -172,6 +180,15 @@ class UIGameMixin:
         fill_rect = meter_rect.inflate(-8, -8)
         fill_rect.width = max(12, int(fill_rect.width * ratio))
         pygame.draw.rect(self.display.screen, accent_color, fill_rect, border_radius=14)
+        for tick_index in range(1, 5):
+            tick_x = meter_rect.left + int(meter_rect.width * tick_index / 5)
+            pygame.draw.line(
+                self.display.screen,
+                (255, 255, 255, 28),
+                (tick_x, meter_rect.top + 5),
+                (tick_x, meter_rect.bottom - 5),
+                1,
+            )
         stripes = pygame.Surface(fill_rect.size, pygame.SRCALPHA)
         for stripe_index in range(-2, 10):
             stripe_x = (
@@ -250,6 +267,13 @@ class UIGameMixin:
             width=16,
             border_radius=22,
         )
+        pygame.draw.rect(
+            overlay,
+            (255, 244, 214, max(18, alpha // 2)),
+            (18, 18, self.display.screen_width - 36, self.display.screen_height - 36),
+            width=4,
+            border_radius=20,
+        )
         self.display.screen.blit(overlay, (0, 0))
         warning = self.display.font_medium.render("CHRONO!", True, WHITE)
         self.display.screen.blit(
@@ -300,6 +324,7 @@ class UIGameMixin:
                 alpha=10,
                 step=56,
             )
+            self.draw_arcade_screws(panel_rect, inset=12, radius=3)
             self.draw_chrome_rect(panel_rect, CHROME_COLORS, 22, 4)
 
             title = self.display.font_small.render(
@@ -417,6 +442,7 @@ class UIGameMixin:
                 alpha=10,
                 step=52,
             )
+            self.draw_arcade_screws(panel_rect, inset=10, radius=3)
             self.draw_chrome_rect(
                 panel_rect,
                 (
@@ -533,6 +559,7 @@ class UIGameMixin:
             accent_color=(255, 220, 126),
             secondary_color=(120, 222, 255),
         )
+        self.draw_scene_badges(f"{challenge_mode} MODE", f"{team_mode} CREW", phase)
         self.draw_static_elements(
             current_player,
             score,
@@ -586,8 +613,17 @@ class UIGameMixin:
             alpha=10,
             step=58,
         )
+        self.draw_halftone_dots(
+            holes_area_rect.inflate(-36, -26),
+            color=(255, 255, 255),
+            alpha=8,
+            spacing=24,
+            radius=2,
+            drift=phase * 4,
+        )
         self.draw_chrome_rect(holes_area_rect, CHROME_COLORS, 20, 5)
         self.draw_marquee_lights(holes_area_rect, phase, (255, 222, 132), count=20)
+        self.draw_arcade_screws(holes_area_rect, inset=14, radius=4)
         arena_label_rect = pygame.Rect(
             holes_area_rect.centerx - 70,
             holes_area_rect.top - 12,
@@ -793,6 +829,15 @@ class UIGameMixin:
             alpha=10,
             step=56,
         )
+        self.draw_halftone_dots(
+            current_player_panel_rect.inflate(-26, -24),
+            color=(255, 255, 255),
+            alpha=8,
+            spacing=24,
+            radius=2,
+            drift=phase * 5,
+        )
+        self.draw_arcade_screws(current_player_panel_rect, inset=12, radius=4)
 
         pygame.draw.rect(
             self.display.screen, PLAYER_OPTION_COLOR, score_rect, border_radius=10
@@ -848,7 +893,7 @@ class UIGameMixin:
             )
 
         self.draw_text_with_shadow(
-            "AU TOUR DE",
+            "PLAYER UP",
             self.display.font_verysmall,
             YELLOW,
             BLACK,
@@ -919,6 +964,15 @@ class UIGameMixin:
             alpha=10,
             step=56,
         )
+        self.draw_halftone_dots(
+            game_mode_panel_rect.inflate(-24, -24),
+            color=(255, 255, 255),
+            alpha=8,
+            spacing=24,
+            radius=2,
+            drift=phase * 5,
+        )
+        self.draw_arcade_screws(game_mode_panel_rect, inset=12, radius=4)
         self.draw_chrome_rect(game_mode_rect, CHROME_COLORS, 15, 5)
         self.draw_marquee_lights(game_mode_rect, phase + 0.4, (255, 214, 110), count=18)
 
@@ -940,7 +994,7 @@ class UIGameMixin:
         )
 
         self.draw_text_with_shadow(
-            "MODE LIVE",
+            "ARCADE MODE",
             self.display.font_verysmall,
             YELLOW,
             BLACK,
@@ -1074,8 +1128,9 @@ class UIGameMixin:
                     border_radius=12,
                 )
                 self.display.screen.blit(total_surface, total_rect.topleft)
+                self.draw_arcade_screws(total_rect, inset=8, radius=3)
                 self.draw_text_with_shadow(
-                    f"Total: {sum(player.score for player in group)}",
+                    f"TEAM TOTAL {sum(player.score for player in group)}",
                     self.display.font_small,
                     WHITE,
                     BLACK,
@@ -1119,6 +1174,15 @@ class UIGameMixin:
                     alpha=8,
                     step=48,
                 )
+                self.draw_halftone_dots(
+                    frame_rect.inflate(-18, -16),
+                    color=(255, 255, 255),
+                    alpha=8,
+                    spacing=18,
+                    radius=1,
+                    drift=phase * 6,
+                )
+                self.draw_arcade_screws(frame_rect, inset=10, radius=3)
 
                 if player.is_active:
                     pulse_surface = pygame.Surface(
@@ -1153,7 +1217,7 @@ class UIGameMixin:
                     )
                     self.display.screen.blit(live_surface, live_rect.topleft)
                     self.draw_text_with_shadow(
-                        "LIVE",
+                        "ON AIR",
                         self.display.font_verysmall,
                         BLACK,
                         WHITE,
@@ -1329,8 +1393,17 @@ class UIGameMixin:
             step=56,
         )
         self.display.screen.blit(shimmer_surface, banner_rect.topleft)
+        self.draw_halftone_dots(
+            banner_rect.inflate(-20, -16),
+            color=(255, 255, 255),
+            alpha=8,
+            spacing=18,
+            radius=1,
+            drift=phase * 7,
+        )
         self.draw_chrome_rect(banner_rect, CHROME_COLORS, 18, 4)
         self.draw_marquee_lights(banner_rect, phase, (255, 228, 148), count=18)
+        self.draw_arcade_screws(banner_rect, inset=10, radius=3)
         self.draw_text_with_shadow(
             status_text,
             self.display.font_small,
