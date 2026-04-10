@@ -32,6 +32,7 @@ OPTION_NUM_TEAMS = "Nombre d'équipes"
 OPTION_PLAYERS_PER_TEAM = "Joueurs / équipe"
 OPTION_TIME_ATTACK_SECONDS = "Chrono / tour"
 OPTION_TIME_ATTACK_TURNS = "Tours chrono"
+OPTION_SENSOR_ANALYSIS = "Analyse capteurs"
 
 
 class Menu:
@@ -51,6 +52,7 @@ class Menu:
             OPTION_PLAYERS_PER_TEAM: 2,
             OPTION_TIME_ATTACK_SECONDS: DEFAULT_TIME_ATTACK_SECONDS,
             OPTION_TIME_ATTACK_TURNS: DEFAULT_TIME_ATTACK_TURNS,
+            OPTION_SENSOR_ANALYSIS: "LIVE",
         }
         self.options = []
         self.sync_options()
@@ -147,6 +149,8 @@ class Menu:
                 self.build_option(OPTION_PLAYERS_PER_TEAM, min=2, max=6, step=1)
             )
 
+        self.options.append(self.build_option(OPTION_SENSOR_ANALYSIS, values=["LIVE"]))
+
         self.selected_option = min(self.selected_option, len(self.options) - 1)
 
     def cycle_option_value(self, option):
@@ -229,3 +233,6 @@ class Menu:
 
     def get_time_attack_turns(self):
         return int(self.values[OPTION_TIME_ATTACK_TURNS])
+
+    def is_sensor_analysis_selected(self):
+        return self.options[self.selected_option]["name"] == OPTION_SENSOR_ANALYSIS

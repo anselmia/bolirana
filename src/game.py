@@ -41,6 +41,8 @@ class Game:
         self.gamelogic.reset_game()
         self.last_next_action_time = time.monotonic()
         self.in_end_menu = False
+        self.menu_screen = "menu"
+        self.sensor_analysis_page = 0
         self.debug = debug
         self.running = True
         self.clock = pygame.time.Clock()
@@ -60,8 +62,24 @@ class Game:
 
     def run_menu(self):
         while self.running and self.gamelogic.selecting_mode:
-            self.process_events("menu")
-            self.display.draw_menu(self.menu)
+            action = self.process_events(self.menu_screen)
+            if action == "open_sensor_analysis":
+                self.menu_screen = "sensor_analysis"
+                self.sensor_analysis_page = 0
+                self.pin.reset_diagnostics()
+                continue
+            if action == "close_sensor_analysis":
+                self.menu_screen = "menu"
+                continue
+
+            if self.menu_screen == "sensor_analysis":
+                snapshot = self.pin.get_diagnostics_snapshot()
+                self.display.draw_sensor_analysis(
+                    snapshot,
+                    page_index=self.sensor_analysis_page,
+                )
+            else:
+                self.display.draw_menu(self.menu)
             self.clock.tick(FPS)
 
     def reset_to_menu(self):
@@ -70,6 +88,8 @@ class Game:
         self.gamelogic.reset_game()
         self.last_next_action_time = time.monotonic()
         self.in_end_menu = False
+        self.menu_screen = "menu"
+        self.sensor_analysis_page = 0
 
     def process_events(self, mode):
         keyboard_enabled = self.debug or self.keyboard_mode
@@ -86,6 +106,8 @@ class Game:
                         return "open_end_menu"
                 if event.key in KEY_TO_PIN_MAP:
                     pin = KEY_TO_PIN_MAP[event.key]
+                    if mode == "sensor_analysis":
+                        self.pin.record_manual_pin(pin, game_action=mode)
                     action = self.handle_event(mode, pin)
                     if action is not None:
                         return action
@@ -102,10 +124,14 @@ class Game:
             if action in [ACTION_NEXT, ACTION_RIGHT]:
                 self.menu.handle_button_press(action)
             else:
+                if self.menu.is_sensor_analysis_selected():
+                    return "open_sensor_analysis"
                 self.setup_game_from_menu()
                 self.gamelogic.selecting_mode = False
         elif mode == "game":
             return self.handle_game_event(pin)
+        elif mode == "sensor_analysis":
+            return self.handle_sensor_analysis_event(pin)
         elif mode == "end_menu":
             if pin == PIN_BENTER:
                 return self.execute_end_menu_option()
@@ -128,6 +154,17 @@ class Game:
         elif pin in self.gamelogic.pin_to_hole:
             self.gamelogic.goal(pin, self.display)
 
+        return None
+
+    def handle_sensor_analysis_event(self, pin):
+        if pin == PIN_BENTER:
+            return "close_sensor_analysis"
+        if pin == PIN_BNEXT:
+            self.sensor_analysis_page = (self.sensor_analysis_page + 1) % 3
+            return None
+        if pin == PIN_RIGHT:
+            self.pin.reset_diagnostics()
+            return None
         return None
 
     def execute_end_menu_option(self):

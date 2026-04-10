@@ -63,6 +63,71 @@ class PIN:
         self.menu_pins = {PIN_BENTER, PIN_RIGHT, PIN_BNEXT}
         self.game_pins = self.pin_hole | {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
         self.end_menu_pins = {PIN_BENTER, PIN_BNEXT}
+        self.diagnostic_pins = self.pin_hole | self.button_pin
+        self.diagnostic_groups = [
+            {"name": "20", "pins": tuple(PIN_H20), "family": "side"},
+            {"name": "25", "pins": tuple(PIN_H25), "family": "side"},
+            {"name": "40", "pins": tuple(PIN_H40), "family": "side"},
+            {"name": "50", "pins": tuple(PIN_H50), "family": "side"},
+            {"name": "100", "pins": tuple(PIN_H100), "family": "side"},
+            {"name": "BOUTEILLE", "pins": tuple(PIN_HBOTTLE), "family": "bonus"},
+            {"name": "PETITE GRENOUILLE", "pins": tuple(PIN_HSFROG), "family": "frog"},
+            {"name": "GRANDE GRENOUILLE", "pins": tuple(PIN_HLFROG), "family": "frog"},
+            {"name": "NEXT", "pins": (PIN_BNEXT,), "family": "button"},
+            {"name": "ENTER", "pins": (PIN_BENTER,), "family": "button"},
+            {"name": "ACTION", "pins": (PIN_RIGHT,), "family": "button"},
+        ]
+        self.game_sensor_reference_pins = set(self.pin_hole)
+        self.firmware_reference_pins = {
+            4,
+            5,
+            13,
+            14,
+            17,
+            18,
+            19,
+            21,
+            22,
+            23,
+            25,
+            26,
+            27,
+            32,
+        }
+        self.schematic_reference_pins = {
+            4,
+            5,
+            13,
+            14,
+            16,
+            17,
+            18,
+            19,
+            21,
+            22,
+            23,
+            25,
+            26,
+            27,
+            32,
+            33,
+        }
+        self.pull_mode_reference = {
+            "firmware": "INPUT_PULLUP",
+            "schematic": "PULLDOWN interne",
+        }
+        self.wiring_notes = [
+            "Emetteur IR: anode longue, cathode courte.",
+            "Recepteur IR: collecteur long, emetteur court.",
+            "R1/R2: 100 Ohm en 3.3V d'apres le schema.",
+            "Le schema recommande un pull-down interne sur les GPIO.",
+        ]
+        self.pin_labels = {}
+        for group in self.diagnostic_groups:
+            for index, pin in enumerate(group["pins"]):
+                suffix = f" {index + 1}" if len(group["pins"]) > 1 else ""
+                self.pin_labels[pin] = f"{group['name']}{suffix}"
+        self.reset_diagnostics()
 
         if not self.use_i2c:
             logging.info("Keyboard/test mode enabled: skipping I2C initialization.")
@@ -116,20 +181,47 @@ class PIN:
             return pin
         except Exception as e:
             logging.error(f"Failed to read from I2C bus: {e}")
+            self.diagnostics_errors += 1
+            self.diagnostics_last_packet = {
+                "raw": [],
+                "pin": None,
+                "state": "ERROR",
+                "timestamp": time.monotonic(),
+                "source": "i2c",
+            }
             return None
 
     def _parse_i2c_data(self, data, game_action):
         # Convert the raw I2C data into a dictionary of pin states
         pin_number = data[0]
+        state = "LOW" if data[1] == 0 else "HIGH"
+        self.diagnostics_packets += 1
+        self.diagnostics_last_packet = {
+            "raw": list(data),
+            "pin": None if pin_number == 0xFF else int(pin_number),
+            "state": state,
+            "timestamp": time.monotonic(),
+            "source": "i2c",
+        }
         if pin_number == 0xFF:
             return None  # Neutral signal, nothing to process
 
-        state = "LOW" if data[1] == 0 else "HIGH"
         logging.debug(f"Pin {pin_number} state is {state}")
 
         if state == "HIGH":
             return self._get_next_pin(pin_number, game_action)
         return None
+
+    def _get_allowed_pins(self, game_action):
+        if game_action == "menu":
+            return self.menu_pins
+        if game_action == "game":
+            return self.game_pins
+        if game_action == "end_menu":
+            return self.end_menu_pins
+        if game_action == "sensor_analysis":
+            return self.diagnostic_pins
+        return set()
 
     def _get_next_pin(self, pin, game_action):
         pin = int(pin)
@@ -143,15 +235,343 @@ class PIN:
         # Apply cooldown
         if current_time - last_time < cooldown:
             logging.debug(f"Pin {pin} ignored due to cooldown.")
+            self._record_diagnostic_event(
+                pin, game_action, accepted=False, reason="cooldown"
+            )
+            return None
+
+        allowed_pins = self._get_allowed_pins(game_action)
+        if pin not in allowed_pins:
+            self._record_diagnostic_event(
+                pin, game_action, accepted=False, reason="mode"
+            )
             return None
 
         # Update last detection time for the pin
         self.last_pin_time[pin] = current_time
+        self._record_diagnostic_event(pin, game_action, accepted=True)
+        return pin
 
-        if game_action == "menu" and pin in self.menu_pins:
-            return pin
-        if game_action == "game" and pin in self.game_pins:
-            return pin
-        if game_action == "end_menu" and pin in self.end_menu_pins:
-            return pin
-        return None
+    def _record_diagnostic_event(self, pin, game_action, accepted, reason=None):
+        now = time.monotonic()
+        pin = int(pin)
+        self.diagnostics_last_activity[pin] = now
+        if accepted:
+            previous_accept = self.diagnostics_last_accept.get(pin, 0.0)
+            if previous_accept > 0:
+                interval = now - previous_accept
+                self.diagnostics_last_accept_interval[pin] = interval
+                self.diagnostics_accept_interval_sum[pin] += interval
+                self.diagnostics_accept_interval_count[pin] += 1
+                current_min = self.diagnostics_accept_min_interval[pin]
+                if current_min is None or interval < current_min:
+                    self.diagnostics_accept_min_interval[pin] = interval
+                if interval < 0.55:
+                    self.diagnostics_burst_count[pin] += 1
+            self.diagnostics_counts[pin] = self.diagnostics_counts.get(pin, 0) + 1
+            self.diagnostics_last_accept[pin] = now
+        else:
+            self.diagnostics_suppressed[pin] = (
+                self.diagnostics_suppressed.get(pin, 0) + 1
+            )
+
+        event = {
+            "pin": pin,
+            "label": self.pin_labels.get(pin, str(pin)),
+            "accepted": accepted,
+            "reason": reason or ("accepted" if accepted else "ignored"),
+            "mode": game_action,
+            "timestamp": now,
+        }
+        self.diagnostics_last_event = event
+        self.diagnostics_history.insert(0, event)
+        self.diagnostics_history = self.diagnostics_history[:18]
+
+    def record_manual_pin(self, pin, game_action="sensor_analysis"):
+        pin = int(pin)
+        self.diagnostics_packets += 1
+        self.diagnostics_last_packet = {
+            "raw": [pin, 1],
+            "pin": pin,
+            "state": "HIGH",
+            "timestamp": time.monotonic(),
+            "source": "manual",
+        }
+        self._record_diagnostic_event(pin, game_action, accepted=True)
+
+    def reset_diagnostics(self):
+        started = time.monotonic()
+        self.diagnostics_started = started
+        self.diagnostics_packets = 0
+        self.diagnostics_errors = 0
+        self.diagnostics_counts = {pin: 0 for pin in self.pin_labels}
+        self.diagnostics_suppressed = {pin: 0 for pin in self.pin_labels}
+        self.diagnostics_last_activity = {pin: 0.0 for pin in self.pin_labels}
+        self.diagnostics_last_accept = {pin: 0.0 for pin in self.pin_labels}
+        self.diagnostics_last_accept_interval = {pin: None for pin in self.pin_labels}
+        self.diagnostics_accept_interval_sum = {pin: 0.0 for pin in self.pin_labels}
+        self.diagnostics_accept_interval_count = {pin: 0 for pin in self.pin_labels}
+        self.diagnostics_accept_min_interval = {pin: None for pin in self.pin_labels}
+        self.diagnostics_burst_count = {pin: 0 for pin in self.pin_labels}
+        self.diagnostics_history = []
+        self.diagnostics_last_event = None
+        self.diagnostics_last_packet = {
+            "raw": [0xFF, 0],
+            "pin": None,
+            "state": "IDLE",
+            "timestamp": started,
+            "source": "system",
+        }
+
+    def get_diagnostics_snapshot(self):
+        now = time.monotonic()
+        severity_rank = {"ok": 0, "watch": 1, "warning": 2, "error": 3}
+        groups = []
+        for group in self.diagnostic_groups:
+            pins = tuple(int(pin) for pin in group["pins"])
+            accepted = sum(self.diagnostics_counts.get(pin, 0) for pin in pins)
+            suppressed = sum(self.diagnostics_suppressed.get(pin, 0) for pin in pins)
+            accepted_by_pin = {pin: self.diagnostics_counts.get(pin, 0) for pin in pins}
+            suppressed_by_pin = {
+                pin: self.diagnostics_suppressed.get(pin, 0) for pin in pins
+            }
+            recent_ages = [
+                now - self.diagnostics_last_activity.get(pin, 0.0)
+                for pin in pins
+                if self.diagnostics_last_activity.get(pin, 0.0) > 0
+            ]
+            accepted_ages = [
+                now - self.diagnostics_last_accept.get(pin, 0.0)
+                for pin in pins
+                if self.diagnostics_last_accept.get(pin, 0.0) > 0
+            ]
+            interval_values = [
+                self.diagnostics_last_accept_interval.get(pin)
+                for pin in pins
+                if self.diagnostics_last_accept_interval.get(pin) is not None
+            ]
+            burst_count = sum(self.diagnostics_burst_count.get(pin, 0) for pin in pins)
+            active_pins = sum(1 for pin in pins if accepted_by_pin[pin] > 0)
+            tested_pins = sum(
+                1
+                for pin in pins
+                if accepted_by_pin[pin] > 0 or suppressed_by_pin[pin] > 0
+            )
+            health = "ok"
+            issues = []
+            fixes = []
+
+            if accepted == 0 and suppressed > 0:
+                health = "warning"
+                issues.append("Signal vu mais bloque par cooldown.")
+                fixes.append("Verifier rebond, parasite IR ou faisceau trop long.")
+
+            if len(pins) == 2 and accepted >= 4:
+                count_values = list(accepted_by_pin.values())
+                if active_pins == 1:
+                    health = "error"
+                    issues.append("Une voie sur deux semble muette.")
+                    fixes.append(
+                        "Verifier alignement, polarite du recepteur et continuite sur la paire."
+                    )
+                elif min(count_values) > 0:
+                    high_count = max(count_values)
+                    low_count = min(count_values)
+                    if high_count >= low_count * 3 and high_count - low_count >= 4:
+                        if severity_rank[health] < severity_rank["warning"]:
+                            health = "warning"
+                        issues.append("La paire est fortement desequilibree.")
+                        fixes.append(
+                            "Verifier diode, resistance et positionnement du capteur le plus faible."
+                        )
+
+            if suppressed >= max(4, accepted * 2):
+                if severity_rank[health] < severity_rank["warning"]:
+                    health = "warning"
+                issues.append("Trop de lectures ignorees par cooldown.")
+                fixes.append(
+                    "Chercher du bruit optique, une balle qui reste dans le faisceau ou une sensibilite excessive."
+                )
+
+            if burst_count >= 3:
+                if severity_rank[health] < severity_rank["warning"]:
+                    health = "warning"
+                issues.append("Impulsions trop rapprochees detectees.")
+                fixes.append(
+                    "Verifier faux contact, oscillation electrique ou capteur trop expose."
+                )
+
+            if (
+                accepted == 0
+                and suppressed == 0
+                and now - self.diagnostics_started > 12
+                and sum(self.diagnostics_counts.values()) >= 8
+            ):
+                if severity_rank[health] < severity_rank["watch"]:
+                    health = "watch"
+                issues.append("Ce capteur n'a toujours pas ete teste.")
+                fixes.append(
+                    "Passer volontairement une balle devant ce capteur pour valider la chaine complete."
+                )
+
+            if not issues:
+                fixes.append("RAS: comportement coherent sur les lectures actuelles.")
+
+            groups.append(
+                {
+                    "name": group["name"],
+                    "pins": pins,
+                    "pin_labels": [self.pin_labels.get(pin, str(pin)) for pin in pins],
+                    "family": group["family"],
+                    "accepted": accepted,
+                    "suppressed": suppressed,
+                    "accepted_by_pin": accepted_by_pin,
+                    "suppressed_by_pin": suppressed_by_pin,
+                    "recent_age": min(recent_ages) if recent_ages else None,
+                    "accepted_age": min(accepted_ages) if accepted_ages else None,
+                    "tested_pins": tested_pins,
+                    "active_pins": active_pins,
+                    "min_interval": min(interval_values) if interval_values else None,
+                    "burst_count": burst_count,
+                    "health": health,
+                    "issues": issues,
+                    "fixes": fixes,
+                }
+            )
+
+        history = []
+        for event in self.diagnostics_history:
+            history.append(
+                {
+                    **event,
+                    "age": now - event["timestamp"],
+                }
+            )
+
+        last_packet = dict(self.diagnostics_last_packet)
+        last_packet["age"] = now - last_packet["timestamp"]
+
+        last_event = None
+        if self.diagnostics_last_event is not None:
+            last_event = dict(self.diagnostics_last_event)
+            last_event["age"] = now - self.diagnostics_last_event["timestamp"]
+
+        alerts = []
+        actions = []
+        for group in groups:
+            if group["health"] in {"error", "warning", "watch"}:
+                alerts.append(
+                    {
+                        "severity": group["health"],
+                        "title": group["name"],
+                        "detail": group["issues"][0],
+                        "fix": group["fixes"][0],
+                    }
+                )
+
+        missing_in_firmware = sorted(
+            self.game_sensor_reference_pins - self.firmware_reference_pins
+        )
+        extra_in_firmware = sorted(
+            self.firmware_reference_pins - self.game_sensor_reference_pins
+        )
+        missing_in_schematic = sorted(
+            self.game_sensor_reference_pins - self.schematic_reference_pins
+        )
+        extra_in_schematic = sorted(
+            self.schematic_reference_pins - self.game_sensor_reference_pins
+        )
+        button_conflicts = sorted(self.button_pin & self.firmware_reference_pins)
+
+        if missing_in_firmware:
+            alerts.insert(
+                0,
+                {
+                    "severity": "error",
+                    "title": "Firmware ESP32 incomplet",
+                    "detail": f"Pins capteurs absents du firmware: {', '.join(map(str, missing_in_firmware))}",
+                    "fix": "Ajouter ces GPIO dans inputPins du firmware ESP32.",
+                },
+            )
+            actions.append(
+                f"Mettre a jour inputPins dans l'ESP32 avec: {', '.join(map(str, missing_in_firmware))}."
+            )
+
+        if button_conflicts:
+            alerts.insert(
+                0,
+                {
+                    "severity": "warning",
+                    "title": "Conflit bouton / entree firmware",
+                    "detail": f"GPIO partages avec un bouton jeu: {', '.join(map(str, button_conflicts))}",
+                    "fix": "Verifier qu'aucun bouton Raspberry ne partage une entree capteur ESP32.",
+                },
+            )
+
+        if (
+            self.pull_mode_reference["firmware"]
+            != self.pull_mode_reference["schematic"]
+        ):
+            alerts.insert(
+                0,
+                {
+                    "severity": "warning",
+                    "title": "Pull mode incoherent",
+                    "detail": f"Firmware: {self.pull_mode_reference['firmware']} | schema: {self.pull_mode_reference['schematic']}",
+                    "fix": "Verifier si le montage doit etre lu en pull-up ou pull-down puis harmoniser firmware/schema.",
+                },
+            )
+            actions.append(
+                "Comparer INPUT_PULLUP du firmware avec la note 'Use Pull down internal on GPIO' du schema."
+            )
+
+        if not actions:
+            actions.append(
+                "Tester chaque capteur une fois puis verifier que toutes les paires restent equilibrees."
+            )
+        if not alerts:
+            alerts.append(
+                {
+                    "severity": "ok",
+                    "title": "Alerte majeure absente",
+                    "detail": "Aucune anomalie structurelle detectee pour le moment.",
+                    "fix": "Continuer le test capteur par capteur pour valider toute la matrice.",
+                }
+            )
+
+        return {
+            "connected": self.use_i2c and self.bus is not None,
+            "transport": (
+                "I2C LIVE" if self.use_i2c and self.bus is not None else "MODE TEST"
+            ),
+            "uptime": now - self.diagnostics_started,
+            "packets": self.diagnostics_packets,
+            "errors": self.diagnostics_errors,
+            "accepted_total": sum(self.diagnostics_counts.values()),
+            "suppressed_total": sum(self.diagnostics_suppressed.values()),
+            "groups": groups,
+            "history": history,
+            "last_packet": last_packet,
+            "last_event": last_event,
+            "use_i2c": self.use_i2c,
+            "analysis": {
+                "alerts": alerts[:10],
+                "actions": actions[:6],
+                "tested_groups": sum(
+                    1
+                    for group in groups
+                    if group["accepted"] > 0 or group["suppressed"] > 0
+                ),
+                "healthy_groups": sum(1 for group in groups if group["health"] == "ok"),
+            },
+            "audit": {
+                "missing_in_firmware": missing_in_firmware,
+                "extra_in_firmware": extra_in_firmware,
+                "missing_in_schematic": missing_in_schematic,
+                "extra_in_schematic": extra_in_schematic,
+                "button_conflicts": button_conflicts,
+                "pull_mode_firmware": self.pull_mode_reference["firmware"],
+                "pull_mode_schematic": self.pull_mode_reference["schematic"],
+                "wiring_notes": list(self.wiring_notes),
+            },
+        }

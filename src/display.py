@@ -156,7 +156,10 @@ class Display:
         self.screen.fill((10, 10, 10))
         font = pygame.font.SysFont(None, max(32, self.screen_height // 20))
         text = font.render("Chargement...", True, (200, 200, 200))
-        self.screen.blit(text, text.get_rect(center=(self.screen_width // 2, self.screen_height // 2)))
+        self.screen.blit(
+            text,
+            text.get_rect(center=(self.screen_width // 2, self.screen_height // 2)),
+        )
         pygame.display.flip()
 
     def load_background(self, folder, filename):
@@ -471,6 +474,10 @@ class Display:
     def draw_menu(self, *args, **kwargs):
         self.stop_time_warning_audio()
         return self.ui.draw_menu(*args, **kwargs)
+
+    def draw_sensor_analysis(self, *args, **kwargs):
+        self.stop_time_warning_audio()
+        return self.ui.draw_sensor_analysis(*args, **kwargs)
 
     def draw_end_menu(self, *args, **kwargs):
         self.stop_time_warning_audio()
