@@ -1,0 +1,504 @@
+# pyright: reportAttributeAccessIssue=false
+import math
+import time
+
+import pygame
+
+from src.constants import BLACK, GOLD_COLORS, WHITE, YELLOW
+from src.roulette import RouletteAnimation
+
+
+class EffectsBossMixin:
+    def animation_large_frog(self):
+        backdrop = self.display.screen.copy()
+        center = (self.display.screen_width // 2, self.display.screen_height // 2 + 24)
+        lily_center = (center[0], center[1] + 154)
+        cues_triggered = set()
+
+        self.play_sound_cue(
+            "frog_sound",
+            volume=0.8,
+            fade_ms=50,
+            maxtime=self.LARGE_FROG_SOUND_MAXTIME_MS,
+            stop_existing=True,
+        )
+
+        def render(progress):
+            phase = time.monotonic()
+            pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 3.5)
+            self.draw_overlay((2, 18, 16), 145)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.86, tint=(166, 255, 214)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=(110, 255, 210), alpha=24
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(110, 255, 210),
+                secondary_color=(90, 180, 255),
+            )
+            self.display.ui.draw_scene_badges("GRANDE GRENOUILLE", "BOSS ARENA", phase)
+            self.draw_cinematic_bars(
+                progress, color=(0, 0, 0), max_height=58, reveal_portion=0.16
+            )
+            self.draw_party_ribbons(
+                progress,
+                palette=[(110, 255, 210), (90, 180, 255), WHITE],
+                alpha=28,
+                speed=0.5,
+            )
+            self.draw_aurora_ribbon(
+                progress,
+                (110, 255, 210),
+                base_y=102,
+                amplitude=30,
+                thickness=7,
+                speed=0.42,
+                alpha=58,
+                phase=0.1,
+            )
+            self.draw_aurora_ribbon(
+                progress,
+                (90, 180, 255),
+                base_y=138,
+                amplitude=22,
+                thickness=5,
+                speed=0.7,
+                alpha=40,
+                phase=1.4,
+            )
+            self.draw_vignette(110, (0, 10, 8))
+            self.draw_light_beam(center, progress, (100, 255, 200), width=340, alpha=78)
+            self.draw_speed_lines(
+                progress, (120, 255, 210), count=10, alpha=42, angle=-0.5
+            )
+            header_rect = pygame.Rect(center[0] - 272, 82, 544, 92)
+            self.display.ui.draw_panel_shadow(
+                header_rect,
+                alpha=106,
+                inflate=24,
+                offset=(0, 14),
+                border_radius=30,
+            )
+            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                header_surface,
+                (8, 28, 32, 220),
+                header_surface.get_rect(),
+                border_radius=30,
+            )
+            pygame.draw.rect(
+                header_surface,
+                (255, 255, 255, 14),
+                (12, 12, header_rect.width - 24, 30),
+                border_radius=18,
+            )
+            self.display.screen.blit(header_surface, header_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                header_rect.inflate(-18, -16),
+                phase,
+                color=(110, 255, 210),
+                alpha=10,
+                step=58,
+            )
+            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 26, 4)
+            self.display.ui.draw_badge(
+                "BOSS",
+                (header_rect.centerx - 48, header_rect.top - 12, 96, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "GRANDE GRENOUILLE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (header_rect.centerx, header_rect.top + 32),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Le boss arrive avant la roulette",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (header_rect.centerx, header_rect.bottom - 20),
+                center=True,
+            )
+            self.trigger_cue(
+                cues_triggered,
+                "summon",
+                0.18,
+                progress,
+                "applause",
+                volume=0.28,
+                fade_ms=120,
+            )
+            self.trigger_cue(
+                cues_triggered,
+                "boss",
+                0.58,
+                progress,
+                "applause",
+                volume=0.8,
+                fade_ms=80,
+            )
+            self.trigger_cue(
+                cues_triggered,
+                "title-hit",
+                0.76,
+                progress,
+                "win_sound",
+                volume=0.24,
+                fade_ms=100,
+            )
+            self.draw_crowd_bounce(progress * 0.9)
+
+            self.draw_lily_pad(
+                lily_center,
+                190,
+                rotation=math.sin(progress * math.tau * 0.9) * 3,
+                glow=0.4 + pulse * 0.3,
+            )
+            self.draw_orbiting_particles(
+                center,
+                progress,
+                (130, 255, 210),
+                orbit_radius=140 + pulse * 50,
+                count=14,
+                size=5,
+                speed=0.95,
+                vertical_scale=0.62,
+            )
+
+            for mist_index in range(4):
+                mist_progress = (progress * 1.1 + mist_index * 0.13) % 1.15
+                mist_width = 240 + mist_index * 60
+                mist_height = 70 + mist_index * 12
+                mist_surface = pygame.Surface(
+                    (mist_width, mist_height), pygame.SRCALPHA
+                )
+                pygame.draw.ellipse(
+                    mist_surface,
+                    (120, 255, 210, max(0, int(42 * (1 - mist_progress * 0.7)))),
+                    mist_surface.get_rect(),
+                )
+                mist_x = (
+                    center[0]
+                    - mist_width // 2
+                    + math.sin(progress * 4 + mist_index) * 36
+                )
+                mist_y = lily_center[1] - 26 - mist_progress * 120 + mist_index * 12
+                self.display.screen.blit(mist_surface, (mist_x, mist_y))
+
+            for ring_index in range(5):
+                ring_progress = progress * 1.45 - ring_index * 0.12
+                if 0 <= ring_progress <= 1:
+                    radius = 90 + int(240 * self.ease_out_cubic(ring_progress))
+                    alpha = max(0, int(140 * (1 - ring_progress)))
+                    ring_surface = pygame.Surface(
+                        (radius * 2 + 32, radius * 2 + 32), pygame.SRCALPHA
+                    )
+                    pygame.draw.circle(
+                        ring_surface,
+                        (70, 255, 180, alpha),
+                        (ring_surface.get_width() // 2, ring_surface.get_height() // 2),
+                        radius,
+                        width=5,
+                    )
+                    self.display.screen.blit(
+                        ring_surface,
+                        (
+                            center[0] - ring_surface.get_width() // 2,
+                            center[1] - ring_surface.get_height() // 2 + 22,
+                        ),
+                    )
+
+            summon = self.clamp((progress - 0.1) / 0.46)
+            airborne = max(0.0, 0.2 * math.sin(summon * math.pi))
+            scale = 0.88 + self.ease_out_back(summon) * 0.38
+            crouch = max(0.0, 0.55 * (1 - summon))
+            stretch = self.clamp((progress - 0.18) / 0.24) * 0.55
+            croak = 0.24 + self.clamp((progress - 0.44) / 0.22) * (0.5 + pulse * 0.2)
+            heroic_glow = 0.34 + pulse * 0.4
+            eye_focus = (
+                (0.0, -0.2)
+                if progress <= 0.58
+                else (math.sin(progress * 8) * 0.08, -0.34)
+            )
+            shake_x = math.sin(progress * 70) * 6 if progress > 0.58 else 0
+            shake_y = math.cos(progress * 54) * 4 if progress > 0.58 else 0
+
+            self.draw_frog_character(
+                (
+                    center[0] + int(shake_x),
+                    center[1] - int(airborne * 44) + int(shake_y),
+                ),
+                scale=scale,
+                crouch=crouch,
+                stretch=stretch,
+                airborne=airborne,
+                croak=croak,
+                eye_focus=eye_focus,
+                heroic=True,
+                glow_strength=heroic_glow,
+            )
+
+            if progress > 0.26:
+                bolt_progress = self.clamp((progress - 0.26) / 0.48)
+                for bolt_index in range(4):
+                    base_angle = (
+                        -0.6
+                        + bolt_index * 0.4
+                        + math.sin(progress * 9 + bolt_index) * 0.08
+                    )
+                    start_pos = (center[0] + math.cos(base_angle) * 220, 0)
+                    mid_pos = (center[0] + math.cos(base_angle) * 110, center[1] - 60)
+                    end_pos = (center[0] + math.cos(base_angle) * 40, center[1] + 40)
+                    lightning_alpha = max(0, int(180 * (1 - bolt_progress * 0.7)))
+                    lightning_surface = pygame.Surface(
+                        self.display.screen.get_size(), pygame.SRCALPHA
+                    )
+                    pygame.draw.lines(
+                        lightning_surface,
+                        (170, 255, 220, lightning_alpha),
+                        False,
+                        [start_pos, mid_pos, end_pos],
+                        3,
+                    )
+                    self.display.screen.blit(lightning_surface, (0, 0))
+
+            portal_progress = self.clamp((progress - 0.08) / 0.5)
+            self.draw_impact_cloud(
+                (center[0], lily_center[1] - 8),
+                portal_progress,
+                color=(120, 255, 210),
+                puff_count=9,
+                spread=112,
+                alpha=74,
+                y_scale=0.46,
+            )
+            self.draw_shockwave(
+                (center[0], lily_center[1] - 8),
+                portal_progress,
+                (120, 255, 210),
+                start_radius=48,
+                end_radius=260,
+                width=6,
+                y_scale=0.5,
+                alpha=135,
+            )
+
+            self.draw_radial_burst(
+                center,
+                min(1.0, progress * 1.08),
+                (110, 255, 190),
+                particle_count=22,
+                distance=220,
+                size=10,
+                rotation=progress * 3.2,
+            )
+            self.draw_sticker_burst(
+                center,
+                min(1.0, progress * 1.08),
+                [(110, 255, 190), WHITE, YELLOW],
+                count=9,
+                distance=136,
+                size=16,
+                twist=0.15,
+            )
+
+            if progress > 0.5:
+                title_progress = self.clamp((progress - 0.5) / 0.24)
+                title_y = self.lerp(
+                    center[1] + 214, center[1] + 182, self.ease_out_back(title_progress)
+                )
+                footer_rect = pygame.Rect(center[0] - 210, int(title_y - 24), 420, 74)
+                self.display.ui.draw_panel_shadow(
+                    footer_rect,
+                    alpha=92,
+                    inflate=18,
+                    offset=(0, 12),
+                    border_radius=22,
+                )
+                footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(
+                    footer_surface,
+                    (8, 24, 44, 208),
+                    footer_surface.get_rect(),
+                    border_radius=22,
+                )
+                pygame.draw.rect(
+                    footer_surface,
+                    (255, 255, 255, 14),
+                    (12, 10, footer_rect.width - 24, 22),
+                    border_radius=12,
+                )
+                self.display.screen.blit(footer_surface, footer_rect.topleft)
+                self.display.ui.draw_panel_grid(
+                    footer_rect.inflate(-16, -14),
+                    phase + 0.4,
+                    color=(90, 180, 255),
+                    alpha=9,
+                    step=52,
+                )
+                self.display.ui.draw_chrome_rect(footer_rect, GOLD_COLORS, 22, 4)
+                self.display.ui.draw_marquee_lights(
+                    footer_rect,
+                    phase + 0.3,
+                    (255, 220, 126),
+                    count=14,
+                    radius=3,
+                )
+                self.display.ui.draw_text_with_shadow(
+                    "ROULETTE",
+                    self.display.font_large,
+                    YELLOW,
+                    BLACK,
+                    (footer_rect.centerx, footer_rect.top + 24),
+                    shadow_offset=(4, 4),
+                    center=True,
+                )
+                self.display.ui.draw_text_with_shadow(
+                    "Le boss entre en scene",
+                    self.display.font_small,
+                    WHITE,
+                    BLACK,
+                    (footer_rect.centerx, footer_rect.bottom - 18),
+                    center=True,
+                )
+                self.draw_comic_caption(
+                    "MEGA CROAK!",
+                    (center[0] + 190, center[1] - 130),
+                    title_progress,
+                    fill_color=(212, 255, 176),
+                    outline_color=(66, 142, 88),
+                    wobble=11.0,
+                )
+            self.draw_reaction_signs(progress, ["BOSS!", "CROAK!", "RUN!"])
+
+        self.animate_scene(1.9, render, background=backdrop)
+        frog_sound = self.display.resources.get("frog_sound")
+        if frog_sound is not None:
+            frog_sound.stop()
+        return self.animation_roulette()
+
+    def animation_roulette(self):
+        backdrop = self.display.screen.copy()
+        center = (self.display.screen_width // 2, self.display.screen_height // 2)
+        cues_triggered = set()
+
+        def render(progress):
+            phase = time.monotonic()
+            self.trigger_cue(
+                cues_triggered,
+                "roulette-rise",
+                0.22,
+                progress,
+                "applause",
+                volume=0.24,
+                fade_ms=80,
+            )
+            pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 4)
+            self.draw_overlay((4, 10, 28), 128)
+            self.display.ui.draw_spotlight_canopy(
+                phase, intensity=0.92, tint=(255, 224, 164)
+            )
+            self.display.ui.draw_stage_floor(
+                phase, horizon_ratio=0.79, tint=(120, 214, 255), alpha=22
+            )
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=(255, 220, 126),
+                secondary_color=(120, 214, 255),
+            )
+            self.display.ui.draw_scene_badges("ROULETTE", "SHOWTIME", phase)
+            self.draw_star_field(
+                progress, density=30, color=(255, 244, 186), drift=14, alpha=118
+            )
+            self.draw_party_ribbons(progress, alpha=28, speed=0.42)
+            self.draw_light_beam(center, progress, YELLOW, width=320, alpha=54)
+            self.draw_glow_circle(
+                center, 98 + pulse * 18, YELLOW, glow_radius=70, alpha=138
+            )
+
+            frame_rect = pygame.Rect(center[0] - 272, center[1] - 54, 544, 132)
+            self.display.ui.draw_panel_shadow(
+                frame_rect,
+                alpha=114,
+                inflate=24,
+                offset=(0, 14),
+                border_radius=30,
+            )
+            frame_surface = pygame.Surface(frame_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                frame_surface,
+                (8, 24, 46, 220),
+                frame_surface.get_rect(),
+                border_radius=30,
+            )
+            pygame.draw.rect(
+                frame_surface,
+                (255, 255, 255, 14),
+                (14, 12, frame_rect.width - 28, 34),
+                border_radius=18,
+            )
+            self.display.screen.blit(frame_surface, frame_rect.topleft)
+            self.display.ui.draw_panel_grid(
+                frame_rect.inflate(-18, -16),
+                phase,
+                color=(120, 214, 255),
+                alpha=10,
+                step=60,
+            )
+            self.display.ui.draw_chrome_rect(frame_rect, GOLD_COLORS, 28, 4)
+            self.display.ui.draw_marquee_lights(
+                frame_rect,
+                phase,
+                (255, 220, 126),
+                count=18,
+            )
+            self.display.ui.draw_badge(
+                "JACKPOT",
+                (frame_rect.centerx - 54, frame_rect.top - 12, 108, 24),
+                (255, 214, 82, 224),
+                text_color=BLACK,
+                border_color=(255, 255, 255, 90),
+            )
+            self.display.ui.draw_text_with_shadow(
+                "ROULETTE",
+                self.display.font_title_small,
+                (255, 248, 222),
+                BLACK,
+                (frame_rect.centerx, frame_rect.top + 36),
+                center=True,
+            )
+            self.display.ui.draw_text_with_shadow(
+                "Le destin choisit la valeur finale",
+                self.display.font_small,
+                YELLOW,
+                BLACK,
+                (frame_rect.centerx, frame_rect.bottom - 24),
+                center=True,
+            )
+            self.draw_sticker_burst(
+                frame_rect.midtop,
+                min(1.0, progress * 1.18),
+                [YELLOW, WHITE, (120, 214, 255)],
+                count=8,
+                distance=96,
+                size=13,
+                twist=0.12,
+            )
+
+        self.animate_scene(0.9, render, background=backdrop)
+        roulette_animation = RouletteAnimation(
+            self.display.screen,
+            self.display.resources["roulette_sound"],
+            self.display.resources["roulette_end_sound"],
+            self.display.resources["roulette_image"],
+            self.display.resources["roulette_pointer"],
+            self.display.ui,
+        )
+        return roulette_animation.run()
