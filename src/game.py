@@ -23,6 +23,8 @@ from src.game_logic import GameLogic
 
 
 class Game:
+    MAX_PIN_EVENTS_PER_FRAME = 8
+
     def __init__(self, debug=False, keyboard_mode=False):
         # Initialize only required subsystems — pygame.init() scans joysticks
         # and takes 20-25 seconds on Raspberry Pi when no joystick is connected.
@@ -112,9 +114,13 @@ class Game:
                     if action is not None:
                         return action
 
-        pin = self.pin.read_pin_states(mode)
-        if pin is not None:
-            return self.handle_event(mode, pin)
+        for _ in range(self.MAX_PIN_EVENTS_PER_FRAME):
+            pin = self.pin.read_pin_states(mode)
+            if pin is None:
+                break
+            action = self.handle_event(mode, pin)
+            if action is not None:
+                return action
 
         return None
 
@@ -152,7 +158,8 @@ class Game:
         elif pin == PIN_BENTER:
             return "open_end_menu"
         elif pin in self.gamelogic.pin_to_hole:
-            self.gamelogic.goal(pin, self.display)
+            score_result = self.gamelogic.goal(pin, self.display)
+            self.pin.record_game_score_event(score_result)
 
         return None
 
@@ -160,7 +167,7 @@ class Game:
         if pin == PIN_BENTER:
             return "close_sensor_analysis"
         if pin == PIN_BNEXT:
-            self.sensor_analysis_page = (self.sensor_analysis_page + 1) % 3
+            self.sensor_analysis_page = (self.sensor_analysis_page + 1) % 4
             return None
         if pin == PIN_RIGHT:
             self.pin.reset_diagnostics()

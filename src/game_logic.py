@@ -716,13 +716,21 @@ class GameLogic:
         target = self.get_order_target(progress=progress)
         if target is None:
             self.set_status_message("Séquence terminée !", duration=1.5)
-            return
+            return self._build_goal_result(
+                "blocked", pin, hole=hole, reason="sequence_done"
+            )
 
         expected_type, expected_text, expected_label = target
         if hole.type != expected_type or hole.text != expected_text:
             self.set_status_message(f"Cible actuelle : {expected_label}", duration=1.7)
             self.draw_game = True
-            return
+            return self._build_goal_result(
+                "blocked",
+                pin,
+                hole=hole,
+                reason="wrong_target",
+                detail=f"Cible attendue: {expected_label}",
+            )
 
         self.run_hole_animation(hole, pin, display)
         self.register_order_hit()
@@ -732,12 +740,45 @@ class GameLogic:
         if progress >= len(ORDER_TARGET_SEQUENCE):
             self.set_status_message("Séquence complète !", duration=2.0)
             self.resolve_sequence_win(display, group_key)
-            return
+            return self._build_goal_result(
+                "scored",
+                pin,
+                hole=hole,
+                points=1,
+                detail="Séquence complète",
+            )
 
         self.set_status_message(
             f"Validé : {expected_label} | Prochaine cible : {self.get_order_target_label(progress=progress)}",
             duration=2.2,
         )
+        return self._build_goal_result(
+            "scored",
+            pin,
+            hole=hole,
+            points=1,
+            detail=f"Prochaine cible: {self.get_order_target_label(progress=progress)}",
+        )
+
+    def _build_goal_result(
+        self, status, pin, hole=None, points=0, reason=None, detail=None
+    ):
+        player_name = (
+            str(self.current_player) if self.current_player is not None else "-"
+        )
+        return {
+            "status": status,
+            "pin": pin,
+            "label": None if hole is None else hole.text,
+            "hole_type": None if hole is None else hole.type,
+            "player": player_name,
+            "points": points,
+            "score_after": (
+                None if self.current_player is None else self.current_player.score
+            ),
+            "reason": reason,
+            "detail": detail,
+        }
 
     def apply_points_to_current_player(self, points, win_threshold):
         if self.current_player is None:
@@ -792,7 +833,7 @@ class GameLogic:
 
     def goal(self, pin, display):
         if self.current_player is None:
-            return
+            return self._build_goal_result("ignored", pin, reason="no_player")
 
         if self.is_time_attack_challenge() and not self.can_score_in_time_attack():
             self.set_status_message(
@@ -800,13 +841,12 @@ class GameLogic:
                 duration=1.6,
             )
             self.draw_game = True
-            return
+            return self._build_goal_result("blocked", pin, reason="timer_not_started")
 
         hole = self.get_hole_for_pin(pin)
         if hole is not None:
             if self.is_order_challenge():
-                self.handle_order_goal(hole, pin, display)
-                return
+                return self.handle_order_goal(hole, pin, display)
 
             triggered_little_frog_roulette = self.should_trigger_little_frog_roulette(
                 hole
@@ -874,8 +914,14 @@ class GameLogic:
                 if bonus_messages:
                     status_message = " | ".join([status_message] + bonus_messages)
                 self.set_status_message(status_message)
-                return
+                return self._build_goal_result(
+                    "scored", pin, hole=hole, points=points, detail=status_message
+                )
 
             self.handle_standard_goal_result(display, points, status_message)
+            return self._build_goal_result(
+                "scored", pin, hole=hole, points=points, detail=status_message
+            )
         else:
             logging.warning(f"No matching hole found for pin {pin}.")
+            return self._build_goal_result("ignored", pin, reason="no_hole")

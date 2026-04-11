@@ -1,12 +1,14 @@
 import logging
 import platform
 import pygame
+from typing import Any, Dict
 
+smbus2_module = None
 if platform.system() != "Windows":
-    from smbus2 import SMBus
+    import smbus2 as smbus2_module
 else:
     # Mock classes for Windows development
-    class SMBus:
+    class _SMBusRuntime:
         def __init__(self, bus):
             print(f"Mock SMBus initialized on bus {bus}")
 
@@ -45,10 +47,13 @@ I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
 class PIN:
     def __init__(self, screen, use_i2c=True):
         self.use_i2c = use_i2c
-        self.bus = None
+        self.bus: Any = None
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
-        self.COOLDOWN_MS_PIN = 1200  # Cooldown period in milliseconds
-        self.COOLDOWN_MS_Button = 500  # Cooldown period in milliseconds
+        self.default_sensor_cooldown_ms = 500
+        self.sensor_cooldown_overrides_ms = {
+            4: 140,
+        }
+        self.button_cooldown_ms = 320
         self.pin_hole = set(
             PIN_H20
             + PIN_H25
@@ -114,7 +119,7 @@ class PIN:
             33,
         }
         self.pull_mode_reference = {
-            "firmware": "PULLDOWN interne",
+            "firmware": "Mixte: GPIO4 pulldown, autres GPIO capteurs pullup",
             "schematic": "PULLDOWN interne",
         }
         self.wiring_notes = [
@@ -122,6 +127,8 @@ class PIN:
             "Recepteur IR: collecteur long, emetteur court.",
             "R1/R2: 100 Ohm en 3.3V d'apres le schema.",
             "Le schema recommande un pull-down interne sur les GPIO.",
+            "20 A (GPIO4) utilise actuellement INPUT_PULLDOWN + RISING car ce capteur est different.",
+            "Les autres capteurs valident actuellement les impulsions en INPUT_PULLUP + CHANGE.",
             "Les boutons firmware sont sur GPIO 19, 0 et 12 en INPUT_PULLUP.",
             "GPIO 21 et 22 restent reserves au bus I2C cote ESP32.",
         ]
@@ -136,15 +143,20 @@ class PIN:
             logging.info("Keyboard/test mode enabled: skipping I2C initialization.")
             return
 
-        self.bus = SMBus(I2C_BUS)  # Initialize the I2C bus
+        self.bus = (
+            smbus2_module.SMBus(I2C_BUS)
+            if smbus2_module is not None
+            else _SMBusRuntime(I2C_BUS)
+        )  # Initialize the I2C bus
         logging.info("Initializing communication with the I2C slave...")
 
         self.display_waiting_popup(screen)
+        bus = self.bus
 
         while True:
             try:
                 # Attempt to read back a response
-                raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
+                raw_data = bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
                 response = list(raw_data)
 
                 if response:  # If a response is received, break the loop
@@ -173,11 +185,12 @@ class PIN:
         pygame.display.flip()
 
     def read_pin_states(self, game_action):
-        if not self.use_i2c or self.bus is None:
+        bus = self.bus
+        if not self.use_i2c or bus is None:
             return None
         try:
             # Request data from the ESP32, assuming 2 bytes are needed
-            raw_data = self.bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
+            raw_data = bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
             # Parse the received data into pin states
             pin = self._parse_i2c_data(raw_data, game_action)
 
@@ -199,13 +212,14 @@ class PIN:
         pin_number = data[0]
         state = "LOW" if data[1] == 0 else "HIGH"
         self.diagnostics_packets += 1
-        self.diagnostics_last_packet = {
+        packet = {
             "raw": list(data),
             "pin": None if pin_number == 0xFF else int(pin_number),
             "state": state,
             "timestamp": time.monotonic(),
             "source": "i2c",
         }
+        self._record_packet(packet)
         if pin_number == 0xFF:
             return None  # Neutral signal, nothing to process
 
@@ -231,10 +245,7 @@ class PIN:
         current_time = time.monotonic() * 1000  # monotonic ms — no wall-clock jumps
         last_time = self.last_pin_time.get(pin, 0)
 
-        if pin in self.pin_hole:
-            cooldown = self.COOLDOWN_MS_PIN
-        else:
-            cooldown = self.COOLDOWN_MS_Button
+        cooldown = self._get_pin_cooldown_ms(pin)
         # Apply cooldown
         if current_time - last_time < cooldown:
             logging.debug(f"Pin {pin} ignored due to cooldown.")
@@ -254,6 +265,13 @@ class PIN:
         self.last_pin_time[pin] = current_time
         self._record_diagnostic_event(pin, game_action, accepted=True)
         return pin
+
+    def _get_pin_cooldown_ms(self, pin):
+        if pin in self.pin_hole:
+            return self.sensor_cooldown_overrides_ms.get(
+                pin, self.default_sensor_cooldown_ms
+            )
+        return self.button_cooldown_ms
 
     def _record_diagnostic_event(self, pin, game_action, accepted, reason=None):
         now = time.monotonic()
@@ -290,16 +308,40 @@ class PIN:
         self.diagnostics_history.insert(0, event)
         self.diagnostics_history = self.diagnostics_history[:18]
 
+    def _record_packet(self, packet):
+        self.diagnostics_last_bus_packet = packet
+        self.diagnostics_last_bus_heartbeat = packet["timestamp"]
+        if packet.get("pin") is None and packet.get("state") != "ERROR":
+            self.diagnostics_idle_packet_count += 1
+            return
+
+        self.diagnostics_last_packet = packet
+        self.diagnostics_packet_history.insert(0, packet)
+        self.diagnostics_packet_history = self.diagnostics_packet_history[:24]
+
+    def record_game_score_event(self, result):
+        if not result:
+            return
+        event = {
+            **result,
+            "timestamp": time.monotonic(),
+        }
+        self.diagnostics_last_score_event = event
+        self.diagnostics_score_history.insert(0, event)
+        self.diagnostics_score_history = self.diagnostics_score_history[:12]
+
     def record_manual_pin(self, pin, game_action="sensor_analysis"):
         pin = int(pin)
         self.diagnostics_packets += 1
-        self.diagnostics_last_packet = {
-            "raw": [pin, 1],
-            "pin": pin,
-            "state": "HIGH",
-            "timestamp": time.monotonic(),
-            "source": "manual",
-        }
+        self._record_packet(
+            {
+                "raw": [pin, 1],
+                "pin": pin,
+                "state": "HIGH",
+                "timestamp": time.monotonic(),
+                "source": "manual",
+            }
+        )
         self._record_diagnostic_event(pin, game_action, accepted=True)
 
     def reset_diagnostics(self):
@@ -311,20 +353,30 @@ class PIN:
         self.diagnostics_suppressed = {pin: 0 for pin in self.pin_labels}
         self.diagnostics_last_activity = {pin: 0.0 for pin in self.pin_labels}
         self.diagnostics_last_accept = {pin: 0.0 for pin in self.pin_labels}
-        self.diagnostics_last_accept_interval = {pin: None for pin in self.pin_labels}
+        self.diagnostics_last_accept_interval: Dict[int, float | None] = {
+            pin: None for pin in self.pin_labels
+        }
         self.diagnostics_accept_interval_sum = {pin: 0.0 for pin in self.pin_labels}
         self.diagnostics_accept_interval_count = {pin: 0 for pin in self.pin_labels}
-        self.diagnostics_accept_min_interval = {pin: None for pin in self.pin_labels}
+        self.diagnostics_accept_min_interval: Dict[int, float | None] = {
+            pin: None for pin in self.pin_labels
+        }
         self.diagnostics_burst_count = {pin: 0 for pin in self.pin_labels}
+        self.diagnostics_idle_packet_count = 0
         self.diagnostics_history = []
+        self.diagnostics_packet_history = []
         self.diagnostics_last_event = None
-        self.diagnostics_last_packet = {
+        self.diagnostics_score_history = []
+        self.diagnostics_last_score_event = None
+        self.diagnostics_last_packet = None
+        self.diagnostics_last_bus_packet = {
             "raw": [0xFF, 0],
             "pin": None,
             "state": "IDLE",
             "timestamp": started,
             "source": "system",
         }
+        self.diagnostics_last_bus_heartbeat = started
 
     def get_diagnostics_snapshot(self):
         now = time.monotonic()
@@ -348,11 +400,11 @@ class PIN:
                 for pin in pins
                 if self.diagnostics_last_accept.get(pin, 0.0) > 0
             ]
-            interval_values = [
-                self.diagnostics_last_accept_interval.get(pin)
-                for pin in pins
-                if self.diagnostics_last_accept_interval.get(pin) is not None
-            ]
+            interval_values: list[float] = []
+            for pin in pins:
+                interval = self.diagnostics_last_accept_interval.get(pin)
+                if interval is not None:
+                    interval_values.append(interval)
             burst_count = sum(self.diagnostics_burst_count.get(pin, 0) for pin in pins)
             active_pins = sum(1 for pin in pins if accepted_by_pin[pin] > 0)
             tested_pins = sum(
@@ -451,13 +503,45 @@ class PIN:
                 }
             )
 
-        last_packet = dict(self.diagnostics_last_packet)
-        last_packet["age"] = now - last_packet["timestamp"]
+        packet_history = []
+        for packet in self.diagnostics_packet_history:
+            packet_history.append(
+                {
+                    **packet,
+                    "age": now - packet["timestamp"],
+                }
+            )
+
+        score_history = []
+        for event in self.diagnostics_score_history:
+            score_history.append(
+                {
+                    **event,
+                    "age": now - event["timestamp"],
+                }
+            )
+
+        last_packet = None
+        if self.diagnostics_last_packet is not None:
+            last_packet = dict(self.diagnostics_last_packet)
+            last_packet["age"] = now - last_packet["timestamp"]
+
+        last_bus_packet = dict(self.diagnostics_last_bus_packet)
+        last_bus_packet["age"] = now - last_bus_packet["timestamp"]
+        bus_heartbeat_age = now - self.diagnostics_last_bus_heartbeat
+        bus_alive = self.use_i2c and self.bus is not None and bus_heartbeat_age < 0.6
 
         last_event = None
         if self.diagnostics_last_event is not None:
             last_event = dict(self.diagnostics_last_event)
             last_event["age"] = now - self.diagnostics_last_event["timestamp"]
+
+        last_score_event = None
+        if self.diagnostics_last_score_event is not None:
+            last_score_event = dict(self.diagnostics_last_score_event)
+            last_score_event["age"] = (
+                now - self.diagnostics_last_score_event["timestamp"]
+            )
 
         alerts = []
         actions = []
@@ -579,17 +663,30 @@ class PIN:
         return {
             "connected": self.use_i2c and self.bus is not None,
             "transport": (
-                "I2C LIVE" if self.use_i2c and self.bus is not None else "MODE TEST"
+                "I2C ACTIF"
+                if bus_alive
+                else (
+                    "I2C RELENTI"
+                    if self.use_i2c and self.bus is not None
+                    else "MODE TEST"
+                )
             ),
             "uptime": now - self.diagnostics_started,
             "packets": self.diagnostics_packets,
             "errors": self.diagnostics_errors,
+            "idle_packets": self.diagnostics_idle_packet_count,
             "accepted_total": sum(self.diagnostics_counts.values()),
             "suppressed_total": sum(self.diagnostics_suppressed.values()),
             "groups": groups,
             "history": history,
+            "packet_history": packet_history,
+            "score_history": score_history,
             "last_packet": last_packet,
+            "last_bus_packet": last_bus_packet,
+            "bus_alive": bus_alive,
+            "bus_heartbeat_age": bus_heartbeat_age,
             "last_event": last_event,
+            "last_score_event": last_score_event,
             "use_i2c": self.use_i2c,
             "analysis": {
                 "alerts": alerts[:10],

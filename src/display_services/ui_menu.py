@@ -72,14 +72,15 @@ class UIMenuMixin:
     def draw_sensor_analysis(self, snapshot, page_index=0):
         phase = time.monotonic()
         page_labels = [
-            "PAGE 1/3  OVERVIEW",
-            "PAGE 2/3  TIMELINE",
-            "PAGE 3/3  AUDIT & FIX",
+            "PAGE 1/4  OVERVIEW",
+            "PAGE 2/4  TIMELINE",
+            "PAGE 3/4  RAW I2C",
+            "PAGE 4/4  AUDIT & FIX",
         ]
         mode_label = page_labels[page_index % len(page_labels)]
         subtitle = (
             "ESP32 en direct"
-            if snapshot["connected"]
+            if snapshot["bus_alive"]
             else "Mode test ou bus I2C inactif"
         )
         self.display.screen.blit(self.display.resources["menu_background"], (0, 0))
@@ -99,6 +100,8 @@ class UIMenuMixin:
             self._draw_sensor_overview(snapshot, phase)
         elif page_index == 1:
             self._draw_sensor_timeline(snapshot, phase)
+        elif page_index == 2:
+            self._draw_sensor_raw_i2c(snapshot, phase)
         else:
             self._draw_sensor_audit(snapshot, phase)
         self.draw_footer_prompt(
@@ -247,7 +250,11 @@ class UIMenuMixin:
         )
         self._draw_snapshot_line(
             "Etat bus",
-            "Lecture active" if snapshot["connected"] else "I2C absent ou test mode",
+            (
+                "Heartbeat actif"
+                if snapshot["bus_alive"]
+                else "I2C absent, ralenti ou test mode"
+            ),
             info_x,
             info_y + 126,
         )
@@ -273,7 +280,7 @@ class UIMenuMixin:
         )
         instructions = [
             "Declenche chaque capteur et observe son etat.",
-            "NEXT ouvre timeline puis audit/fix.",
+            "NEXT ouvre timeline, raw I2C puis audit/fix.",
             "RIGHT remet les compteurs a zero.",
             "ENTER revient au menu principal.",
         ]
@@ -409,18 +416,13 @@ class UIMenuMixin:
         self.display.screen.blit(packet_surface, packet_rect.topleft)
         self.draw_chrome_rect(packet_rect, CHROME_COLORS, 16, 2)
         self.draw_badge(
-            "DERNIER PAQUET",
+            "SCORE JEU",
             pygame.Rect(packet_rect.x + 12, packet_rect.y - 10, 132, 22),
             (118, 242, 214, 220),
             text_color=BLACK,
         )
-        packet = snapshot["last_packet"]
-        packet_lines = [
-            self._format_packet_text(packet),
-            f"Source {packet.get('source', 'system')}",
-            f"Age {packet.get('age', 0.0):.2f}s",
-        ]
-        for index, line in enumerate(packet_lines):
+        score_lines = self._format_score_history_lines(snapshot["score_history"])
+        for index, line in enumerate(score_lines):
             self.draw_text_with_shadow(
                 line,
                 self.display.font_tiny,
@@ -428,6 +430,169 @@ class UIMenuMixin:
                 BLACK,
                 (packet_rect.x + 14, packet_rect.y + 20 + index * 22),
             )
+
+    def _draw_sensor_raw_i2c(self, snapshot, phase):
+        stream_rect = pygame.Rect(44, 226, 572, 474)
+        detail_rect = pygame.Rect(636, 226, 344, 474)
+        self._draw_data_panel(stream_rect, phase, "TRAME BRUTE I2C")
+        self._draw_data_panel(detail_rect, phase, "ETAT DU BUS")
+
+        rows = snapshot["packet_history"][:11]
+        start_y = stream_rect.y + 56
+        for index, packet in enumerate(rows):
+            row_rect = pygame.Rect(
+                stream_rect.x + 14, start_y + index * 32, stream_rect.width - 28, 26
+            )
+            fill = (
+                (44, 210, 188, 214)
+                if packet.get("state") == "HIGH"
+                else (160, 76, 58, 214)
+            )
+            row_surface = pygame.Surface(row_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(
+                row_surface, (8, 22, 42, 202), row_surface.get_rect(), border_radius=12
+            )
+            pygame.draw.rect(
+                row_surface,
+                (*fill[:3], 38),
+                (0, 0, row_rect.width, 26),
+                border_radius=12,
+            )
+            self.display.screen.blit(row_surface, row_rect.topleft)
+            self.draw_chrome_rect(row_rect, CHROME_COLORS, 12, 2)
+            badge_text = (
+                "ERR" if packet.get("state") == "ERROR" else packet.get("state", "UNK")
+            )
+            self.draw_badge(
+                badge_text,
+                pygame.Rect(row_rect.x + 10, row_rect.y + 2, 72, 22),
+                fill,
+                text_color=BLACK if badge_text == "HIGH" else WHITE,
+            )
+            raw_text = f"raw {packet.get('raw', [])}"
+            if packet.get("pin") is not None:
+                raw_text += f"  |  pin {packet['pin']}"
+            self.draw_text_with_shadow(
+                raw_text,
+                self.display.font_tiny,
+                WHITE,
+                BLACK,
+                (row_rect.x + 94, row_rect.y + 13),
+            )
+            self.draw_text_with_shadow(
+                f"-{packet.get('age', 0.0):.2f}s",
+                self.display.font_tiny,
+                YELLOW,
+                BLACK,
+                (row_rect.right - 46, row_rect.y + 13),
+                center=True,
+            )
+
+        if not rows:
+            self.draw_text_with_shadow(
+                (
+                    "Bus actif, aucun message capteur pour le moment."
+                    if snapshot["bus_alive"]
+                    else "Aucune trame capteur recue pour le moment."
+                ),
+                self.display.font_small,
+                WHITE,
+                BLACK,
+                stream_rect.center,
+                center=True,
+            )
+
+        detail_x = detail_rect.x + 18
+        detail_y = detail_rect.y + 62
+        last_packet = snapshot["last_packet"]
+        last_bus_packet = snapshot["last_bus_packet"]
+        event_reads = len(snapshot["packet_history"])
+        self._draw_snapshot_line(
+            "Etat bus",
+            "Actif" if snapshot["bus_alive"] else "Silencieux / timeout",
+            detail_x,
+            detail_y,
+        )
+        self._draw_snapshot_line(
+            "Dernier heartbeat",
+            f"{snapshot['bus_heartbeat_age']:.2f}s",
+            detail_x,
+            detail_y + 62,
+        )
+        self._draw_snapshot_line(
+            "Dernier capteur",
+            self._format_packet_text(last_packet),
+            detail_x,
+            detail_y + 124,
+        )
+        self._draw_snapshot_line(
+            "Dernier score jeu",
+            self._format_score_event_text(snapshot["last_score_event"]),
+            detail_x,
+            detail_y + 186,
+        )
+        self._draw_snapshot_line(
+            "Flux recent",
+            f"{event_reads} messages capteur  |  {snapshot['idle_packets']} heartbeats",
+            detail_x,
+            detail_y + 248,
+        )
+        self._draw_snapshot_line(
+            "Derniere lecture bus",
+            str(last_bus_packet.get("raw", [])),
+            detail_x,
+            detail_y + 310,
+        )
+
+        hint_rect = pygame.Rect(detail_rect.x + 16, detail_rect.bottom - 126, 312, 92)
+        hint_surface = pygame.Surface(hint_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            hint_surface, (8, 22, 42, 208), hint_surface.get_rect(), border_radius=18
+        )
+        self.display.screen.blit(hint_surface, hint_rect.topleft)
+        self.draw_chrome_rect(hint_rect, CHROME_COLORS, 18, 2)
+        self.draw_badge(
+            "AIDE RAW I2C",
+            pygame.Rect(hint_rect.x + 12, hint_rect.y - 10, 132, 22),
+            (118, 242, 214, 220),
+            text_color=BLACK,
+        )
+        hints = [
+            "Les lectures [255, 0] sont cachees et servent de heartbeat bus.",
+            "Seuls les messages capteur [pin, 1] restent affiches ici.",
+            "Dernier score jeu montre si le jeu a vraiment accepte l'impact.",
+            "Message capteur sans score: regarder cooldown, mode ou logique jeu.",
+        ]
+        for index, line in enumerate(hints):
+            self.draw_text_with_shadow(
+                line,
+                self.display.font_tiny,
+                WHITE,
+                BLACK,
+                (hint_rect.x + 14, hint_rect.y + 18 + index * 20),
+            )
+
+    def _format_score_history_lines(self, score_history):
+        if not score_history:
+            return [
+                "Aucun score jeu recu.",
+                "Declenche un capteur en partie.",
+                "Le verdict du jeu apparait ici.",
+            ]
+        lines = []
+        for event in score_history[:3]:
+            lines.append(self._format_score_event_text(event))
+        return lines
+
+    def _format_score_event_text(self, event):
+        if event is None:
+            return "Aucun verdict score pour le moment"
+        if event.get("status") == "scored":
+            label = event.get("label") or f"pin {event.get('pin', '?')}"
+            return f"OK {label}  |  +{event.get('points', 0)}  |  {event.get('player', '-')}"
+        reason = event.get("reason") or event.get("status") or "inconnu"
+        label = event.get("label") or f"pin {event.get('pin', '?')}"
+        return f"{reason.upper()}  |  {label}  |  {event.get('player', '-')}"
 
     def _draw_sensor_audit(self, snapshot, phase):
         alerts_rect = pygame.Rect(44, 226, 470, 474)
