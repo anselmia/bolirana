@@ -21,7 +21,12 @@ class EffectsBossMixin:
                 "large_frog.mp4",
             )
         )
-        if self.play_video_clip(video_path):
+        if self.play_video_clip(
+            video_path,
+            sound_name="stadium_celebration",
+            sound_volume=0.8,
+            sound_fade_ms=50,
+        ):
             return self.animation_roulette()
         return self._animation_large_frog_procedural()
 
@@ -32,7 +37,7 @@ class EffectsBossMixin:
         cues_triggered = set()
 
         self.play_sound_cue(
-            "frog_sound",
+            "stadium_celebration",
             volume=0.8,
             fade_ms=50,
             maxtime=self.LARGE_FROG_SOUND_MAXTIME_MS,

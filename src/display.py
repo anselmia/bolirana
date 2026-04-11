@@ -140,6 +140,7 @@ class Display:
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
             self.resources["frog_sound"] = self.load_sound("sounds", "frog.mp3")
+            self.resources["stadium_celebration"] = self.load_sound("sounds", "stadium_celebration.mp3")
             self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
             self.resources["coin_sound"] = self.create_coin_sound()
             self.resources["warning_sirens"] = [

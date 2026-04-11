@@ -446,7 +446,12 @@ class EffectsSpecialMixin:
                 "little_frog.mp4",
             )
         )
-        if self.play_video_clip(video_path):
+        if self.play_video_clip(
+            video_path,
+            sound_name="stadium_celebration",
+            sound_volume=0.8,
+            sound_fade_ms=50,
+        ):
             return
         self._animation_little_frog_procedural()
 
@@ -461,7 +466,7 @@ class EffectsSpecialMixin:
         cues_triggered = set()
 
         self.play_sound_cue(
-            "frog_sound",
+            "stadium_celebration",
             volume=0.72,
             fade_ms=50,
             maxtime=self.LITTLE_FROG_SOUND_MAXTIME_MS,

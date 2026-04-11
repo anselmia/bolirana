@@ -82,7 +82,14 @@ class EffectsCoreMixin:
 
             self.display.clock.tick(fps)
 
-    def play_video_clip(self, video_path, fill_color=(0, 0, 0)):
+    def play_video_clip(
+        self,
+        video_path,
+        fill_color=(0, 0, 0),
+        sound_name=None,
+        sound_volume=1.0,
+        sound_fade_ms=0,
+    ):
         if cv2 is None or not os.path.exists(video_path):
             return False
 
@@ -91,11 +98,21 @@ class EffectsCoreMixin:
             capture.release()
             return False
 
+        sound_channel = None
         source_fps = capture.get(cv2.CAP_PROP_FPS)
         target_fps = 30 if not source_fps or source_fps <= 1 else int(round(source_fps))
         target_fps = max(12, min(60, target_fps))
 
         try:
+            if sound_name is not None:
+                sound_channel = self.play_sound_cue(
+                    sound_name,
+                    volume=sound_volume,
+                    fade_ms=sound_fade_ms,
+                    stop_existing=True,
+                    loops=-1,
+                )
+
             while True:
                 if not self.handle_animation_events():
                     return False
@@ -134,6 +151,8 @@ class EffectsCoreMixin:
                 pygame.display.flip()
                 self.display.clock.tick(target_fps)
         finally:
+            if sound_channel is not None:
+                sound_channel.stop()
             capture.release()
 
         return True
@@ -145,6 +164,7 @@ class EffectsCoreMixin:
         fade_ms=0,
         maxtime=0,
         stop_existing=False,
+        loops=0,
     ):
         sound = self.display.resources.get(sound_name)
         if sound is None:
@@ -155,7 +175,7 @@ class EffectsCoreMixin:
         if channel is None:
             return
         channel.set_volume(volume)
-        channel.play(sound, maxtime=maxtime, fade_ms=fade_ms)
+        channel.play(sound, loops=loops, maxtime=maxtime, fade_ms=fade_ms)
         return channel
 
     def trigger_cue(
