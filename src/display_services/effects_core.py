@@ -1,8 +1,14 @@
 # pyright: reportAttributeAccessIssue=false
 import math
+import os
 import time
 
 import pygame
+
+try:
+    import cv2
+except Exception:
+    cv2 = None
 
 
 class EffectsCoreMixin:
@@ -75,6 +81,62 @@ class EffectsCoreMixin:
                 return True
 
             self.display.clock.tick(fps)
+
+    def play_video_clip(self, video_path, fill_color=(0, 0, 0)):
+        if cv2 is None or not os.path.exists(video_path):
+            return False
+
+        capture = cv2.VideoCapture(video_path)
+        if not capture.isOpened():
+            capture.release()
+            return False
+
+        source_fps = capture.get(cv2.CAP_PROP_FPS)
+        target_fps = 30 if not source_fps or source_fps <= 1 else int(round(source_fps))
+        target_fps = max(12, min(60, target_fps))
+
+        try:
+            while True:
+                if not self.handle_animation_events():
+                    return False
+
+                has_frame, frame = capture.read()
+                if not has_frame:
+                    break
+
+                frame_height, frame_width = frame.shape[:2]
+                if frame_width <= 0 or frame_height <= 0:
+                    continue
+
+                scale = min(
+                    self.display.screen_width / frame_width,
+                    self.display.screen_height / frame_height,
+                )
+                scaled_size = (
+                    max(1, int(frame_width * scale)),
+                    max(1, int(frame_height * scale)),
+                )
+                interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
+                resized = cv2.resize(frame, scaled_size, interpolation=interpolation)
+                rgb_frame = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+                frame_surface = pygame.image.frombuffer(
+                    rgb_frame.tobytes(), scaled_size, "RGB"
+                ).convert()
+
+                self.display.screen.fill(fill_color)
+                frame_rect = frame_surface.get_rect(
+                    center=(
+                        self.display.screen_width // 2,
+                        self.display.screen_height // 2,
+                    )
+                )
+                self.display.screen.blit(frame_surface, frame_rect)
+                pygame.display.flip()
+                self.display.clock.tick(target_fps)
+        finally:
+            capture.release()
+
+        return True
 
     def play_sound_cue(
         self,

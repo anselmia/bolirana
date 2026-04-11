@@ -84,7 +84,9 @@ class EffectsBossMixin:
                 self.display.screen.blit(
                     fog_surface,
                     (
-                        center[0] - fog_width // 2 + int(math.sin(phase * 0.5 + fog_index) * 26),
+                        center[0]
+                        - fog_width // 2
+                        + int(math.sin(phase * 0.5 + fog_index) * 26),
                         lily_center[1] + 20 - int(fog_phase * 112) + fog_index * 8,
                     ),
                 )
@@ -234,7 +236,10 @@ class EffectsBossMixin:
                 shimmer=shimmer,
             )
             self.draw_glow_circle(
-                (center[0] + int(shake_x), center[1] - int(airborne * 44) - 34 + int(shake_y)),
+                (
+                    center[0] + int(shake_x),
+                    center[1] - int(airborne * 44) - 34 + int(shake_y),
+                ),
                 44 + int(pulse * 8),
                 (210, 255, 234),
                 glow_radius=62,

@@ -1,5 +1,6 @@
 # pyright: reportAttributeAccessIssue=false
 import math
+import os
 import time
 
 import pygame
@@ -435,6 +436,21 @@ class EffectsSpecialMixin:
         self.animate_scene(1.72, render, background=backdrop)
 
     def animation_little_frog(self):
+        video_path = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "videos",
+                "little_frog.mp4",
+            )
+        )
+        if self.play_video_clip(video_path):
+            return
+        self._animation_little_frog_procedural()
+
+    def _animation_little_frog_procedural(self):
         backdrop = self.display.screen.copy()
         center = (
             self.display.screen_width // 2 - 10,
@@ -481,7 +497,9 @@ class EffectsSpecialMixin:
                 mist_phase = (progress * 0.82 + mist_index * 0.21) % 1.0
                 mist_width = 220 + mist_index * 44
                 mist_height = 58 + mist_index * 10
-                mist_surface = pygame.Surface((mist_width, mist_height), pygame.SRCALPHA)
+                mist_surface = pygame.Surface(
+                    (mist_width, mist_height), pygame.SRCALPHA
+                )
                 pygame.draw.ellipse(
                     mist_surface,
                     (126, 255, 210, max(0, int(28 * (1 - mist_phase * 0.82)))),
@@ -490,7 +508,9 @@ class EffectsSpecialMixin:
                 self.display.screen.blit(
                     mist_surface,
                     (
-                        center[0] - mist_width // 2 + int(math.sin(phase * 0.7 + mist_index) * 18),
+                        center[0]
+                        - mist_width // 2
+                        + int(math.sin(phase * 0.7 + mist_index) * 18),
                         center[1] + 96 - int(mist_phase * 76) + mist_index * 10,
                     ),
                 )

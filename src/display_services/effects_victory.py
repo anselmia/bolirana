@@ -52,9 +52,7 @@ class EffectsVictoryMixin:
         champion_score = sum(player.score for player in champion_group)
         champion_label = describe_group(champion_group)
         message = (
-            f"Victoire de {champion_label}"
-            if champion_group
-            else "Partie terminee"
+            f"Victoire de {champion_label}" if champion_group else "Partie terminee"
         )
 
         group_color_map = {
@@ -372,7 +370,11 @@ class EffectsVictoryMixin:
                         (row_rect.left + 24, row_rect.top + 14, medal_width, 24),
                         (18, 28, 44, 220),
                         text_color=WHITE,
-                        border_color=((255, 214, 82, 108) if player.rank == 1 else (*group_color[:3], 90)),
+                        border_color=(
+                            (255, 214, 82, 108)
+                            if player.rank == 1
+                            else (*group_color[:3], 90)
+                        ),
                         font=self.display.font_small,
                     )
 
