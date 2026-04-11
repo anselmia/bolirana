@@ -41,8 +41,10 @@ class Display:
             font_bytes = f.read()
         with open(title_font_path, "rb") as f:
             title_font_bytes = f.read()
+
         def _font(data, size):
             return pygame.font.Font(io.BytesIO(data), size)
+
         if self.screen_height >= 900:
             self.font_title = _font(title_font_bytes, 78)
             self.font_title_small = _font(title_font_bytes, 60)
@@ -101,12 +103,12 @@ class Display:
     def load_ressources(self):
         try:
             self.resources["game_background"] = self.load_background(
-                "images", "game3.jpg"
+                "images", "game_background.png"
             )
             self.resources["menu_background"] = self.load_background(
                 "images", "intro.jpg"
             )
-            self.resources["win_background"] = self.load_background("images", "win.jpg")
+            self.resources["win_background"] = self.load_background("images", "win.png")
             self.resources["winner_banner"] = self.load_background(
                 "images", "winner.png"
             )
@@ -316,7 +318,9 @@ class Display:
         orig = _loaded[0] if _loaded else self.prepare_surface(pygame.image.load(path))
         result = self.prepare_surface(pygame.transform.smoothscale(orig, target))
         try:
-            self._save_surface_cache(result, self._surface_cache_path(path, *target, ext), has_alpha)
+            self._save_surface_cache(
+                result, self._surface_cache_path(path, *target, ext), has_alpha
+            )
         except Exception as e:
             logging.warning(f"Image cache save failed ({path}): {e}")
         return result
