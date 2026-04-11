@@ -44,6 +44,7 @@ from src.constants import (
 
 I2C_BUS = 1  # I2C bus number (usually 1 on Raspberry Pi)
 I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
+GAME_HOLE_LOCKOUT_MS = 380
 
 
 class PIN:
@@ -51,6 +52,7 @@ class PIN:
         self.use_i2c = use_i2c
         self.bus: Any = None
         self.last_pin_time = {}  # Dictionary to track last detection time for each pin
+        self.last_game_hole_time_ms = 0.0
         self.default_sensor_cooldown_ms = 500
         self.sensor_cooldown_overrides_ms = {
             4: 140,
@@ -232,17 +234,18 @@ class PIN:
         """Parse raw I2C bytes and push any HIGH pin event onto the queue."""
         pin_number = data[0]
         state = "LOW" if data[1] == 0 else "HIGH"
+        timestamp = time.monotonic()
         self.diagnostics_packets += 1
         packet = {
             "raw": list(data),
             "pin": None if pin_number == 0xFF else int(pin_number),
             "state": state,
-            "timestamp": time.monotonic(),
+            "timestamp": timestamp,
             "source": "i2c",
         }
         self._record_packet(packet)
         if pin_number != 0xFF and state == "HIGH":
-            self._event_queue.put(int(pin_number))
+            self._event_queue.put((int(pin_number), timestamp * 1000.0))
 
     def is_connected(self) -> bool:
         """Return True once the I2C link is established (or in keyboard mode)."""
@@ -264,8 +267,13 @@ class PIN:
         if not self.use_i2c:
             return None
         try:
-            pin_number = self._event_queue.get_nowait()
-            return self._get_next_pin(pin_number, game_action)
+            queued_event = self._event_queue.get_nowait()
+            if isinstance(queued_event, tuple):
+                pin_number, event_time_ms = queued_event
+            else:
+                pin_number = queued_event
+                event_time_ms = time.monotonic() * 1000
+            return self._get_next_pin(pin_number, game_action, event_time_ms)
         except queue.Empty:
             return None
 
@@ -302,10 +310,19 @@ class PIN:
             return self.diagnostic_pins
         return set()
 
-    def _get_next_pin(self, pin, game_action):
+    def _get_next_pin(self, pin, game_action, event_time_ms=None):
         pin = int(pin)
-        current_time = time.monotonic() * 1000  # monotonic ms — no wall-clock jumps
+        current_time = (
+            event_time_ms if event_time_ms is not None else time.monotonic() * 1000
+        )
         last_time = self.last_pin_time.get(pin, 0)
+
+        if game_action == "game" and pin in self.pin_hole:
+            if current_time - self.last_game_hole_time_ms < GAME_HOLE_LOCKOUT_MS:
+                self._record_diagnostic_event(
+                    pin, game_action, accepted=False, reason="shot_lockout"
+                )
+                return None
 
         cooldown = self._get_pin_cooldown_ms(pin)
         # Apply cooldown
@@ -325,6 +342,8 @@ class PIN:
 
         # Update last detection time for the pin
         self.last_pin_time[pin] = current_time
+        if game_action == "game" and pin in self.pin_hole:
+            self.last_game_hole_time_ms = current_time
         self._record_diagnostic_event(pin, game_action, accepted=True)
         return pin
 
@@ -690,7 +709,6 @@ class PIN:
             actions.append(
                 "Si des boots aleatoires apparaissent, deplacer les boutons de GPIO0/GPIO12 vers des GPIO non strap."
             )
-
 
         if not actions:
             actions.append(
