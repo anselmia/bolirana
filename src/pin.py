@@ -45,6 +45,9 @@ from src.constants import (
 I2C_BUS = 1  # I2C bus number (usually 1 on Raspberry Pi)
 I2C_ADDRESS = 0x08  # I2C address of the ESP32 (or other I2C device)
 GAME_HOLE_LOCKOUT_MS = 380
+I2C_MAX_CONSECUTIVE_ERRORS = 5
+I2C_RECONNECT_DELAY_S = 1.0
+I2C_RECONNECT_LOG_EVERY = 5
 
 
 class PIN:
@@ -190,26 +193,79 @@ class PIN:
             logging.error(f"I2C: failed to open bus: {e}")
             return False
 
+    def _format_i2c_error(self, err):
+        if err is None:
+            return "read timed out"
+        return str(err)
+
+    def _record_i2c_error(self, err, source):
+        self.diagnostics_errors += 1
+        self._record_packet(
+            {
+                "raw": [0xFF, 0],
+                "pin": None,
+                "state": "ERROR",
+                "timestamp": time.monotonic(),
+                "source": source,
+                "detail": self._format_i2c_error(err),
+            }
+        )
+
+    def _wait_for_i2c_connection(self, reconnecting=False):
+        attempts = 0
+        phase = "reconnect" if reconnecting else "init"
+        if reconnecting:
+            self._i2c_connected.clear()
+
+        while not self._stop_event.is_set():
+            if self.bus is None and not self._open_bus():
+                attempts += 1
+                if attempts == 1 or attempts % I2C_RECONNECT_LOG_EVERY == 0:
+                    logging.warning("I2C %s: bus open failed, retrying...", phase)
+                if self._stop_event.wait(I2C_RECONNECT_DELAY_S):
+                    return False
+                continue
+
+            data, err = self._i2c_read_once(self.bus, timeout=2.0)
+            if data is not None:
+                logging.info(
+                    (
+                        "I2C reconnected. First response: %s"
+                        if reconnecting
+                        else "I2C connected. First response: %s"
+                    ),
+                    list(data),
+                )
+                self._i2c_connected.set()
+                self._process_raw(data)
+                return True
+
+            attempts += 1
+            self._record_i2c_error(err, source=f"i2c_{phase}")
+            if attempts == 1 or attempts % I2C_RECONNECT_LOG_EVERY == 0:
+                logging.warning(
+                    "I2C %s pending: %s",
+                    phase,
+                    self._format_i2c_error(err),
+                )
+
+            if attempts % I2C_MAX_CONSECUTIVE_ERRORS == 0:
+                logging.warning("I2C: reopening bus while waiting for ESP32...")
+                if self._open_bus() is False and self._stop_event.wait(
+                    I2C_RECONNECT_DELAY_S
+                ):
+                    return False
+            elif self._stop_event.wait(0.25):
+                return False
+
+        return False
+
     def _i2c_worker(self):
         """Background thread: connect to ESP32, then continuously poll."""
-        if not self._open_bus():
-            return
-
         logging.info("I2C worker: waiting for ESP32 to respond...")
 
         # ── Connection phase ──────────────────────────────────────────
-        while not self._stop_event.is_set():
-            data, err = self._i2c_read_once(self.bus, timeout=2.0)
-            if data is not None:
-                logging.info(f"I2C connected. First response: {list(data)}")
-                self._i2c_connected.set()
-                self._process_raw(data)
-                break
-            if err is not None:
-                logging.warning(f"I2C init: {err}")
-            self._stop_event.wait(0.1)
-
-        if not self._i2c_connected.is_set():
+        if not self._wait_for_i2c_connection(reconnecting=False):
             return  # stop_event fired before connection
 
         # ── Polling phase ─────────────────────────────────────────────
@@ -221,12 +277,26 @@ class PIN:
                 self._process_raw(data)
             else:
                 consecutive_errors += 1
-                logging.error(f"I2C read error #{consecutive_errors}: {err}")
-                if consecutive_errors >= 5:
-                    logging.warning("I2C: too many errors, recovering bus...")
-                    self._stop_event.wait(0.5)
-                    if self._open_bus():
+                self._record_i2c_error(err, source="i2c_poll")
+                if consecutive_errors == 1:
+                    logging.error(
+                        "I2C read error #%s: %s",
+                        consecutive_errors,
+                        self._format_i2c_error(err),
+                    )
+                if consecutive_errors >= I2C_MAX_CONSECUTIVE_ERRORS:
+                    logging.warning(
+                        "I2C: too many errors, marking bus disconnected and retrying..."
+                    )
+                    self._i2c_connected.clear()
+                    if self._stop_event.wait(I2C_RECONNECT_DELAY_S):
+                        break
+                    if self._open_bus() and self._wait_for_i2c_connection(
+                        reconnecting=True
+                    ):
                         consecutive_errors = 0
+                    else:
+                        break
                 else:
                     self._stop_event.wait(0.05)
 
