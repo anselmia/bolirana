@@ -1,5 +1,6 @@
 # pyright: reportAttributeAccessIssue=false
 import math
+import os
 import time
 
 import pygame
@@ -10,6 +11,21 @@ from src.roulette import RouletteAnimation
 
 class EffectsBossMixin:
     def animation_large_frog(self):
+        video_path = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "videos",
+                "large_frog.mp4",
+            )
+        )
+        if self.play_video_clip(video_path):
+            return self.animation_roulette()
+        return self._animation_large_frog_procedural()
+
+    def _animation_large_frog_procedural(self):
         backdrop = self.display.screen.copy()
         center = (self.display.screen_width // 2, self.display.screen_height // 2 + 24)
         lily_center = (center[0], center[1] + 154)
