@@ -286,7 +286,6 @@ class UIGameMixin:
 
         for region_rect, color, count in (
             (left_panel_rect.inflate(26, 26), (124, 255, 190), 4),
-            (arena_rect.inflate(28, 22), (120, 214, 255), 5),
             (right_panel_rect.inflate(26, 26), (255, 214, 110), 4),
             (dock_rect.inflate(24, 20), (255, 214, 110), 6),
         ):
@@ -315,29 +314,6 @@ class UIGameMixin:
                     max(4, radius // 4),
                 )
             self.display.screen.blit(region_surface, region_rect.topleft)
-
-        beam_rect = arena_rect.inflate(12, 10)
-        beam_surface = pygame.Surface(beam_rect.size, pygame.SRCALPHA)
-        for beam_index in range(4):
-            beam_width = 72 if beam_index % 2 == 0 else 54
-            beam_x = (
-                int(
-                    (phase * (150 + beam_index * 18) + beam_index * 180)
-                    % (beam_rect.width + 240)
-                )
-                - 140
-            )
-            pygame.draw.polygon(
-                beam_surface,
-                (255, 214, 110, 20 if beam_index % 2 == 0 else 14),
-                [
-                    (beam_x, 0),
-                    (beam_x + beam_width, 0),
-                    (beam_x - 90, beam_rect.height),
-                    (beam_x - 90 - beam_width, beam_rect.height),
-                ],
-            )
-        self.display.screen.blit(beam_surface, beam_rect.topleft)
 
         bubble_rect = dock_rect.inflate(12, 18)
         bubble_surface = pygame.Surface(bubble_rect.size, pygame.SRCALPHA)
@@ -391,8 +367,6 @@ class UIGameMixin:
                 (120, 214, 255),
                 0.6,
             ),
-            ((arena_rect.left + 28, arena_rect.top + 24), (255, 214, 110), 0.9),
-            ((arena_rect.right - 26, arena_rect.top + 26), (120, 214, 255), 1.3),
             (
                 (right_panel_rect.left + 18, right_panel_rect.top + 18),
                 (255, 214, 110),
@@ -431,48 +405,51 @@ class UIGameMixin:
         content_inset_y = max(6, min(10, card_rect.height // 8))
         self.draw_panel_shadow(
             card_rect,
-            alpha=60,
-            inflate=12,
-            offset=(0, 8),
+            alpha=38,
+            inflate=10,
+            offset=(0, 6),
             border_radius=18,
         )
         card_surface = pygame.Surface(card_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             card_surface,
-            (7, 18, 34, 206),
+            (8, 18, 34, 176),
             card_surface.get_rect(),
             border_radius=18,
         )
         pygame.draw.rect(
             card_surface,
-            (*accent_rgb, 54),
-            (0, 0, 10, card_rect.height),
+            (*accent_rgb, 76),
+            (0, 0, 6, card_rect.height),
             border_radius=18,
         )
         pygame.draw.rect(
             card_surface,
-            (255, 255, 255, 16),
-            (10, 8, card_rect.width - 20, max(12, card_rect.height // 2 - 6)),
-            border_radius=14,
+            (255, 255, 255, 12),
+            (10, 8, card_rect.width - 20, max(10, card_rect.height // 3)),
+            border_radius=12,
+        )
+        pygame.draw.rect(
+            card_surface,
+            (255, 255, 255, 24),
+            card_surface.get_rect(),
+            width=1,
+            border_radius=18,
+        )
+        pygame.draw.rect(
+            card_surface,
+            (*accent_rgb, 90),
+            (12, card_rect.height - 6, card_rect.width - 24, 2),
+            border_radius=2,
         )
         self.display.screen.blit(card_surface, card_rect.topleft)
         self.draw_panel_grid(
             card_rect.inflate(-12, -10),
             phase,
             color=accent_rgb,
-            alpha=8,
-            step=42,
+            alpha=5,
+            step=48,
         )
-        self.draw_panel_sheen(
-            card_rect.inflate(-6, -6),
-            phase + (card_rect.left + card_rect.top) * 0.002,
-            accent_rgb,
-            alpha=16,
-            width=max(40, card_rect.width // 3),
-            speed=110,
-        )
-        self.draw_chrome_rect(card_rect, CHROME_COLORS, 18, 3)
-        self.draw_arcade_screws(card_rect, inset=10, radius=3)
 
         label_fonts = [self.display.font_verysmall]
         for fallback_name in ("font_micro", "font_tiny"):
@@ -1642,53 +1619,56 @@ class UIGameMixin:
             left_secondary_value = f"{max(score - current_progress, 0)} PTS"
 
         def draw_arcade_panel_shell(panel_rect, accent_color):
-            self.draw_panel_shadow(panel_rect, alpha=84, inflate=20, offset=(0, 12))
+            self.draw_panel_shadow(panel_rect, alpha=54, inflate=14, offset=(0, 8))
             panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 panel_surface,
-                (8, 24, 44, 198),
+                (8, 22, 40, 164),
                 panel_surface.get_rect(),
                 border_radius=22,
             )
             pygame.draw.rect(
                 panel_surface,
-                (255, 255, 255, 18),
-                (10, 10, panel_rect.width - 20, panel_rect.height // 2),
-                border_radius=20,
+                (255, 255, 255, 16),
+                (12, 10, panel_rect.width - 24, max(18, panel_rect.height // 5)),
+                border_radius=18,
+            )
+            pygame.draw.rect(
+                panel_surface,
+                (*accent_color, 42),
+                (0, 0, 7, panel_rect.height),
+                border_radius=22,
+            )
+            pygame.draw.rect(
+                panel_surface,
+                (255, 255, 255, 26),
+                panel_surface.get_rect(),
+                width=1,
+                border_radius=22,
             )
             self.display.screen.blit(panel_surface, panel_rect.topleft)
-            self.draw_panel_orbs(
-                panel_rect.inflate(-28, -24),
-                phase + panel_rect.left * 0.003,
-                accent_color,
-                count=3,
-            )
             self.draw_panel_grid(
-                panel_rect.inflate(-18, -18),
+                panel_rect.inflate(-20, -18),
                 phase,
                 color=accent_color,
-                alpha=10,
-                step=56,
+                alpha=5,
+                step=62,
             )
             self.draw_panel_sheen(
-                panel_rect.inflate(-8, -8),
+                panel_rect.inflate(-10, -10),
                 phase + panel_rect.left * 0.004,
                 accent_color,
-                alpha=18,
-                width=max(54, panel_rect.width // 4),
-                speed=125,
+                alpha=12,
+                width=max(38, panel_rect.width // 5),
+                speed=110,
             )
-            self.draw_halftone_dots(
-                panel_rect.inflate(-26, -24),
-                color=(255, 255, 255),
-                alpha=8,
-                spacing=24,
-                radius=2,
-                drift=phase * 5,
+            pygame.draw.rect(
+                self.display.screen,
+                (*accent_color, 108),
+                panel_rect,
+                width=2,
+                border_radius=22,
             )
-            self.draw_arcade_screws(panel_rect, inset=12, radius=4)
-            self.draw_chrome_rect(panel_rect, CHROME_COLORS, 15, 5)
-            self.draw_marquee_lights(panel_rect, phase, accent_color, count=18)
 
         draw_arcade_panel_shell(left_panel_rect, (124, 255, 190))
         draw_arcade_panel_shell(right_panel_rect, (255, 214, 110))
@@ -2123,60 +2103,56 @@ class UIGameMixin:
         dock_rect = self.get_player_dock_rect(
             len(players), challenge_state=challenge_state
         )
-        self.draw_panel_shadow(dock_rect, alpha=90, inflate=20, offset=(0, 12))
+        self.draw_panel_shadow(dock_rect, alpha=58, inflate=14, offset=(0, 8))
         dock_surface = pygame.Surface(dock_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             dock_surface,
-            (8, 18, 34, 200),
+            (8, 18, 32, 176),
             dock_surface.get_rect(),
             border_radius=22,
         )
         pygame.draw.rect(
             dock_surface,
-            (255, 255, 255, 16),
-            (10, 10, dock_rect.width - 20, 34),
+            (255, 255, 255, 14),
+            (12, 10, dock_rect.width - 24, 28),
             border_radius=18,
         )
-        self.display.screen.blit(dock_surface, dock_rect.topleft)
-        self.draw_panel_orbs(
-            dock_rect.inflate(-30, -22),
-            phase + 0.45,
-            (255, 214, 110),
-            count=4,
+        pygame.draw.rect(
+            dock_surface,
+            (255, 214, 82, 52),
+            (0, 0, 7, dock_rect.height),
+            border_radius=22,
         )
+        pygame.draw.rect(
+            dock_surface,
+            (255, 255, 255, 24),
+            dock_surface.get_rect(),
+            width=1,
+            border_radius=22,
+        )
+        self.display.screen.blit(dock_surface, dock_rect.topleft)
         self.draw_panel_grid(
             dock_rect.inflate(-16, -16),
             phase,
-            color=(120, 214, 255),
-            alpha=9,
-            step=56,
+            color=(156, 178, 214),
+            alpha=5,
+            step=64,
         )
         self.draw_panel_sheen(
-            dock_rect.inflate(-8, -8),
+            dock_rect.inflate(-12, -12),
             phase + 0.2,
-            (255, 214, 110),
-            alpha=16,
-            width=max(72, dock_rect.width // 5),
-            speed=120,
+            (255, 255, 255),
+            alpha=10,
+            width=max(56, dock_rect.width // 6),
+            speed=100,
         )
-        self.draw_halftone_dots(
-            dock_rect.inflate(-18, -18),
-            color=(255, 255, 255),
-            alpha=8,
-            spacing=20,
-            radius=1,
-            drift=phase * 6,
-        )
-        self.draw_chrome_rect(dock_rect, CHROME_COLORS, 20, 4)
-        self.draw_marquee_lights(dock_rect, phase + 0.25, (255, 214, 110), count=22)
-        self.draw_arcade_screws(dock_rect, inset=12, radius=3)
         title_row_y = dock_rect.top + 10
         self.draw_badge(
             "LINE-UP",
             (dock_rect.left + 16, title_row_y, 92, 22),
-            (255, 214, 82, 214),
-            text_color=BLACK,
-            border_color=(255, 255, 255, 80),
+            (18, 28, 44, 216),
+            text_color=WHITE,
+            border_color=(255, 214, 82, 104),
         )
         player_count_text = f"{len(players)} JOUEURS"
         player_count_width = max(
@@ -2190,14 +2166,14 @@ class UIGameMixin:
                 player_count_width,
                 22,
             ),
-            (6, 20, 42, 198),
+            (18, 28, 44, 208),
             text_color=WHITE,
-            border_color=(255, 255, 255, 70),
+            border_color=(255, 255, 255, 58),
         )
         self.draw_text_with_shadow(
             "ARCADE CREW",
             self.display.font_verysmall,
-            YELLOW,
+            WHITE,
             BLACK,
             (dock_rect.centerx, title_row_y + 11 + math.sin(phase * 2.8) * 1.4),
             shadow_offset=(1, 1),
@@ -2211,29 +2187,9 @@ class UIGameMixin:
         )
         pygame.draw.rect(
             self.display.screen,
-            (255, 214, 82),
+            (255, 214, 82, 180),
             accent_span,
             border_radius=2,
-        )
-        glow_surface = pygame.Surface((dock_rect.width - 60, 26), pygame.SRCALPHA)
-        pygame.draw.ellipse(
-            glow_surface,
-            (120, 214, 255, 42),
-            glow_surface.get_rect(),
-        )
-        self.display.screen.blit(
-            glow_surface,
-            (dock_rect.left + 30, dock_rect.top + 32),
-        )
-        deck_glow_surface = pygame.Surface((dock_rect.width - 100, 42), pygame.SRCALPHA)
-        pygame.draw.ellipse(
-            deck_glow_surface,
-            (255, 214, 82, 28),
-            deck_glow_surface.get_rect(),
-        )
-        self.display.screen.blit(
-            deck_glow_surface,
-            (dock_rect.left + 50, dock_rect.bottom - 48),
         )
 
         cards_rect = pygame.Rect(
@@ -2270,78 +2226,59 @@ class UIGameMixin:
             )
             self.draw_panel_shadow(
                 card_rect,
-                alpha=88 if player.is_active else 56,
-                inflate=10,
-                offset=(0, 6),
+                alpha=66 if player.is_active else 36,
+                inflate=8,
+                offset=(0, 5),
                 border_radius=16,
             )
             card_surface = pygame.Surface(card_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 card_surface,
-                (10, 28, 48, 226),
+                (10, 22, 38, 214),
                 card_surface.get_rect(),
                 border_radius=16,
             )
             pygame.draw.rect(
                 card_surface,
-                (*group_color[:3], 74 if player.is_active else 38),
-                card_surface.get_rect(),
+                (*group_color[:3], 40 if player.is_active else 18),
+                (0, 0, card_rect.width, max(22, card_rect.height // 3)),
                 border_radius=16,
             )
             pygame.draw.rect(
                 card_surface,
-                (*group_color[:3], 142),
-                (0, 0, 10, card_rect.height),
+                (*group_color[:3], 118 if player.is_active else 82),
+                (0, 0, 5, card_rect.height),
                 border_radius=16,
             )
             pygame.draw.rect(
                 card_surface,
-                (255, 255, 255, 22),
-                (10, 8, card_rect.width - 20, max(10, card_rect.height // 2 - 4)),
+                (255, 255, 255, 14),
+                (10, 8, card_rect.width - 20, max(10, card_rect.height // 3)),
                 border_radius=12,
             )
             pygame.draw.rect(
                 card_surface,
                 (255, 255, 255, 24),
-                (10, card_rect.height - 16, card_rect.width - 20, 6),
-                border_radius=3,
+                card_surface.get_rect(),
+                width=1,
+                border_radius=16,
             )
-            pygame.draw.polygon(
-                card_surface,
-                (255, 255, 255, 18),
-                [
-                    (card_rect.width - 56, 0),
-                    (card_rect.width, 0),
-                    (card_rect.width, card_rect.height),
-                    (card_rect.width - 88, card_rect.height),
-                ],
-            )
-            for scan_y in range(12, card_rect.height, 10):
-                pygame.draw.line(
-                    card_surface,
-                    (255, 255, 255, 8),
-                    (12, scan_y),
-                    (card_rect.width - 12, scan_y),
-                    1,
-                )
             self.display.screen.blit(card_surface, card_rect.topleft)
             self.draw_panel_grid(
                 card_rect.inflate(-10, -10),
                 phase + index * 0.15,
                 color=group_color[:3],
-                alpha=10,
-                step=40,
+                alpha=5 if player.is_active else 3,
+                step=46,
             )
             self.draw_panel_sheen(
                 card_rect.inflate(-6, -6),
                 phase + index * 0.18,
-                group_color[:3],
-                alpha=18 if player.is_active else 10,
-                width=max(30, card_rect.width // 2),
-                speed=95,
+                (255, 255, 255),
+                alpha=10 if player.is_active else 5,
+                width=max(28, card_rect.width // 3),
+                speed=82,
             )
-            self.draw_arcade_screws(card_rect, inset=9, radius=3)
-            self.draw_chrome_rect(card_rect, CHROME_COLORS, 16, 2)
 
             name_plate_height = (
                 24 if card_height >= 78 else 20 if card_height >= 62 else 18
@@ -2356,13 +2293,13 @@ class UIGameMixin:
             name_plate_surface = pygame.Surface(name_plate_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 name_plate_surface,
-                (4, 12, 24, 172),
+                (6, 14, 24, 154),
                 name_plate_surface.get_rect(),
                 border_radius=10,
             )
             pygame.draw.rect(
                 name_plate_surface,
-                (*group_color[:3], 88),
+                (*group_color[:3], 74),
                 name_plate_surface.get_rect(),
                 width=1,
                 border_radius=10,
@@ -2375,16 +2312,13 @@ class UIGameMixin:
                 )
                 pygame.draw.rect(
                     pulse_surface,
-                    (*group_color[:3], 66),
+                    (*group_color[:3], 54),
                     pulse_surface.get_rect(),
                     border_radius=18,
-                    width=3,
+                    width=2,
                 )
                 self.display.screen.blit(
                     pulse_surface, (card_rect.left - 8, card_rect.top - 8)
-                )
-                self.draw_marquee_lights(
-                    card_rect, phase + index * 0.2, group_color, count=12, radius=3
                 )
                 live_label = "LIVE" if card_height < 62 else "ON AIR"
                 live_width = max(44, self.display.font_tiny.size(live_label)[0] + 18)
@@ -2398,9 +2332,9 @@ class UIGameMixin:
                 self.draw_badge(
                     live_label,
                     live_rect,
-                    (255, 214, 82, live_alpha),
-                    text_color=BLACK,
-                    border_color=(255, 255, 255, 70),
+                    (*group_color[:3], live_alpha),
+                    text_color=WHITE,
+                    border_color=(255, 255, 255, 62),
                 )
 
             rank_size = 16 if card_height < 62 else 18
@@ -2411,10 +2345,17 @@ class UIGameMixin:
                 rank_size,
             )
             pygame.draw.rect(
-                self.display.screen, (*group_color[:3], 188), rank_rect, border_radius=8
+                self.display.screen,
+                (14, 26, 42),
+                rank_rect,
+                border_radius=8,
             )
             pygame.draw.rect(
-                self.display.screen, WHITE, rank_rect, width=1, border_radius=8
+                self.display.screen,
+                (*group_color[:3], 148),
+                rank_rect,
+                width=1,
+                border_radius=8,
             )
             self.draw_text_with_shadow(
                 str(player.rank),
@@ -2424,7 +2365,7 @@ class UIGameMixin:
                     rank_rect.width - 2,
                     rank_rect.height - 2,
                 ),
-                WHITE,
+                PLAYER_OPTION_COLOR,
                 BLACK,
                 rank_rect.center,
                 shadow_offset=(1, 1),
@@ -2446,7 +2387,7 @@ class UIGameMixin:
             self.draw_text_with_shadow(
                 str(player),
                 name_font,
-                YELLOW if player.is_active else PLAYER_OPTION_COLOR,
+                WHITE if player.is_active else PLAYER_OPTION_COLOR,
                 BLACK,
                 name_plate_rect.center,
                 shadow_offset=(2, 2),
@@ -2464,13 +2405,11 @@ class UIGameMixin:
             )
             status_fill = (
                 (
-                    28,
-                    142,
-                    90,
-                    int(198 + (0.5 + 0.5 * math.sin(phase * 6.2 + index)) * 28),
+                    *group_color[:3],
+                    int(176 + (0.5 + 0.5 * math.sin(phase * 6.2 + index)) * 24),
                 )
                 if player.is_active
-                else (38, 74, 120, 204)
+                else (18, 30, 46, 204)
             )
             status_width = max(42, self.display.font_tiny.size(status_label)[0] + 18)
             self.draw_badge(
@@ -2513,9 +2452,9 @@ class UIGameMixin:
             self.draw_badge(
                 score_text,
                 score_badge_rect,
-                (12, 28, 56, 226),
-                text_color=WHITE,
-                border_color=(*group_color[:3], 132),
+                (12, 24, 40, 224),
+                text_color=PLAYER_OPTION_COLOR,
+                border_color=(*group_color[:3], 108),
                 font=score_font,
             )
 
@@ -2537,9 +2476,9 @@ class UIGameMixin:
                         team_badge_width,
                         16,
                     ),
-                    (*group_color[:3], 192),
+                    (*group_color[:3], 164),
                     text_color=WHITE,
-                    border_color=(255, 255, 255, 68),
+                    border_color=(255, 255, 255, 54),
                     font=self.display.font_tiny,
                 )
 

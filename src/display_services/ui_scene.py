@@ -213,11 +213,11 @@ class UISceneMixin:
 
     def draw_title_panel(self, title, subtitle, phase, y=38):
         title_rect = pygame.Rect(self.display.screen_width // 2 - 330, y, 660, 122)
-        self.draw_panel_shadow(title_rect, alpha=110, inflate=24, offset=(0, 14))
+        self.draw_panel_shadow(title_rect, alpha=64, inflate=16, offset=(0, 10))
         panel_surface = pygame.Surface(title_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             panel_surface,
-            (10, 24, 58, 222),
+            (10, 24, 52, 184),
             panel_surface.get_rect(),
             border_radius=30,
         )
@@ -234,29 +234,25 @@ class UISceneMixin:
         )
         pygame.draw.rect(
             panel_surface,
-            (255, 214, 110, 24),
-            (12, 12, title_rect.width - 24, 34),
+            (255, 255, 255, 16),
+            (14, 12, title_rect.width - 28, 28),
             border_radius=18,
+        )
+        pygame.draw.rect(
+            panel_surface,
+            (255, 255, 255, 24),
+            panel_surface.get_rect(),
+            width=1,
+            border_radius=30,
         )
         self.display.screen.blit(panel_surface, title_rect.topleft)
         self.draw_panel_grid(
-            title_rect.inflate(-18, -18), phase, (255, 220, 126), 12, 72
+            title_rect.inflate(-20, -18), phase, (255, 220, 126), 6, 78
         )
-        self.draw_halftone_dots(
-            title_rect.inflate(-34, -22),
-            color=(255, 255, 255),
-            alpha=10,
-            spacing=22,
-            radius=2,
-            drift=phase * 6,
-        )
-        self.draw_chrome_rect(title_rect, CHROME_COLORS, 28, 4)
-        self.draw_marquee_lights(title_rect, phase, (255, 220, 126), count=22)
-        self.draw_arcade_screws(title_rect, inset=14, radius=4)
         divider_y = title_rect.top + 78
         pygame.draw.line(
             self.display.screen,
-            (255, 214, 118),
+            (255, 214, 118, 170),
             (title_rect.left + 78, divider_y),
             (title_rect.right - 78, divider_y),
             2,
@@ -301,11 +297,11 @@ class UISceneMixin:
             580,
             34,
         )
-        self.draw_panel_shadow(prompt_rect, alpha=54, inflate=14, offset=(0, 8))
+        self.draw_panel_shadow(prompt_rect, alpha=38, inflate=10, offset=(0, 6))
         prompt_surface = pygame.Surface(prompt_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
             prompt_surface,
-            (8, 20, 42, 176),
+            (8, 20, 38, 156),
             prompt_surface.get_rect(),
             border_radius=16,
         )
@@ -320,10 +316,14 @@ class UISceneMixin:
                 (shimmer_x + 48, prompt_rect.height),
             ],
         )
+        pygame.draw.rect(
+            prompt_surface,
+            (255, 255, 255, 22),
+            prompt_surface.get_rect(),
+            width=1,
+            border_radius=16,
+        )
         self.display.screen.blit(prompt_surface, prompt_rect.topleft)
-        self.draw_chrome_rect(prompt_rect, CHROME_COLORS, 14, 2)
-        self.draw_marquee_lights(prompt_rect, phase + 0.4, (255, 218, 118), count=14)
-        self.draw_arcade_screws(prompt_rect, inset=10, radius=3)
         self.draw_text_with_shadow(
             text,
             self.display.font_verysmall,
@@ -343,11 +343,11 @@ class UISceneMixin:
                 else self.display.screen_width - width - 28
             )
             rect = pygame.Rect(x, 24, width, 28)
-            self.draw_panel_shadow(rect, alpha=40, inflate=10, offset=(0, 6))
+            self.draw_panel_shadow(rect, alpha=28, inflate=8, offset=(0, 5))
             badge_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 badge_surface,
-                (8, 24, 44, 182),
+                (8, 24, 40, 154),
                 badge_surface.get_rect(),
                 border_radius=14,
             )
@@ -358,16 +358,14 @@ class UISceneMixin:
                 (8, 6, min(glow_width, rect.width - 16), rect.height - 12),
                 border_radius=10,
             )
-            self.display.screen.blit(badge_surface, rect.topleft)
-            self.draw_chrome_rect(rect, CHROME_COLORS, 14, 2)
-            self.draw_halftone_dots(
-                rect.inflate(-10, -8),
-                color=(255, 255, 255),
-                alpha=10,
-                spacing=16,
-                radius=1,
-                drift=phase * 5,
+            pygame.draw.rect(
+                badge_surface,
+                (255, 255, 255, 20),
+                badge_surface.get_rect(),
+                width=1,
+                border_radius=14,
             )
+            self.display.screen.blit(badge_surface, rect.topleft)
             self.draw_text_with_shadow(
                 text,
                 self.display.font_verysmall,

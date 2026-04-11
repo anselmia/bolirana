@@ -690,7 +690,9 @@ class EffectsParticlesMixin:
         blush=0.0,
         shimmer=0.0,
     ):
-        scale = max(0.4, scale)
+        output_scale = max(0.4, scale)
+        detail_factor = 1.35
+        scale = output_scale * detail_factor
         crouch = self.clamp(crouch)
         stretch = self.clamp(stretch)
         airborne = self.clamp(airborne)
@@ -709,6 +711,292 @@ class EffectsParticlesMixin:
         cx = width // 2
         cy = int(height * 0.56)
         ground_y = int(height * 0.78)
+
+        if heroic:
+            body_shadow = (24, 84, 74)
+            body_base = (44, 136, 114)
+            body_light = (92, 208, 170)
+            body_rim = (168, 255, 220)
+            belly_base = (206, 248, 188)
+            belly_shadow = (146, 214, 154)
+            throat_base = (224, 248, 188)
+            iris_outer = (255, 230, 122)
+            iris_inner = (138, 108, 34)
+            web_color = (188, 244, 186)
+            spot_color = (18, 68, 58)
+            brow_color = (18, 92, 78)
+        else:
+            body_shadow = (34, 98, 42)
+            body_base = (72, 164, 76)
+            body_light = (126, 214, 112)
+            body_rim = (196, 255, 180)
+            belly_base = (210, 246, 180)
+            belly_shadow = (154, 214, 128)
+            throat_base = (226, 248, 184)
+            iris_outer = (164, 220, 84)
+            iris_inner = (58, 88, 26)
+            web_color = (184, 236, 160)
+            spot_color = (38, 92, 42)
+            brow_color = (28, 82, 34)
+
+        def mix_rgb(color_a, color_b, ratio):
+            ratio = self.clamp(ratio)
+            return (
+                int(color_a[0] + (color_b[0] - color_a[0]) * ratio),
+                int(color_a[1] + (color_b[1] - color_a[1]) * ratio),
+                int(color_a[2] + (color_b[2] - color_a[2]) * ratio),
+            )
+
+        def paint_skin_texture(rect, seed, density=1.0, wetness=0.0, spots=True):
+            texture_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+            mask_surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+            pygame.draw.ellipse(mask_surface, (255, 255, 255, 255), mask_surface.get_rect())
+
+            patch_count = max(10, int((18 + 8 * density) * output_scale))
+            for index in range(patch_count):
+                u = 0.5 + 0.5 * math.sin(seed * 1.17 + index * 1.91)
+                v = 0.5 + 0.5 * math.cos(seed * 0.93 + index * 1.37)
+                patch_w = max(8, int((rect.width * (0.08 + 0.12 * u)) * (0.68 + density * 0.18)))
+                patch_h = max(6, int((rect.height * (0.06 + 0.1 * v)) * (0.62 + density * 0.18)))
+                patch_rect = pygame.Rect(0, 0, patch_w, patch_h)
+                patch_rect.center = (
+                    int(rect.width * (0.14 + 0.72 * u)),
+                    int(rect.height * (0.16 + 0.68 * v)),
+                )
+                patch_rect.move_ip(
+                    int(math.sin(seed * 2.3 + index * 0.71) * rect.width * 0.04),
+                    int(math.cos(seed * 1.8 + index * 0.59) * rect.height * 0.03),
+                )
+                patch_color = mix_rgb(body_shadow, body_light, 0.24 + 0.46 * u)
+                pygame.draw.ellipse(
+                    texture_surface,
+                    (*patch_color, int(16 + 18 * v)),
+                    patch_rect,
+                )
+
+            ridge_points = []
+            ridge_steps = 8
+            for step in range(ridge_steps):
+                ratio = step / max(1, ridge_steps - 1)
+                ridge_points.append(
+                    (
+                        int(rect.width * (0.18 + ratio * 0.64)),
+                        int(
+                            rect.height * (0.28 + math.sin(seed * 1.6 + ratio * math.pi * 1.4) * 0.07)
+                        ),
+                    )
+                )
+            pygame.draw.lines(
+                texture_surface,
+                (*mix_rgb(body_rim, body_light, 0.35), int(22 + wetness * 18)),
+                False,
+                ridge_points,
+                max(1, int(3 * scale)),
+            )
+
+            if spots:
+                speckle_count = max(24, int((42 + density * 12) * output_scale))
+                for index in range(speckle_count):
+                    u = 0.5 + 0.5 * math.sin(seed * 4.1 + index * 2.23)
+                    v = 0.5 + 0.5 * math.cos(seed * 3.6 + index * 1.77)
+                    speckle_center = (
+                        int(rect.width * (0.1 + 0.8 * u)),
+                        int(rect.height * (0.12 + 0.76 * v)),
+                    )
+                    speckle_radius = max(1, int((2 + 5 * (0.5 + 0.5 * math.sin(index + seed))) * scale * 0.45))
+                    speckle_color = mix_rgb(spot_color, body_shadow, 0.35 + 0.45 * v)
+                    pygame.draw.circle(
+                        texture_surface,
+                        (*speckle_color, int(28 + 28 * u)),
+                        speckle_center,
+                        speckle_radius,
+                    )
+                    if speckle_radius >= 2:
+                        pygame.draw.circle(
+                            texture_surface,
+                            (255, 255, 255, int(8 + 10 * wetness)),
+                            (
+                                speckle_center[0] - max(1, speckle_radius // 2),
+                                speckle_center[1] - max(1, speckle_radius // 2),
+                            ),
+                            max(1, speckle_radius // 2),
+                        )
+
+            pore_count = max(18, int((26 + density * 10) * output_scale))
+            for index in range(pore_count):
+                u = 0.5 + 0.5 * math.sin(seed * 5.2 + index * 1.11)
+                v = 0.5 + 0.5 * math.cos(seed * 2.7 + index * 1.43)
+                pygame.draw.circle(
+                    texture_surface,
+                    (0, 0, 0, int(10 + 12 * v)),
+                    (
+                        int(rect.width * (0.16 + 0.68 * u)),
+                        int(rect.height * (0.16 + 0.66 * v)),
+                    ),
+                    max(1, int(1 + scale * 0.28)),
+                )
+
+            sheen_rect = pygame.Rect(0, 0, max(12, int(rect.width * 0.48)), max(10, int(rect.height * 0.26)))
+            sheen_rect.center = (
+                int(rect.width * 0.4),
+                int(rect.height * 0.28),
+            )
+            pygame.draw.ellipse(
+                texture_surface,
+                (255, 255, 255, int(10 + wetness * 26)),
+                sheen_rect,
+            )
+
+            texture_surface.blit(mask_surface, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            surface.blit(texture_surface, rect.topleft)
+
+        def draw_wart_cluster(anchor, base_radius, count, spread, seed):
+            for index in range(count):
+                angle = seed * 0.8 + index * (math.tau / max(1, count))
+                distance = spread * (0.38 + 0.48 * (0.5 + 0.5 * math.sin(seed + index * 1.37)))
+                wart_center = (
+                    int(anchor[0] + math.cos(angle) * distance),
+                    int(anchor[1] + math.sin(angle * 1.12) * distance * 0.72),
+                )
+                wart_radius = max(2, int(base_radius * (0.64 + 0.34 * (0.5 + 0.5 * math.cos(seed * 1.9 + index)))))
+                wart_color = mix_rgb(spot_color, body_shadow, 0.36 + 0.34 * (index / max(1, count)))
+                pygame.draw.circle(surface, (*wart_color, 168), wart_center, wart_radius)
+                pygame.draw.circle(
+                    surface,
+                    (255, 255, 255, 26),
+                    (
+                        wart_center[0] - max(1, wart_radius // 3),
+                        wart_center[1] - max(1, wart_radius // 3),
+                    ),
+                    max(1, wart_radius // 2),
+                )
+
+        def draw_gloss_ellipse(rect, base_rgb, inner_rgb, highlight_alpha, outline_rgb=None):
+            pygame.draw.ellipse(surface, (*base_rgb, 244), rect)
+            inner_rect = rect.inflate(-max(8, int(rect.width * 0.18)), -max(8, int(rect.height * 0.2)))
+            inner_rect.move_ip(-int(rect.width * 0.04), -int(rect.height * 0.05))
+            pygame.draw.ellipse(surface, (*inner_rgb, 232), inner_rect)
+            shadow_rect = rect.inflate(-max(10, int(rect.width * 0.12)), -max(10, int(rect.height * 0.14)))
+            shadow_rect.move_ip(int(rect.width * 0.08), int(rect.height * 0.14))
+            pygame.draw.ellipse(surface, (0, 0, 0, 28), shadow_rect)
+            highlight_rect = pygame.Rect(
+                0,
+                0,
+                max(12, int(rect.width * 0.42)),
+                max(10, int(rect.height * 0.32)),
+            )
+            highlight_rect.center = (
+                rect.centerx - int(rect.width * 0.14),
+                rect.centery - int(rect.height * 0.18),
+            )
+            pygame.draw.ellipse(
+                surface,
+                (255, 255, 255, highlight_alpha),
+                highlight_rect,
+            )
+            if outline_rgb is not None:
+                pygame.draw.ellipse(
+                    surface,
+                    (*outline_rgb, 72),
+                    rect,
+                    width=max(1, int(2 * scale)),
+                )
+
+        def draw_webbed_appendage(
+            shoulder,
+            elbow,
+            hand,
+            upper_rgb,
+            lower_rgb,
+            joint_rgb,
+            toe_length,
+            spread,
+            upper_width,
+            lower_width,
+            pad_size,
+        ):
+            pygame.draw.line(
+                surface,
+                (0, 0, 0, 62),
+                (shoulder[0] + int(3 * scale), shoulder[1] + int(4 * scale)),
+                (hand[0] + int(4 * scale), hand[1] + int(5 * scale)),
+                max(3, int((upper_width + lower_width) * 0.42)),
+            )
+            pygame.draw.line(surface, (*upper_rgb, 235), shoulder, elbow, upper_width)
+            pygame.draw.line(surface, (*lower_rgb, 235), elbow, hand, lower_width)
+            pygame.draw.line(
+                surface,
+                (*mix_rgb(upper_rgb, body_rim, 0.45), 108),
+                (shoulder[0] - int(2 * scale), shoulder[1] - int(2 * scale)),
+                (elbow[0] - int(2 * scale), elbow[1] - int(2 * scale)),
+                max(1, int(upper_width * 0.28)),
+            )
+            pygame.draw.line(
+                surface,
+                (*mix_rgb(lower_rgb, body_rim, 0.42), 104),
+                (elbow[0] - int(2 * scale), elbow[1] - int(1 * scale)),
+                (hand[0] - int(2 * scale), hand[1] - int(1 * scale)),
+                max(1, int(lower_width * 0.28)),
+            )
+            pygame.draw.circle(surface, (*joint_rgb, 228), elbow, max(5, upper_width // 2 + 1))
+            angle = math.atan2(hand[1] - elbow[1], hand[0] - elbow[0])
+            toe_tips = []
+            for offset in (-spread, 0.0, spread):
+                tip = (
+                    int(hand[0] + math.cos(angle + offset) * toe_length),
+                    int(hand[1] + math.sin(angle + offset) * toe_length),
+                )
+                toe_tips.append(tip)
+                pygame.draw.line(
+                    surface,
+                    (*web_color, 224),
+                    hand,
+                    tip,
+                    max(1, int(3 * scale)),
+                )
+                pygame.draw.circle(
+                    surface,
+                    (*web_color, 236),
+                    tip,
+                    max(2, int(4 * scale)),
+                )
+                pygame.draw.circle(
+                    surface,
+                    (*body_shadow, 96),
+                    tip,
+                    max(2, int(4 * scale)),
+                    width=max(1, int(1 * scale)),
+                )
+            pygame.draw.polygon(
+                surface,
+                (*web_color, 110),
+                [toe_tips[0], hand, toe_tips[-1]],
+            )
+            web_highlight = [
+                (
+                    int((toe_tips[0][0] + hand[0]) * 0.5),
+                    int((toe_tips[0][1] + hand[1]) * 0.5),
+                ),
+                hand,
+                (
+                    int((toe_tips[-1][0] + hand[0]) * 0.5),
+                    int((toe_tips[-1][1] + hand[1]) * 0.5),
+                ),
+            ]
+            pygame.draw.lines(
+                surface,
+                (255, 255, 255, 38),
+                False,
+                web_highlight,
+                max(1, int(2 * scale)),
+            )
+            pad_rect = pygame.Rect(0, 0, int(pad_size * scale), int((pad_size * 0.48) * scale))
+            pad_rect.center = hand
+            pygame.draw.ellipse(surface, (*web_color, 214), pad_rect)
+            pygame.draw.ellipse(surface, (*body_shadow, 90), pad_rect, width=max(1, int(2 * scale)))
+            pad_gloss = pad_rect.inflate(-max(4, int(8 * scale)), -max(3, int(6 * scale)))
+            pad_gloss.move_ip(-max(1, int(2 * scale)), -max(1, int(1 * scale)))
+            pygame.draw.ellipse(surface, (255, 255, 255, 30), pad_gloss)
 
         shadow_width = int((180 + crouch * 30 - stretch * 38) * scale)
         shadow_height = int((38 + crouch * 8) * scale)
@@ -737,6 +1025,10 @@ class EffectsParticlesMixin:
                 glow_surface, (cx - glow_radius, cy - glow_radius + int(20 * scale))
             )
 
+        rim_shadow_rect = pygame.Rect(0, 0, int(250 * scale), int(162 * scale))
+        rim_shadow_rect.center = (cx, cy + int(28 * scale))
+        pygame.draw.ellipse(surface, (*body_shadow, 74), rim_shadow_rect)
+
         body_width = int((205 + crouch * 24 - stretch * 22) * scale)
         body_height = int((116 - crouch * 24 + stretch * 34) * scale)
         body_rect = pygame.Rect(0, 0, body_width, body_height)
@@ -759,28 +1051,30 @@ class EffectsParticlesMixin:
 
         for direction, hip in ((-1, hip_left), (1, hip_right)):
             knee = (hip[0] + direction * knee_offset_x, hip[1] + knee_offset_y)
-            foot = (
+            ankle = (
                 hip[0] + direction * foot_offset_x,
-                min(ground_y + int(10 * scale), hip[1] + foot_offset_y),
+                min(ground_y + int(2 * scale), hip[1] + foot_offset_y),
             )
+            draw_webbed_appendage(
+                hip,
+                knee,
+                ankle,
+                body_shadow,
+                body_base,
+                body_light,
+                toe_length=max(12, int(26 * scale)),
+                spread=0.42,
+                upper_width=max(8, int(18 * scale)),
+                lower_width=max(8, int(16 * scale)),
+                pad_size=48,
+            )
+            thigh_highlight = (hip[0] + direction * int(18 * scale), hip[1] + int(10 * scale))
             pygame.draw.line(
-                surface, (42, 116, 52, 235), hip, knee, max(8, int(18 * scale))
-            )
-            pygame.draw.line(
-                surface, (56, 138, 64, 235), knee, foot, max(8, int(16 * scale))
-            )
-            pygame.draw.circle(
-                surface, (68, 162, 82, 230), knee, max(8, int(14 * scale))
-            )
-            pygame.draw.ellipse(
                 surface,
-                (90, 180, 98, 220),
-                (
-                    foot[0] - int(24 * scale),
-                    foot[1] - int(10 * scale),
-                    int(48 * scale),
-                    int(20 * scale),
-                ),
+                (*body_rim, 76),
+                thigh_highlight,
+                (knee[0] - direction * int(8 * scale), knee[1] - int(4 * scale)),
+                max(2, int(4 * scale)),
             )
 
         arm_y = cy + int(18 * scale)
@@ -792,22 +1086,22 @@ class EffectsParticlesMixin:
                 cy + int((44 + crouch * 10 - stretch * 6) * scale),
             )
             hand = (cx + direction * int((118 + crouch * 8) * scale), hand_y)
-            pygame.draw.line(
-                surface, (56, 148, 70, 220), shoulder, elbow, max(6, int(12 * scale))
-            )
-            pygame.draw.line(
-                surface, (72, 172, 84, 220), elbow, hand, max(6, int(10 * scale))
-            )
-            pygame.draw.circle(
-                surface, (98, 192, 104, 220), hand, max(6, int(11 * scale))
+            draw_webbed_appendage(
+                shoulder,
+                elbow,
+                hand,
+                body_base,
+                body_light,
+                body_rim,
+                toe_length=max(10, int(18 * scale)),
+                spread=0.5,
+                upper_width=max(6, int(12 * scale)),
+                lower_width=max(6, int(10 * scale)),
+                pad_size=28,
             )
 
-        pygame.draw.ellipse(surface, (50, 142, 68, 240), body_rect)
-        pygame.draw.ellipse(
-            surface,
-            (82, 186, 96, 240),
-            body_rect.inflate(-int(24 * scale), -int(22 * scale)),
-        )
+        draw_gloss_ellipse(body_rect, body_base, body_light, int(22 + shimmer * 40), outline_rgb=body_rim)
+        paint_skin_texture(body_rect, seed=1.2 + heroic * 0.8, density=1.0 + heroic * 0.25, wetness=0.5 + shimmer * 0.4)
         body_highlight = body_rect.inflate(-int(44 * scale), -int(68 * scale))
         body_highlight.move_ip(int(22 * scale), -int(14 * scale))
         pygame.draw.ellipse(
@@ -817,42 +1111,120 @@ class EffectsParticlesMixin:
         )
         belly_rect = body_rect.inflate(-int(78 * scale), -int(42 * scale))
         belly_rect.centery += int(12 * scale)
-        pygame.draw.ellipse(surface, (175, 238, 172, 220), belly_rect)
+        draw_gloss_ellipse(belly_rect, belly_shadow, belly_base, int(18 + shimmer * 34))
+        paint_skin_texture(belly_rect, seed=3.8, density=0.55, wetness=0.28 + shimmer * 0.18, spots=False)
+
+        back_shadow_rect = body_rect.inflate(-int(18 * scale), -int(18 * scale))
+        back_shadow_rect.move_ip(int(16 * scale), int(10 * scale))
+        pygame.draw.ellipse(surface, (0, 0, 0, 26), back_shadow_rect)
+
+        spine_points = [
+            (cx - int(58 * scale), body_rect.top + int(24 * scale)),
+            (cx - int(20 * scale), body_rect.top + int(8 * scale)),
+            (cx + int(18 * scale), body_rect.top + int(10 * scale)),
+            (cx + int(58 * scale), body_rect.top + int(24 * scale)),
+        ]
+        pygame.draw.lines(surface, (*body_rim, 74), False, spine_points, max(2, int(4 * scale)))
 
         for spot in (
-            (cx - int(46 * scale), cy + int(2 * scale), int(16 * scale)),
-            (cx + int(54 * scale), cy - int(10 * scale), int(12 * scale)),
-            (cx + int(6 * scale), cy + int(26 * scale), int(14 * scale)),
+            (cx - int(50 * scale), cy + int(4 * scale), int(18 * scale)),
+            (cx + int(58 * scale), cy - int(12 * scale), int(14 * scale)),
+            (cx + int(8 * scale), cy + int(28 * scale), int(15 * scale)),
+            (cx - int(4 * scale), cy - int(14 * scale), int(10 * scale)),
         ):
             pygame.draw.circle(
-                surface, (40, 108, 52, 180), (spot[0], spot[1]), max(4, spot[2])
+                surface, (*spot_color, 188), (spot[0], spot[1]), max(4, spot[2])
+            )
+            pygame.draw.circle(
+                surface,
+                (255, 255, 255, 24),
+                (spot[0] - max(2, spot[2] // 3), spot[1] - max(2, spot[2] // 3)),
+                max(2, spot[2] // 3),
+            )
+
+        draw_wart_cluster(
+            (cx - int(54 * scale), cy - int(6 * scale)),
+            max(2, int(7 * scale)),
+            5,
+            int(18 * scale),
+            0.8,
+        )
+        draw_wart_cluster(
+            (cx + int(60 * scale), cy - int(20 * scale)),
+            max(2, int(6 * scale)),
+            4,
+            int(16 * scale),
+            2.4,
+        )
+
+        dorsal_fold_color = mix_rgb(body_shadow, body_rim, 0.32)
+        for direction in (-1, 1):
+            fold_points = [
+                (cx + direction * int(34 * scale), head_rect.centery - int(8 * scale)),
+                (cx + direction * int(52 * scale), head_rect.centery + int(10 * scale)),
+                (cx + direction * int(72 * scale), body_rect.centery - int(8 * scale)),
+                (cx + direction * int(84 * scale), body_rect.bottom - int(10 * scale)),
+            ]
+            pygame.draw.lines(
+                surface,
+                (*dorsal_fold_color, 144),
+                False,
+                fold_points,
+                max(2, int(4 * scale)),
+            )
+            pygame.draw.lines(
+                surface,
+                (255, 255, 255, 34),
+                False,
+                [
+                    (point[0] - direction * max(1, int(3 * scale)), point[1] - max(1, int(2 * scale)))
+                    for point in fold_points
+                ],
+                max(1, int(2 * scale)),
             )
 
         if croak > 0:
-            croak_radius = int((18 + croak * 36) * scale)
+            sac_rect = pygame.Rect(
+                0,
+                0,
+                int((54 + croak * 78) * scale),
+                int((22 + croak * 66) * scale),
+            )
+            sac_rect.center = (cx, head_rect.bottom + int((4 + croak * 10) * scale))
             croak_surface = pygame.Surface(
-                (croak_radius * 4, croak_radius * 4), pygame.SRCALPHA
+                (sac_rect.width + int(40 * scale), sac_rect.height + int(26 * scale)),
+                pygame.SRCALPHA,
             )
-            pygame.draw.circle(
+            local_rect = pygame.Rect(0, 0, sac_rect.width, sac_rect.height)
+            local_rect.center = croak_surface.get_rect().center
+            pygame.draw.ellipse(
                 croak_surface,
-                (214, 245, 164, int(70 + croak * 120)),
-                (croak_radius * 2, croak_radius * 2),
-                croak_radius,
+                (*throat_base, int(86 + croak * 110)),
+                local_rect,
             )
+            inner_rect = local_rect.inflate(-int(12 * scale), -int(8 * scale))
+            inner_rect.move_ip(0, int(2 * scale))
+            pygame.draw.ellipse(
+                croak_surface,
+                (*belly_base, int(60 + croak * 94)),
+                inner_rect,
+            )
+            highlight_rect = pygame.Rect(0, 0, max(10, int(local_rect.width * 0.42)), max(8, int(local_rect.height * 0.36)))
+            highlight_rect.center = (
+                local_rect.centerx - int(local_rect.width * 0.14),
+                local_rect.centery - int(local_rect.height * 0.16),
+            )
+            pygame.draw.ellipse(croak_surface, (255, 255, 255, int(28 + croak * 56)), highlight_rect)
             surface.blit(
                 croak_surface,
                 (
-                    cx - croak_surface.get_width() // 2,
-                    head_rect.bottom - int(6 * scale),
+                    sac_rect.centerx - croak_surface.get_width() // 2,
+                    sac_rect.centery - croak_surface.get_height() // 2,
                 ),
             )
 
-        pygame.draw.ellipse(surface, (56, 152, 72, 245), head_rect)
-        pygame.draw.ellipse(
-            surface,
-            (84, 194, 102, 235),
-            head_rect.inflate(-int(20 * scale), -int(18 * scale)),
-        )
+        draw_gloss_ellipse(head_rect, body_base, body_light, int(24 + shimmer * 56), outline_rgb=body_rim)
+        paint_skin_texture(head_rect, seed=2.4 + heroic * 1.1, density=0.95 + heroic * 0.3, wetness=0.64 + shimmer * 0.42)
         head_highlight = head_rect.inflate(-int(38 * scale), -int(46 * scale))
         head_highlight.move_ip(-int(18 * scale), -int(14 * scale))
         pygame.draw.ellipse(
@@ -861,17 +1233,22 @@ class EffectsParticlesMixin:
             head_highlight,
         )
         if heroic:
-            crown_points = [
-                (cx - int(42 * scale), head_rect.top - int(6 * scale)),
-                (cx - int(24 * scale), head_rect.top - int(34 * scale)),
-                (cx - int(6 * scale), head_rect.top - int(10 * scale)),
-                (cx + int(10 * scale), head_rect.top - int(36 * scale)),
-                (cx + int(28 * scale), head_rect.top - int(8 * scale)),
+            crest_points = [
+                (cx - int(54 * scale), head_rect.top + int(4 * scale)),
+                (cx - int(28 * scale), head_rect.top - int(18 * scale)),
+                (cx - int(8 * scale), head_rect.top + int(2 * scale)),
+                (cx + int(12 * scale), head_rect.top - int(20 * scale)),
+                (cx + int(40 * scale), head_rect.top + int(6 * scale)),
             ]
-            pygame.draw.polygon(surface, (255, 214, 82, 235), crown_points)
-            pygame.draw.polygon(
-                surface, WHITE, crown_points, width=max(2, int(3 * scale))
+            pygame.draw.lines(
+                surface,
+                (198, 255, 228, 198),
+                False,
+                crest_points,
+                max(2, int(4 * scale)),
             )
+            for crest_x, crest_y in crest_points[1:-1]:
+                pygame.draw.circle(surface, (255, 236, 156, 210), (crest_x, crest_y), max(3, int(5 * scale)))
         eye_stalk_height = int((28 + stretch * 10 + (8 if heroic else 0)) * scale)
         eye_spacing = int((46 + (8 if heroic else 0)) * scale)
         eye_radius = int((18 + (4 if heroic else 0)) * scale)
@@ -887,22 +1264,35 @@ class EffectsParticlesMixin:
             stalk_top = (eye_x, eye_y + eye_radius)
             pygame.draw.line(
                 surface,
-                (56, 152, 72, 230),
+                (*body_base, 230),
                 stalk_bottom,
                 stalk_top,
                 max(5, int(10 * scale)),
             )
+            pygame.draw.line(
+                surface,
+                (*body_rim, 86),
+                (stalk_bottom[0] - direction * int(2 * scale), stalk_bottom[1] - int(4 * scale)),
+                (stalk_top[0] - direction * int(2 * scale), stalk_top[1] - int(2 * scale)),
+                max(1, int(2 * scale)),
+            )
+            pygame.draw.circle(surface, (*body_shadow, 160), (eye_x, eye_y), eye_radius + max(2, int(2 * scale)))
             pygame.draw.circle(
                 surface, (244, 255, 246, 245), (eye_x, eye_y), eye_radius
             )
             iris_radius = max(5, int(eye_radius * 0.52))
-            iris_color = YELLOW if heroic else (40, 62, 28)
-            pygame.draw.circle(surface, iris_color, (eye_x, eye_y), iris_radius)
+            pygame.draw.circle(surface, iris_outer, (eye_x, eye_y), iris_radius)
+            pygame.draw.circle(surface, iris_inner, (eye_x, eye_y), max(3, int(iris_radius * 0.64)))
             pupil_x = eye_x + int(eye_focus_x * eye_radius * 0.28)
             pupil_y = eye_y + int(eye_focus_y * eye_radius * 0.2)
-            pygame.draw.circle(
-                surface, BLACK, (pupil_x, pupil_y), max(3, int(eye_radius * 0.28))
+            pupil_rect = pygame.Rect(
+                0,
+                0,
+                max(3, int(eye_radius * 0.34)),
+                max(6, int(eye_radius * (0.72 if heroic else 0.6))),
             )
+            pupil_rect.center = (pupil_x, pupil_y)
+            pygame.draw.ellipse(surface, BLACK, pupil_rect)
             pygame.draw.circle(
                 surface,
                 (255, 255, 255, 240),
@@ -919,14 +1309,14 @@ class EffectsParticlesMixin:
                 )
                 pygame.draw.rect(
                     surface,
-                    (84, 194, 102, 235),
+                    (*body_light, 235),
                     eyelid_rect,
                     border_radius=eye_radius,
                 )
             brow_y = eye_y - eye_radius - int((6 + heroic * 4) * scale)
             pygame.draw.line(
                 surface,
-                (36, 92, 44, 230),
+                (*brow_color, 230),
                 (eye_x - eye_radius + 2, brow_y + direction * int(2 * scale)),
                 (eye_x + eye_radius - 2, brow_y - direction * int(2 * scale)),
                 max(2, int(3 * scale)),
@@ -941,14 +1331,49 @@ class EffectsParticlesMixin:
                 max(8, int(16 * scale)),
             )
 
-        mouth_points = [
-            (cx - int(34 * scale), mouth_y),
-            (cx - int(12 * scale), mouth_y + int((8 + croak * 14 + grin * 18) * scale)),
-            (cx + int(12 * scale), mouth_y + int((8 + croak * 14 + grin * 18) * scale)),
-            (cx + int(34 * scale), mouth_y),
-        ]
-        pygame.draw.lines(
-            surface, (28, 80, 38, 240), False, mouth_points, max(3, int(5 * scale))
+        nostril_y = head_rect.centery - int(2 * scale)
+        for nostril_x in (cx - int(14 * scale), cx + int(14 * scale)):
+            nostril_rect = pygame.Rect(0, 0, max(3, int(6 * scale)), max(2, int(4 * scale)))
+            nostril_rect.center = (nostril_x, nostril_y)
+            pygame.draw.ellipse(surface, (24, 72, 30, 180), nostril_rect)
+
+        mouth_curve = int((8 + croak * 14 + grin * 16) * scale)
+        mouth_rect = pygame.Rect(0, 0, int(82 * scale), int((24 + mouth_curve) * scale))
+        mouth_rect.center = (cx, mouth_y + int(4 * scale))
+        inner_mouth = mouth_rect.inflate(-int(18 * scale), -int(10 * scale))
+        inner_mouth.centery += int(4 * scale)
+        if croak > 0.08 or grin > 0.2:
+            pygame.draw.ellipse(surface, (52, 18, 26, 172), inner_mouth)
+            tongue_bed = inner_mouth.inflate(-int(20 * scale), -int(10 * scale))
+            tongue_bed.centery += int(5 * scale)
+            pygame.draw.ellipse(surface, (196, 92, 118, 138), tongue_bed)
+        pygame.draw.arc(
+            surface,
+            (28, 80, 38, 240),
+            mouth_rect,
+            0.06,
+            math.pi - 0.06,
+            max(3, int(5 * scale)),
+        )
+        lower_lip = mouth_rect.inflate(-int(18 * scale), -int(6 * scale))
+        lower_lip.centery += int(4 * scale)
+        pygame.draw.arc(
+            surface,
+            (255, 226, 214, int(50 + grin * 60)),
+            lower_lip,
+            0.24,
+            math.pi - 0.24,
+            max(1, int(2 * scale)),
+        )
+        upper_lip = mouth_rect.inflate(-int(14 * scale), -int(14 * scale))
+        upper_lip.centery -= int(1 * scale)
+        pygame.draw.arc(
+            surface,
+            (*body_shadow, 110),
+            upper_lip,
+            0.18,
+            math.pi - 0.18,
+            max(1, int(2 * scale)),
         )
         if grin > 0:
             grin_rect = pygame.Rect(0, 0, int(64 * scale), int(24 * scale))
@@ -963,7 +1388,7 @@ class EffectsParticlesMixin:
             )
 
         if tongue_progress > 0:
-            tongue_start = (cx + int(34 * scale), mouth_y - int(2 * scale))
+            tongue_start = (cx + int(18 * scale), mouth_y + int(1 * scale))
             tongue_length = int(
                 self.lerp(0, 180 * scale, self.ease_out_back(tongue_progress))
             )
@@ -1003,5 +1428,16 @@ class EffectsParticlesMixin:
                 ),
                 max(3, int(4 * scale)),
             )
+
+        moisture_rect = pygame.Rect(0, 0, int(46 * scale), int(12 * scale))
+        moisture_rect.center = (cx, mouth_y + int(6 * scale))
+        pygame.draw.ellipse(surface, (255, 255, 255, int(12 + shimmer * 20)), moisture_rect)
+
+        target_size = (
+            max(1, int(560 * output_scale)),
+            max(1, int(440 * output_scale)),
+        )
+        if surface.get_size() != target_size:
+            surface = pygame.transform.smoothscale(surface, target_size)
 
         self.display.screen.blit(surface, surface.get_rect(center=center))

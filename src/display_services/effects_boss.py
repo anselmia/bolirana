@@ -27,27 +27,20 @@ class EffectsBossMixin:
             phase = time.monotonic()
             pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 3.5)
             blink = self.clamp((math.sin(progress * math.tau * 7.4) - 0.8) / 0.2)
-            self.draw_overlay((2, 18, 16), 145)
+            self.draw_overlay((2, 14, 16), 156)
             self.display.ui.draw_spotlight_canopy(
-                phase, intensity=0.86, tint=(166, 255, 214)
+                phase, intensity=0.52, tint=(166, 255, 214)
             )
             self.display.ui.draw_stage_floor(
-                phase, horizon_ratio=0.79, tint=(110, 255, 210), alpha=24
+                phase, horizon_ratio=0.79, tint=(110, 255, 210), alpha=10
             )
             self.display.ui.draw_screen_frame(
                 phase,
                 accent_color=(110, 255, 210),
                 secondary_color=(90, 180, 255),
             )
-            self.display.ui.draw_scene_badges("GRANDE GRENOUILLE", "BOSS ARENA", phase)
             self.draw_cinematic_bars(
                 progress, color=(0, 0, 0), max_height=58, reveal_portion=0.16
-            )
-            self.draw_party_ribbons(
-                progress,
-                palette=[(110, 255, 210), (90, 180, 255), WHITE],
-                alpha=28,
-                speed=0.5,
             )
             self.draw_aurora_ribbon(
                 progress,
@@ -71,61 +64,49 @@ class EffectsBossMixin:
             )
             self.draw_vignette(110, (0, 10, 8))
             self.draw_light_beam(center, progress, (100, 255, 200), width=340, alpha=78)
-            self.draw_speed_lines(
-                progress, (120, 255, 210), count=10, alpha=42, angle=-0.5
+            self.draw_glow_circle(
+                (center[0], center[1] - 36),
+                110 + int(pulse * 16),
+                (100, 255, 200),
+                glow_radius=126,
+                alpha=34,
             )
-            header_rect = pygame.Rect(center[0] - 272, 82, 544, 92)
-            self.display.ui.draw_panel_shadow(
-                header_rect,
-                alpha=106,
-                inflate=24,
-                offset=(0, 14),
-                border_radius=30,
+            for fog_index in range(4):
+                fog_phase = (progress * 0.9 + fog_index * 0.16) % 1.0
+                fog_width = 280 + fog_index * 56
+                fog_height = 72 + fog_index * 12
+                fog_surface = pygame.Surface((fog_width, fog_height), pygame.SRCALPHA)
+                pygame.draw.ellipse(
+                    fog_surface,
+                    (100, 255, 200, max(0, int(28 * (1 - fog_phase * 0.86)))),
+                    fog_surface.get_rect(),
+                )
+                self.display.screen.blit(
+                    fog_surface,
+                    (
+                        center[0] - fog_width // 2 + int(math.sin(phase * 0.5 + fog_index) * 26),
+                        lily_center[1] + 20 - int(fog_phase * 112) + fog_index * 8,
+                    ),
+                )
+            self.draw_glow_circle(
+                lily_center,
+                58 + int(pulse * 12),
+                (120, 255, 210),
+                glow_radius=88,
+                alpha=52,
             )
-            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(
-                header_surface,
-                (8, 28, 32, 220),
-                header_surface.get_rect(),
-                border_radius=30,
-            )
-            pygame.draw.rect(
-                header_surface,
-                (255, 255, 255, 14),
-                (12, 12, header_rect.width - 24, 30),
-                border_radius=18,
-            )
-            self.display.screen.blit(header_surface, header_rect.topleft)
-            self.display.ui.draw_panel_grid(
-                header_rect.inflate(-18, -16),
+            self.display.ui.draw_title_panel(
+                "GRANDE GRENOUILLE",
+                "Le boss arrive avant la roulette",
                 phase,
-                color=(110, 255, 210),
-                alpha=10,
-                step=58,
+                y=82,
             )
-            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 26, 4)
             self.display.ui.draw_badge(
                 "BOSS",
-                (header_rect.centerx - 48, header_rect.top - 12, 96, 24),
-                (255, 214, 82, 224),
-                text_color=BLACK,
-                border_color=(255, 255, 255, 90),
-            )
-            self.display.ui.draw_text_with_shadow(
-                "GRANDE GRENOUILLE",
-                self.display.font_title_small,
-                (255, 248, 222),
-                BLACK,
-                (header_rect.centerx, header_rect.top + 32),
-                center=True,
-            )
-            self.display.ui.draw_text_with_shadow(
-                "Le boss arrive avant la roulette",
-                self.display.font_small,
-                YELLOW,
-                BLACK,
-                (header_rect.centerx, header_rect.bottom - 20),
-                center=True,
+                pygame.Rect(self.display.screen_width // 2 - 48, 70, 96, 24),
+                (18, 28, 44, 220),
+                text_color=WHITE,
+                border_color=(110, 255, 210, 110),
             )
             self.trigger_cue(
                 cues_triggered,
@@ -145,23 +126,11 @@ class EffectsBossMixin:
                 volume=0.8,
                 fade_ms=80,
             )
-            self.draw_crowd_bounce(progress * 0.9)
-
             self.draw_lily_pad(
                 lily_center,
                 190,
                 rotation=math.sin(progress * math.tau * 0.9) * 3,
                 glow=0.4 + pulse * 0.3,
-            )
-            self.draw_cartoon_starburst(
-                (center[0], lily_center[1] - 12),
-                min(1.0, progress * 0.92),
-                (140, 255, 220),
-                rays=11,
-                inner_radius=18,
-                outer_radius=118,
-                alpha=132,
-                twist=0.12,
             )
             self.draw_orbiting_particles(
                 center,
@@ -219,7 +188,7 @@ class EffectsBossMixin:
 
             summon = self.clamp((progress - 0.1) / 0.46)
             airborne = max(0.0, 0.2 * math.sin(summon * math.pi))
-            scale = 0.88 + self.ease_out_back(summon) * 0.38
+            scale = 0.94 + self.ease_out_back(summon) * 0.42
             crouch = max(0.0, 0.55 * (1 - summon))
             stretch = self.clamp((progress - 0.18) / 0.24) * 0.55
             croak = 0.24 + self.clamp((progress - 0.44) / 0.22) * (0.5 + pulse * 0.2)
@@ -263,6 +232,13 @@ class EffectsBossMixin:
                 grin=grin,
                 blush=blush,
                 shimmer=shimmer,
+            )
+            self.draw_glow_circle(
+                (center[0] + int(shake_x), center[1] - int(airborne * 44) - 34 + int(shake_y)),
+                44 + int(pulse * 8),
+                (210, 255, 234),
+                glow_radius=62,
+                alpha=24,
             )
 
             if progress > 0.26:
@@ -327,15 +303,6 @@ class EffectsBossMixin:
                 size=10,
                 rotation=progress * 3.2,
             )
-            self.draw_sticker_burst(
-                center,
-                min(1.0, progress * 1.08),
-                [(110, 255, 190), WHITE, YELLOW],
-                count=9,
-                distance=136,
-                size=16,
-                twist=0.15,
-            )
             self.draw_liquid_splash(
                 (center[0], lily_center[1] - 16),
                 min(1.0, progress * 0.92),
@@ -362,32 +329,18 @@ class EffectsBossMixin:
                 footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
                 pygame.draw.rect(
                     footer_surface,
-                    (8, 24, 44, 208),
+                    (8, 24, 44, 184),
                     footer_surface.get_rect(),
                     border_radius=22,
                 )
                 pygame.draw.rect(
                     footer_surface,
-                    (255, 255, 255, 14),
-                    (12, 10, footer_rect.width - 24, 22),
-                    border_radius=12,
+                    (255, 255, 255, 18),
+                    footer_surface.get_rect(),
+                    width=1,
+                    border_radius=22,
                 )
                 self.display.screen.blit(footer_surface, footer_rect.topleft)
-                self.display.ui.draw_panel_grid(
-                    footer_rect.inflate(-16, -14),
-                    phase + 0.4,
-                    color=(90, 180, 255),
-                    alpha=9,
-                    step=52,
-                )
-                self.display.ui.draw_chrome_rect(footer_rect, GOLD_COLORS, 22, 4)
-                self.display.ui.draw_marquee_lights(
-                    footer_rect,
-                    phase + 0.3,
-                    (255, 220, 126),
-                    count=14,
-                    radius=3,
-                )
                 self.display.ui.draw_text_with_shadow(
                     "ROULETTE",
                     self.display.font_large,
@@ -405,15 +358,6 @@ class EffectsBossMixin:
                     (footer_rect.centerx, footer_rect.bottom - 18),
                     center=True,
                 )
-                self.draw_comic_caption(
-                    "MEGA CROAK!",
-                    (center[0] + 190, center[1] - 130),
-                    title_progress,
-                    fill_color=(212, 255, 176),
-                    outline_color=(66, 142, 88),
-                    wobble=11.0,
-                )
-            self.draw_reaction_signs(progress, ["BOSS!", "CROAK!", "RUN!"])
 
         self.animate_scene(2.1, render, background=backdrop)
         frog_sound = self.display.resources.get("frog_sound")

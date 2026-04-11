@@ -33,37 +33,28 @@ class EffectsVictoryMixin:
         else:
             groups = [players]
 
-        if team_mode in [TEAM_MODE_TEAM, TEAM_MODE_DUO]:
-            winner_group = next(
-                (
-                    group
-                    for group in groups
-                    if any(player.rank == 1 for player in group)
-                ),
-                None,
-            )
-            winner_name = None
-            if winner_group:
-                winner_name = (
-                    f"Team {winner_group[0].team}"
-                    if team_mode == TEAM_MODE_TEAM
-                    else f"Duo {winner_group[0].team}"
-                )
-            message = f"Bravo {winner_name}" if winner_group else "Game Over!"
-        else:
-            winner = next((player for player in players if player.rank == 1), None)
-            message = f"Bravo {winner}" if winner else "Game Over!"
-
         sorted_groups = sorted(
             groups, key=lambda group: min(player.rank for player in group)
         )
         for group in sorted_groups:
             group.sort(key=lambda player: player.rank)
 
+        def describe_group(group):
+            if not group:
+                return "Partie terminee"
+            if team_mode == TEAM_MODE_TEAM:
+                return f"Team {group[0].team}"
+            if team_mode == TEAM_MODE_DUO:
+                return f"Duo {group[0].team}"
+            return str(group[0])
+
         champion_group = sorted_groups[0] if sorted_groups else []
         champion_score = sum(player.score for player in champion_group)
-        champion_label = (
-            message.replace("Bravo ", "") if message.startswith("Bravo ") else message
+        champion_label = describe_group(champion_group)
+        message = (
+            f"Victoire de {champion_label}"
+            if champion_group
+            else "Partie terminee"
         )
 
         group_color_map = {
@@ -116,147 +107,44 @@ class EffectsVictoryMixin:
                 fade_ms=40,
                 maxtime=900,
             )
-            self.draw_overlay((4, 10, 30), 88)
+            self.draw_overlay((4, 10, 30), 118)
             self.display.ui.draw_spotlight_canopy(
-                phase, intensity=0.88, tint=(255, 226, 164)
+                phase, intensity=0.62, tint=(255, 226, 164)
             )
             self.display.ui.draw_stage_floor(
-                phase, horizon_ratio=0.78, tint=(255, 214, 110), alpha=26
+                phase, horizon_ratio=0.78, tint=(255, 214, 110), alpha=16
             )
             self.display.ui.draw_screen_frame(
                 phase,
                 accent_color=(255, 220, 126),
-                secondary_color=(120, 220, 255),
-            )
-            self.display.ui.draw_scene_badges(
-                "HALL OF FAME",
-                f"{len(players)} JOUEURS",
-                phase,
+                secondary_color=(146, 186, 214),
             )
             self.draw_star_field(
-                0.35 + progress * 0.45,
-                density=34,
+                0.22 + progress * 0.18,
+                density=14,
                 color=(255, 248, 220),
-                drift=14,
-                alpha=118,
-            )
-            self.draw_party_ribbons(progress, alpha=34, speed=0.4)
-            self.draw_confetti(progress * 0.95, density=34)
-            self.draw_confetti_fountain(
-                (self.display.screen_width // 2, self.display.screen_height - 48),
-                self.clamp((progress - 0.18) / 0.46),
-                palette=[YELLOW, WHITE, (120, 220, 255), (255, 142, 214)],
-                count=24,
-                spread=340,
-                height=220,
-                alpha=186,
-            )
-            self.draw_aurora_ribbon(
-                progress,
-                (140, 220, 255),
-                base_y=118,
-                amplitude=22,
-                thickness=5,
-                speed=0.32,
+                drift=8,
                 alpha=44,
-                phase=0.8,
             )
-            self.draw_cartoon_flash(
-                (self.display.screen_width // 2, 178),
-                min(1.0, progress * 0.92),
-                (255, 220, 126),
-                radius=280,
-                alpha=76,
-            )
-            self.draw_crowd_bounce(progress)
 
             title_progress = self.clamp(progress / 0.28)
             title_y = self.lerp(-60, 52, self.ease_out_back(title_progress))
-            title_rect = pygame.Rect(
-                self.display.screen_width // 2 - 350, int(title_y), 700, 112
-            )
-            self.display.ui.draw_panel_shadow(
-                title_rect,
-                alpha=118,
-                inflate=26,
-                offset=(0, 16),
-                border_radius=32,
-            )
-            title_surface = pygame.Surface(title_rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(
-                title_surface,
-                (10, 26, 54, 224),
-                title_surface.get_rect(),
-                border_radius=32,
-            )
-            pygame.draw.rect(
-                title_surface,
-                (255, 255, 255, 16),
-                (14, 14, title_rect.width - 28, 56),
-                border_radius=22,
-            )
-            self.display.screen.blit(title_surface, title_rect.topleft)
-            self.display.ui.draw_panel_grid(
-                title_rect.inflate(-22, -22),
+            self.display.ui.draw_title_panel(
+                "HALL OF FAME",
+                message,
                 phase,
-                color=(255, 214, 110),
-                alpha=10,
-                step=72,
+                y=int(title_y),
             )
-            self.display.ui.draw_chrome_rect(title_rect, GOLD_COLORS, 28, 5)
-            self.display.ui.draw_marquee_lights(
-                title_rect, phase, (255, 220, 126), count=22
+            title_badge_rect = pygame.Rect(
+                self.display.screen_width // 2 - 58, int(title_y) - 14, 116, 26
             )
             self.display.ui.draw_badge(
                 "FINALE",
-                (title_rect.centerx - 58, title_rect.top - 14, 116, 26),
-                (255, 214, 82, 224),
-                text_color=BLACK,
-                border_color=(255, 255, 255, 90),
+                title_badge_rect,
+                (18, 28, 44, 220),
+                text_color=WHITE,
+                border_color=(255, 214, 82, 104),
             )
-            self.display.ui.draw_text_with_shadow(
-                "HALL OF FAME",
-                self.display.font_medium,
-                YELLOW,
-                BLACK,
-                (title_rect.centerx, title_rect.top + 26),
-                center=True,
-            )
-            self.display.ui.draw_text_with_shadow(
-                message,
-                self.display.font_title_small,
-                (255, 248, 222),
-                BLACK,
-                (title_rect.centerx, title_rect.top + 66),
-                center=True,
-            )
-            self.draw_comic_caption(
-                "CHAMPIONS!" if team_mode != TEAM_MODE_SOLO else "LEGENDE!",
-                (title_rect.centerx + 238, title_rect.top + 14),
-                min(1.0, progress * 1.1),
-                fill_color=(255, 232, 152),
-                wobble=8.0,
-            )
-            self.draw_cartoon_starburst(
-                (title_rect.centerx, title_rect.centery - 6),
-                min(1.0, progress * 1.04),
-                (255, 220, 126),
-                rays=12,
-                inner_radius=22,
-                outer_radius=140,
-                alpha=96,
-                twist=0.06,
-            )
-            self.draw_sticker_burst(
-                title_rect.midtop,
-                min(1.0, progress * 1.08),
-                [YELLOW, WHITE, (255, 196, 86)],
-                count=8,
-                distance=86,
-                size=13,
-                twist=0.1,
-            )
-            self.draw_reaction_signs(progress, ["CHAMP!", "OLE!", "MAGIQUE!"])
 
             summary_rect = pygame.Rect(
                 self.display.screen_width // 2 - 330, 178, 660, 76
@@ -271,38 +159,50 @@ class EffectsVictoryMixin:
             summary_surface = pygame.Surface(summary_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 summary_surface,
-                (10, 28, 56, 214),
+                (10, 24, 42, 198),
                 summary_surface.get_rect(),
                 border_radius=26,
             )
             pygame.draw.rect(
                 summary_surface,
                 (255, 255, 255, 14),
-                (12, 12, summary_rect.width - 24, 30),
+                (12, 12, summary_rect.width - 24, 22),
                 border_radius=18,
+            )
+            pygame.draw.rect(
+                summary_surface,
+                (255, 214, 82, 84),
+                (0, 0, 6, summary_rect.height),
+                border_radius=26,
+            )
+            pygame.draw.rect(
+                summary_surface,
+                (255, 255, 255, 24),
+                summary_surface.get_rect(),
+                width=1,
+                border_radius=26,
             )
             self.display.screen.blit(summary_surface, summary_rect.topleft)
             self.display.ui.draw_panel_grid(
                 summary_rect.inflate(-20, -18),
                 phase,
                 color=(120, 214, 255),
-                alpha=10,
-                step=64,
+                alpha=4,
+                step=72,
             )
-            self.display.ui.draw_chrome_rect(summary_rect, CHROME_COLORS, 24, 4)
             self.display.ui.draw_badge(
                 "CHAMPION",
                 (summary_rect.left + 20, summary_rect.top + 16, 120, 24),
-                (255, 214, 82, 220),
-                text_color=BLACK,
-                border_color=(255, 255, 255, 90),
+                (18, 28, 44, 220),
+                text_color=WHITE,
+                border_color=(255, 214, 82, 104),
             )
             self.display.ui.draw_badge(
                 f"{champion_score} pts",
                 (summary_rect.right - 136, summary_rect.top + 16, 116, 24),
-                (8, 24, 44, 214),
-                text_color=YELLOW,
-                border_color=(255, 214, 110, 90),
+                (18, 28, 44, 214),
+                text_color=WHITE,
+                border_color=(255, 214, 82, 90),
             )
             self.display.ui.draw_text_with_shadow(
                 champion_label,
@@ -311,22 +211,6 @@ class EffectsVictoryMixin:
                 BLACK,
                 (summary_rect.centerx, summary_rect.top + 48),
                 center=True,
-            )
-            self.draw_cartoon_flash(
-                summary_rect.center,
-                self.clamp((progress - 0.28) / 0.34),
-                (120, 220, 255),
-                radius=180,
-                alpha=64,
-            )
-            self.draw_sticker_burst(
-                (summary_rect.centerx, summary_rect.bottom - 8),
-                self.clamp((progress - 0.32) / 0.28),
-                [YELLOW, WHITE, (120, 220, 255)],
-                count=6,
-                distance=84,
-                size=12,
-                twist=0.18,
             )
 
             hall_rect = pygame.Rect(
@@ -345,25 +229,31 @@ class EffectsVictoryMixin:
             hall_surface = pygame.Surface(hall_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 hall_surface,
-                (8, 22, 44, 176),
+                (8, 20, 38, 196),
                 hall_surface.get_rect(),
                 border_radius=28,
             )
             pygame.draw.rect(
                 hall_surface,
                 (255, 255, 255, 12),
-                (16, 16, hall_rect.width - 32, 52),
+                (16, 16, hall_rect.width - 32, 34),
                 border_radius=20,
+            )
+            pygame.draw.rect(
+                hall_surface,
+                (255, 255, 255, 22),
+                hall_surface.get_rect(),
+                width=1,
+                border_radius=28,
             )
             self.display.screen.blit(hall_surface, hall_rect.topleft)
             self.display.ui.draw_panel_grid(
                 hall_rect.inflate(-20, -20),
                 phase,
                 color=(120, 214, 255),
-                alpha=8,
-                step=66,
+                alpha=4,
+                step=74,
             )
-            self.display.ui.draw_chrome_rect(hall_rect, CHROME_COLORS, 26, 4)
             self.display.ui.draw_text_with_shadow(
                 "CLASSEMENT FINAL",
                 self.display.font_medium,
@@ -390,9 +280,9 @@ class EffectsVictoryMixin:
                     self.display.ui.draw_badge(
                         header_text,
                         (int(x), int(y - 36), header_width, 24),
-                        (*group_color[:3], 210),
+                        (18, 28, 44, 214),
                         text_color=WHITE,
-                        border_color=(255, 255, 255, 78),
+                        border_color=(*group_color[:3], 104),
                         font=self.display.font_small,
                     )
                 for player_index, player in enumerate(group):
@@ -402,11 +292,6 @@ class EffectsVictoryMixin:
                         y += box_height + gap_between_boxes
                         continue
 
-                    bg_color = (
-                        group_color
-                        if team_mode != TEAM_MODE_SOLO
-                        else DARK_BLUE if player_index % 2 == 0 else DARK_GREY
-                    )
                     column_index = 0 if columns == 1 or x == start_x else 1
                     slide = (1 - self.ease_out_back(local)) * (
                         82 if column_index == 0 else -82
@@ -429,80 +314,53 @@ class EffectsVictoryMixin:
                     panel_surface = pygame.Surface(row_rect.size, pygame.SRCALPHA)
                     pygame.draw.rect(
                         panel_surface,
-                        (*self.get_rgb(bg_color), 206),
+                        (10, 22, 38, 212),
                         panel_surface.get_rect(),
                         border_radius=18,
                     )
                     pygame.draw.rect(
                         panel_surface,
-                        (255, 255, 255, 14),
-                        (10, 8, row_rect.width - 20, 20),
+                        (255, 255, 255, 12),
+                        (10, 8, row_rect.width - 20, 16),
                         border_radius=12,
                     )
                     pygame.draw.rect(
                         panel_surface,
-                        (*self.get_rgb(group_color), 150),
-                        (10, 10, 10, row_rect.height - 20),
-                        border_radius=6,
+                        (*self.get_rgb(group_color), 108 if player.rank == 1 else 84),
+                        (0, 0, 6, row_rect.height),
+                        border_radius=18,
+                    )
+                    pygame.draw.rect(
+                        panel_surface,
+                        (255, 255, 255, 24),
+                        panel_surface.get_rect(),
+                        width=1,
+                        border_radius=18,
                     )
                     self.display.screen.blit(panel_surface, row_rect.topleft)
                     self.display.ui.draw_panel_grid(
                         row_rect.inflate(-12, -10),
                         phase + row_counter * 0.2,
                         color=group_color,
-                        alpha=8,
-                        step=52,
+                        alpha=3,
+                        step=58,
                     )
-                    self.display.ui.draw_chrome_rect(
-                        row_rect,
-                        GOLD_COLORS if player.rank == 1 else CHROME_COLORS,
-                        16,
-                        4,
-                    )
+                    if player.rank == 1:
+                        pygame.draw.rect(
+                            self.display.screen,
+                            (255, 214, 82, 120),
+                            row_rect,
+                            width=2,
+                            border_radius=18,
+                        )
 
                     if player.rank == 1:
-                        crown_progress = min(1.0, progress * 1.08)
-                        self.draw_cartoon_starburst(
-                            (row_rect.centerx, row_rect.centery),
-                            crown_progress,
-                            YELLOW,
-                            rays=10,
-                            inner_radius=14,
-                            outer_radius=96,
-                            alpha=82,
-                            twist=0.12,
-                        )
                         self.draw_glow_circle(
                             (row_rect.left + 16, row_rect.centery),
-                            10,
+                            8,
                             YELLOW,
-                            glow_radius=26,
-                            alpha=90,
-                        )
-                        self.draw_impact_cloud(
-                            row_rect.center,
-                            local,
-                            color=YELLOW,
-                            puff_count=6,
-                            spread=64,
-                            alpha=58,
-                            y_scale=0.5,
-                        )
-                        self.display.ui.draw_marquee_lights(
-                            row_rect,
-                            phase + player.rank * 0.2,
-                            (255, 220, 126),
-                            count=12,
-                            radius=3,
-                        )
-                        self.draw_confetti_fountain(
-                            (row_rect.centerx, row_rect.bottom + 6),
-                            local,
-                            palette=[YELLOW, WHITE, group_color],
-                            count=10,
-                            spread=92,
-                            height=72,
-                            alpha=144,
+                            glow_radius=20,
+                            alpha=76,
                         )
 
                     medal_text = f"#{player.rank}"
@@ -512,9 +370,9 @@ class EffectsVictoryMixin:
                     self.display.ui.draw_badge(
                         medal_text,
                         (row_rect.left + 24, row_rect.top + 14, medal_width, 24),
-                        (255, 214, 82, 224) if player.rank == 1 else (8, 24, 44, 214),
-                        text_color=BLACK if player.rank == 1 else WHITE,
-                        border_color=(255, 255, 255, 88),
+                        (18, 28, 44, 220),
+                        text_color=WHITE,
+                        border_color=((255, 214, 82, 108) if player.rank == 1 else (*group_color[:3], 90)),
                         font=self.display.font_small,
                     )
 
@@ -530,9 +388,9 @@ class EffectsVictoryMixin:
                             score_width,
                             24,
                         ),
-                        (8, 24, 44, 214),
-                        text_color=YELLOW,
-                        border_color=(255, 214, 110, 90),
+                        (18, 28, 44, 214),
+                        text_color=WHITE,
+                        border_color=(*group_color[:3], 90),
                         font=self.display.font_small,
                     )
 

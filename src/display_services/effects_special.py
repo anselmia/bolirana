@@ -454,35 +454,52 @@ class EffectsSpecialMixin:
 
         def render(progress):
             phase = time.monotonic()
-            self.draw_overlay((3, 26, 20), 95)
+            self.draw_overlay((3, 20, 18), 126)
             self.display.ui.draw_spotlight_canopy(
-                phase, intensity=0.78, tint=(166, 255, 214)
+                phase, intensity=0.48, tint=(166, 255, 214)
             )
             self.display.ui.draw_stage_floor(
-                phase, horizon_ratio=0.79, tint=(120, 255, 210), alpha=24
+                phase, horizon_ratio=0.79, tint=(120, 255, 210), alpha=10
             )
             self.display.ui.draw_screen_frame(
                 phase,
                 accent_color=(120, 255, 210),
                 secondary_color=(255, 232, 140),
             )
-            self.display.ui.draw_scene_badges("PETITE GRENOUILLE", "SUPER SAUT", phase)
             self.draw_vignette(76, (2, 18, 12))
             self.draw_cinematic_bars(
                 progress, color=(0, 0, 0), max_height=42, reveal_portion=0.2
-            )
-            self.draw_party_ribbons(
-                progress,
-                palette=[(120, 255, 210), YELLOW, WHITE],
-                alpha=26,
-                speed=0.8,
             )
             self.draw_light_beam(
                 (center[0] - 18, center[1] - 30),
                 progress,
                 (126, 255, 210),
                 width=260,
-                alpha=52,
+                alpha=34,
+            )
+            for mist_index in range(3):
+                mist_phase = (progress * 0.82 + mist_index * 0.21) % 1.0
+                mist_width = 220 + mist_index * 44
+                mist_height = 58 + mist_index * 10
+                mist_surface = pygame.Surface((mist_width, mist_height), pygame.SRCALPHA)
+                pygame.draw.ellipse(
+                    mist_surface,
+                    (126, 255, 210, max(0, int(28 * (1 - mist_phase * 0.82)))),
+                    mist_surface.get_rect(),
+                )
+                self.display.screen.blit(
+                    mist_surface,
+                    (
+                        center[0] - mist_width // 2 + int(math.sin(phase * 0.7 + mist_index) * 18),
+                        center[1] + 96 - int(mist_phase * 76) + mist_index * 10,
+                    ),
+                )
+            self.draw_glow_circle(
+                (center[0] - 6, center[1] - 48),
+                72 + int(progress * 10),
+                (120, 255, 210),
+                glow_radius=84,
+                alpha=34,
             )
             self.draw_aurora_ribbon(
                 progress,
@@ -494,61 +511,18 @@ class EffectsSpecialMixin:
                 alpha=42,
                 phase=0.4,
             )
-            self.draw_speed_lines(
-                progress, (120, 255, 210), count=8, alpha=32, angle=0.8
-            )
-            header_rect = pygame.Rect(center[0] - 246, 88, 492, 86)
-            self.display.ui.draw_panel_shadow(
-                header_rect,
-                alpha=96,
-                inflate=22,
-                offset=(0, 12),
-                border_radius=28,
-            )
-            header_surface = pygame.Surface(header_rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(
-                header_surface,
-                (8, 34, 28, 216),
-                header_surface.get_rect(),
-                border_radius=28,
-            )
-            pygame.draw.rect(
-                header_surface,
-                (255, 255, 255, 14),
-                (12, 12, header_rect.width - 24, 28),
-                border_radius=18,
-            )
-            self.display.screen.blit(header_surface, header_rect.topleft)
-            self.display.ui.draw_panel_grid(
-                header_rect.inflate(-16, -14),
+            self.display.ui.draw_title_panel(
+                "PETITE GRENOUILLE",
+                "Precision, elan et capture parfaite",
                 phase,
-                color=(120, 255, 210),
-                alpha=10,
-                step=56,
+                y=88,
             )
-            self.display.ui.draw_chrome_rect(header_rect, GOLD_COLORS, 24, 4)
             self.display.ui.draw_badge(
                 "SPECIAL",
-                (header_rect.centerx - 54, header_rect.top - 12, 108, 24),
-                (255, 214, 82, 224),
-                text_color=BLACK,
-                border_color=(255, 255, 255, 90),
-            )
-            self.display.ui.draw_text_with_shadow(
-                "PETITE GRENOUILLE",
-                self.display.font_title_small,
-                (255, 248, 222),
-                BLACK,
-                (header_rect.centerx, header_rect.top + 30),
-                center=True,
-            )
-            self.display.ui.draw_text_with_shadow(
-                "Precision, elan et capture parfaite",
-                self.display.font_small,
-                YELLOW,
-                BLACK,
-                (header_rect.centerx, header_rect.bottom - 20),
-                center=True,
+                pygame.Rect(self.display.screen_width // 2 - 54, 76, 108, 24),
+                (18, 28, 44, 220),
+                text_color=WHITE,
+                border_color=(120, 255, 210, 110),
             )
             self.trigger_cue(
                 cues_triggered,
@@ -577,8 +551,6 @@ class EffectsSpecialMixin:
                 volume=0.32,
                 fade_ms=40,
             )
-            self.draw_crowd_bounce(progress * 0.85)
-
             if progress < 0.2:
                 crouch = self.ease_in_out_sine(progress / 0.2)
                 stretch = 0.0
@@ -630,12 +602,12 @@ class EffectsSpecialMixin:
                 rotation=math.sin(progress * math.tau * 1.5) * 4,
                 glow=0.28 + airborne * 0.42,
             )
-            self.draw_cartoon_flash(
+            self.draw_glow_circle(
                 lily_center,
-                min(1.0, progress * 0.88),
+                46 + int(airborne * 18),
                 (120, 255, 210),
-                radius=160,
-                alpha=70,
+                glow_radius=68,
+                alpha=62,
             )
             self.draw_orbiting_particles(
                 lily_center,
@@ -687,16 +659,6 @@ class EffectsSpecialMixin:
                     trail=5,
                     alpha=42,
                 )
-                self.draw_cartoon_starburst(
-                    (center[0] - 26, center[1] + 74),
-                    smear_progress,
-                    (120, 255, 210),
-                    rays=7,
-                    inner_radius=10,
-                    outer_radius=56,
-                    alpha=126,
-                    twist=0.22,
-                )
 
             tongue_window = self.clamp((progress - 0.34) / 0.18)
             tongue_release = self.clamp((progress - 0.56) / 0.14)
@@ -734,7 +696,7 @@ class EffectsSpecialMixin:
 
             self.draw_frog_character(
                 (center[0] + int(drift_x), center[1] - int(lift)),
-                scale=1.02,
+                scale=1.08,
                 crouch=crouch,
                 stretch=stretch,
                 airborne=airborne,
@@ -748,19 +710,16 @@ class EffectsSpecialMixin:
                 blush=blush,
                 shimmer=shimmer,
             )
+            self.draw_glow_circle(
+                (center[0] + int(drift_x), center[1] - int(lift) - 24),
+                34,
+                (214, 255, 232),
+                glow_radius=48,
+                alpha=20 + int(airborne * 24),
+            )
 
             if progress >= 0.5:
                 burst_progress = self.clamp((progress - 0.5) / 0.16)
-                self.draw_cartoon_starburst(
-                    fly_center,
-                    burst_progress,
-                    (255, 236, 164),
-                    rays=8,
-                    inner_radius=10,
-                    outer_radius=74,
-                    alpha=220,
-                    twist=0.1,
-                )
                 self.draw_radial_burst(
                     fly_center,
                     burst_progress,
@@ -770,14 +729,6 @@ class EffectsSpecialMixin:
                     size=6,
                     rotation=progress * 2.0,
                 )
-                self.draw_comic_caption(
-                    "SLURP!",
-                    (fly_center[0] + 46, fly_center[1] - 24),
-                    burst_progress,
-                    fill_color=(255, 232, 164),
-                    outline_color=(214, 96, 126),
-                    wobble=14.0,
-                )
                 self.draw_impact_cloud(
                     fly_center,
                     burst_progress,
@@ -786,24 +737,6 @@ class EffectsSpecialMixin:
                     spread=40,
                     alpha=82,
                     y_scale=0.58,
-                )
-                self.draw_sticker_burst(
-                    fly_center,
-                    burst_progress,
-                    [YELLOW, WHITE, (255, 232, 164)],
-                    count=6,
-                    distance=52,
-                    size=10,
-                    twist=0.2,
-                )
-                self.draw_confetti_fountain(
-                    fly_center,
-                    burst_progress,
-                    palette=[YELLOW, WHITE, (255, 170, 190)],
-                    count=10,
-                    spread=90,
-                    height=70,
-                    alpha=170,
                 )
 
             if progress > 0.68:
@@ -852,24 +785,6 @@ class EffectsSpecialMixin:
                     alpha=72,
                     y_scale=0.42,
                 )
-                self.draw_sticker_burst(
-                    lily_center,
-                    landing_progress,
-                    [(120, 255, 210), WHITE, YELLOW],
-                    count=7,
-                    distance=94,
-                    size=12,
-                    twist=0.6,
-                )
-                self.draw_confetti_fountain(
-                    (lily_center[0], lily_center[1] + 32),
-                    landing_progress,
-                    palette=[(120, 255, 210), YELLOW, WHITE],
-                    count=12,
-                    spread=120,
-                    height=92,
-                    alpha=160,
-                )
 
             if progress > 0.7:
                 caption_alpha = self.clamp((progress - 0.7) / 0.18)
@@ -886,28 +801,26 @@ class EffectsSpecialMixin:
                 footer_surface = pygame.Surface(footer_rect.size, pygame.SRCALPHA)
                 pygame.draw.rect(
                     footer_surface,
-                    (8, 24, 44, int(188 * caption_alpha)),
+                    (8, 24, 44, int(172 * caption_alpha)),
                     footer_surface.get_rect(),
                     border_radius=18,
                 )
-                self.display.screen.blit(footer_surface, footer_rect.topleft)
-                self.display.ui.draw_chrome_rect(footer_rect, CHROME_COLORS, 18, 3)
-                self.display.ui.draw_marquee_lights(
-                    footer_rect,
-                    phase + 0.4,
-                    (255, 214, 110),
-                    count=12,
-                    radius=3,
+                pygame.draw.rect(
+                    footer_surface,
+                    (255, 255, 255, int(18 * caption_alpha)),
+                    footer_surface.get_rect(),
+                    width=1,
+                    border_radius=18,
                 )
+                self.display.screen.blit(footer_surface, footer_rect.topleft)
                 self.display.ui.draw_text_with_shadow(
-                    "Super saut cartoon",
+                    "Capture nette et trajectoire maitrisee",
                     self.display.font_medium,
                     WHITE,
                     BLACK,
                     footer_rect.center,
                     center=True,
                 )
-            self.draw_reaction_signs(progress, ["MIAM!", "BOING!", "HERO!"])
 
         self.animate_scene(1.92, render, background=backdrop)
         frog_sound = self.display.resources.get("frog_sound")

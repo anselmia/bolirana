@@ -726,36 +726,35 @@ class UIMenuMixin:
     def _draw_data_panel(self, rect, phase, label):
         panel_rect = pygame.Rect(rect)
         self.draw_panel_shadow(
-            panel_rect, alpha=104, inflate=22, offset=(0, 12), border_radius=28
+            panel_rect, alpha=64, inflate=14, offset=(0, 8), border_radius=28
         )
         panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
         pygame.draw.rect(
-            panel_surface, (10, 24, 54, 214), panel_surface.get_rect(), border_radius=28
+            panel_surface, (10, 24, 48, 182), panel_surface.get_rect(), border_radius=28
         )
         pygame.draw.rect(
             panel_surface,
             (255, 255, 255, 14),
-            (12, 12, panel_rect.width - 24, 28),
+            (14, 12, panel_rect.width - 28, 24),
             border_radius=18,
+        )
+        pygame.draw.rect(
+            panel_surface,
+            (255, 255, 255, 24),
+            panel_surface.get_rect(),
+            width=1,
+            border_radius=28,
         )
         self.display.screen.blit(panel_surface, panel_rect.topleft)
         self.draw_panel_grid(
-            panel_rect.inflate(-18, -18), phase, (118, 242, 214), 12, 58
+            panel_rect.inflate(-18, -18), phase, (118, 242, 214), 5, 64
         )
-        self.draw_halftone_dots(
-            panel_rect.inflate(-24, -20),
-            color=(255, 255, 255),
-            alpha=9,
-            spacing=22,
-            radius=2,
-            drift=phase * 5,
-        )
-        self.draw_chrome_rect(panel_rect, CHROME_COLORS, 26, 4)
         self.draw_badge(
             label,
             pygame.Rect(panel_rect.x + 16, panel_rect.y - 10, 168, 22),
-            (255, 214, 82, 224),
-            text_color=BLACK,
+            (18, 28, 44, 218),
+            text_color=WHITE,
+            border_color=(255, 214, 82, 94),
         )
 
     def _get_sensor_health_badge(self, health, is_live):
@@ -839,7 +838,7 @@ class UIMenuMixin:
     def _draw_option_grid(self, options, selected_option, show_value, phase=None):
         phase = time.monotonic() if phase is None else phase
         box_width, box_height, margin_x, margin_y = 408, 112, 24, 24
-        border_radius, border_width = 18, 5
+        border_radius, border_width = 18, 3
 
         num_rows = (len(options) + 1) // 2
         total_height = num_rows * box_height + (num_rows - 1) * margin_y
@@ -852,54 +851,15 @@ class UIMenuMixin:
             is_selected = index == selected_option
             lift = int((8 + math.sin(phase * 5.5) * 4) if is_selected else 0)
             card_rect = pygame.Rect(x, y - lift, box_width, box_height)
-            base_color = (26, 118, 194, 224) if is_selected else (10, 32, 66, 194)
-            inner_color = (92, 214, 255, 92) if is_selected else (255, 255, 255, 18)
+            base_color = (16, 42, 76, 212) if is_selected else (10, 28, 52, 182)
+            inner_color = (255, 214, 82, 34) if is_selected else (255, 255, 255, 12)
 
             self.draw_panel_shadow(
                 card_rect,
-                alpha=110 if is_selected else 72,
-                inflate=18,
-                offset=(0, 12),
+                alpha=64 if is_selected else 40,
+                inflate=12,
+                offset=(0, 8),
                 border_radius=22,
-            )
-
-            if is_selected:
-                burst_surface = pygame.Surface(
-                    (card_rect.width + 80, card_rect.height + 80), pygame.SRCALPHA
-                )
-                burst_center = burst_surface.get_rect().center
-                for ray_index in range(10):
-                    angle = ray_index * math.tau / 10 + phase * 0.3
-                    inner = 26
-                    outer = 74
-                    pygame.draw.polygon(
-                        burst_surface,
-                        (255, 220, 126, 34),
-                        [
-                            (
-                                burst_center[0] + math.cos(angle - 0.12) * inner,
-                                burst_center[1] + math.sin(angle - 0.12) * inner,
-                            ),
-                            (
-                                burst_center[0] + math.cos(angle) * outer,
-                                burst_center[1] + math.sin(angle) * outer,
-                            ),
-                            (
-                                burst_center[0] + math.cos(angle + 0.12) * inner,
-                                burst_center[1] + math.sin(angle + 0.12) * inner,
-                            ),
-                        ],
-                    )
-                self.display.screen.blit(
-                    burst_surface,
-                    burst_surface.get_rect(center=card_rect.center),
-                )
-
-            self.draw_chrome_rect(
-                card_rect,
-                CHROME_COLORS,
-                border_radius,
-                border_width,
             )
 
             rect_surface = pygame.Surface(
@@ -916,75 +876,52 @@ class UIMenuMixin:
             pygame.draw.rect(
                 rect_surface,
                 inner_color,
-                (8, 8, rect_surface.get_width() - 16, rect_surface.get_height() // 2),
+                (10, 8, rect_surface.get_width() - 20, rect_surface.get_height() // 3),
                 border_radius=border_radius - border_width,
             )
             pygame.draw.rect(
                 rect_surface,
-                (255, 255, 255, 22 if is_selected else 10),
+                ((255, 214, 82, 118) if is_selected else (255, 255, 255, 20)),
+                (0, 0, 5, rect_surface.get_height()),
+                border_radius=border_radius - border_width,
+            )
+            pygame.draw.rect(
+                rect_surface,
+                (255, 255, 255, 28 if is_selected else 16),
                 rect_surface.get_rect(),
-                width=2,
+                width=1,
                 border_radius=border_radius - border_width,
             )
             self.display.screen.blit(
                 rect_surface,
                 (card_rect.x + border_width, card_rect.y + border_width),
             )
-            self.draw_halftone_dots(
-                card_rect.inflate(-26, -20),
-                color=(255, 255, 255),
-                alpha=12 if is_selected else 8,
-                spacing=22,
-                radius=2,
-                drift=phase * 4,
+            self.draw_panel_grid(
+                card_rect.inflate(-22, -18),
+                phase + index * 0.12,
+                (118, 182, 214),
+                4 if is_selected else 2,
+                66,
             )
-            self.draw_arcade_screws(card_rect, inset=12, radius=3)
             index_rect = pygame.Rect(card_rect.right - 54, card_rect.top + 10, 40, 20)
             self.draw_badge(
                 f"{index + 1:02d}",
                 index_rect,
-                (255, 255, 255, 22 if is_selected else 14),
+                (18, 28, 44, 212),
                 text_color=WHITE,
-                border_color=(255, 255, 255, 32),
+                border_color=(
+                    (255, 214, 82, 94) if is_selected else (255, 255, 255, 28)
+                ),
             )
 
             if is_selected:
-                self.draw_marquee_lights(card_rect, phase, (255, 226, 126), count=16)
                 chip_rect = pygame.Rect(card_rect.left + 14, card_rect.top - 14, 74, 22)
-                chip_surface = pygame.Surface(chip_rect.size, pygame.SRCALPHA)
-                pygame.draw.rect(
-                    chip_surface,
-                    (255, 214, 82, 220),
-                    chip_surface.get_rect(),
-                    border_radius=12,
-                )
-                self.display.screen.blit(chip_surface, chip_rect.topleft)
-                self.draw_text_with_shadow(
+                self.draw_badge(
                     "SELECT",
-                    self.display.font_verysmall,
-                    BLACK,
-                    WHITE,
-                    chip_rect.center,
-                    shadow_offset=(1, 1),
-                    center=True,
-                )
-                pygame.draw.polygon(
-                    self.display.screen,
-                    (255, 222, 126),
-                    [
-                        (card_rect.left - 14, card_rect.centery),
-                        (card_rect.left - 2, card_rect.centery - 10),
-                        (card_rect.left - 2, card_rect.centery + 10),
-                    ],
-                )
-                pygame.draw.polygon(
-                    self.display.screen,
-                    (255, 222, 126),
-                    [
-                        (card_rect.right + 14, card_rect.centery),
-                        (card_rect.right + 2, card_rect.centery - 10),
-                        (card_rect.right + 2, card_rect.centery + 10),
-                    ],
+                    chip_rect,
+                    (18, 28, 44, 220),
+                    text_color=WHITE,
+                    border_color=(255, 214, 82, 104),
                 )
 
             if show_value:
@@ -1008,9 +945,9 @@ class UIMenuMixin:
                 self.draw_badge(
                     str(option["value"]),
                     value_rect,
-                    (6, 20, 42, 198),
-                    text_color=YELLOW,
-                    border_color=(255, 220, 126, 90),
+                    (18, 28, 44, 208),
+                    text_color=WHITE,
+                    border_color=(255, 214, 82, 84),
                     font=self.display.font_small,
                 )
                 hint_rect = pygame.Rect(
@@ -1019,9 +956,11 @@ class UIMenuMixin:
                 self.draw_badge(
                     "FUN",
                     hint_rect,
-                    (255, 214, 82, 214) if is_selected else (8, 24, 44, 188),
-                    text_color=BLACK if is_selected else WHITE,
-                    border_color=(255, 255, 255, 70),
+                    (18, 28, 44, 212),
+                    text_color=WHITE,
+                    border_color=(
+                        (255, 214, 82, 94) if is_selected else (255, 255, 255, 46)
+                    ),
                 )
                 self.display.screen.blit(name_text, name_text_rect)
             else:
@@ -1037,9 +976,9 @@ class UIMenuMixin:
                     self.draw_badge(
                         "GO!",
                         action_rect,
-                        (255, 214, 82, 220),
-                        text_color=BLACK,
-                        border_color=(255, 255, 255, 70),
+                        (18, 28, 44, 220),
+                        text_color=WHITE,
+                        border_color=(255, 214, 82, 104),
                     )
 
     def play_intro(self):

@@ -512,39 +512,142 @@ class RouletteAnimation:
             return
 
         medallion_surface = pygame.Surface(
-            (self.circle_radius * 3, self.circle_radius * 3), pygame.SRCALPHA
+            (self.circle_radius * 4, self.circle_radius * 4), pygame.SRCALPHA
         )
         medallion_rect = medallion_surface.get_rect(
             center=(self.center_x, self.center_y + 18)
         )
         center_point = medallion_surface.get_width() // 2
         pulse = 0.5 + 0.5 * math.sin(phase * 5.6)
+        outer_radius = self.circle_radius + 18
+        rim_radius = self.circle_radius + 10
+        hub_radius = max(18, self.circle_radius - 6)
+        core_radius = max(14, self.circle_radius - 22)
+
+        for radius, alpha in (
+            (outer_radius + 16, int(14 + pulse * 10)),
+            (outer_radius + 8, int(26 + pulse * 16)),
+        ):
+            pygame.draw.circle(
+                medallion_surface,
+                (74, 178, 255, alpha),
+                (center_point, center_point),
+                radius,
+            )
+
         pygame.draw.circle(
             medallion_surface,
-            (184, 134, 11, 238),
-            (center_point, center_point),
-            self.circle_radius + 14,
+            (0, 0, 0, 70),
+            (center_point, center_point + 8),
+            outer_radius,
         )
         pygame.draw.circle(
             medallion_surface,
-            (255, 239, 153, 245),
+            (14, 30, 58, 242),
             (center_point, center_point),
-            self.circle_radius,
+            outer_radius,
         )
         pygame.draw.circle(
             medallion_surface,
-            (255, 255, 255, int(28 + pulse * 28)),
-            (center_point, center_point - 8),
-            self.circle_radius - 24,
+            (116, 208, 255, 224),
+            (center_point, center_point),
+            outer_radius,
+            width=4,
+        )
+        pygame.draw.circle(
+            medallion_surface,
+            (255, 220, 126, 210),
+            (center_point, center_point),
+            rim_radius,
+            width=6,
+        )
+        pygame.draw.circle(
+            medallion_surface,
+            (10, 42, 86, 240),
+            (center_point, center_point),
+            hub_radius,
+        )
+        pygame.draw.circle(
+            medallion_surface,
+            (86, 188, 255, 170),
+            (center_point, center_point),
+            hub_radius,
+            width=3,
+        )
+        pygame.draw.circle(
+            medallion_surface,
+            (40, 106, 196, 236),
+            (center_point, center_point),
+            core_radius,
+        )
+
+        gloss_rect = pygame.Rect(0, 0, hub_radius + 24, max(14, hub_radius // 2 + 10))
+        gloss_rect.center = (center_point - 6, center_point - 16)
+        pygame.draw.ellipse(
+            medallion_surface,
+            (255, 255, 255, int(34 + pulse * 18)),
+            gloss_rect,
+        )
+
+        inner_glow_rect = pygame.Rect(0, 0, core_radius * 2, max(20, core_radius + 10))
+        inner_glow_rect.center = (center_point, center_point + 2)
+        pygame.draw.ellipse(
+            medallion_surface,
+            (132, 214, 255, 76),
+            inner_glow_rect,
+        )
+
+        for angle in (0, math.pi / 2, math.pi / 4, -math.pi / 4):
+            start = (
+                int(center_point + math.cos(angle) * 10),
+                int(center_point + math.sin(angle) * 10),
+            )
+            end = (
+                int(center_point + math.cos(angle) * (core_radius - 4)),
+                int(center_point + math.sin(angle) * (core_radius - 4)),
+            )
+            pygame.draw.line(
+                medallion_surface,
+                (255, 255, 255, 22),
+                start,
+                end,
+                2,
+            )
+
+        badge_width = max(84, min(132, self.medium_font.size(str(value))[0] + 34))
+        badge_height = max(34, self.circle_radius - 6)
+        badge_rect = pygame.Rect(0, 0, badge_width, badge_height)
+        badge_rect.center = (center_point, center_point)
+        pygame.draw.rect(
+            medallion_surface,
+            (8, 20, 40, 222),
+            badge_rect,
+            border_radius=18,
+        )
+        pygame.draw.rect(
+            medallion_surface,
+            (108, 206, 255, 172),
+            badge_rect,
+            width=2,
+            border_radius=18,
+        )
+        accent_rect = badge_rect.inflate(-10, -18)
+        accent_rect.top = badge_rect.top + 6
+        accent_rect.height = max(8, accent_rect.height // 2)
+        pygame.draw.rect(
+            medallion_surface,
+            (255, 255, 255, 26),
+            accent_rect,
+            border_radius=12,
         )
         self.screen.blit(medallion_surface, medallion_rect)
         self.draw_text_with_shadow(
             str(value),
-            self.value_font,
-            BLACK,
+            self.medium_font,
             WHITE,
+            BLACK,
             (self.center_x, self.center_y + 18),
-            shadow_offset=(2, 2),
+            shadow_offset=(3, 3),
             center=True,
         )
 
