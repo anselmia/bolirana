@@ -19,7 +19,6 @@ class Display:
     def __init__(self, debug, screen=None):
         pygame.display.set_caption("Bolirana Game")
         flags = pygame.HWSURFACE | pygame.DOUBLEBUF
-        _ta = time.monotonic()
         if screen is not None:
             # Reuse the screen created by Game.__init__ — avoids a second
             # set_mode() call which triggers a costly Wayland surface renegotiation.
@@ -28,15 +27,12 @@ class Display:
             self.screen = pygame.display.set_mode((1024, 768), flags)
         else:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | flags)
-        logging.warning(f"[TIMING] Display set_mode: {time.monotonic()-_ta:.2f}s")
 
         self.screen_width = self.screen.get_width()
         self.screen_height = self.screen.get_height()
 
         # Show a loading splash immediately so the screen isn't black while assets load
-        _tb = time.monotonic()
         self._show_loading_screen()
-        logging.warning(f"[TIMING] Display _show_loading_screen: {time.monotonic()-_tb:.2f}s")
         font_dir = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
         font_path = os.path.join(font_dir, "AntonSC-Regular.ttf")
         title_font_path = os.path.join(font_dir, "GaMaamli-Regular.ttf")
@@ -47,7 +43,6 @@ class Display:
             title_font_bytes = f.read()
         def _font(data, size):
             return pygame.font.Font(io.BytesIO(data), size)
-        _tc = time.monotonic()
         if self.screen_height >= 900:
             self.font_title = _font(title_font_bytes, 78)
             self.font_title_small = _font(title_font_bytes, 60)
@@ -66,7 +61,6 @@ class Display:
             self.font_verysmall = _font(font_bytes, 20)
             self.font_micro = _font(font_bytes, 17)
             self.font_tiny = _font(font_bytes, 15)
-        logging.warning(f"[TIMING] Display fonts: {time.monotonic()-_tc:.2f}s")
         self.half_width = self.screen_width // 2
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
@@ -100,17 +94,12 @@ class Display:
         self.time_warning_channel = None
         self.time_warning_next_allowed = 0.0
         self.time_warning_level = -1
-        _t = time.monotonic()
         self.load_ressources()
-        logging.warning(f"[TIMING] load_ressources: {time.monotonic()-_t:.2f}s")
-        _t = time.monotonic()
         self.ui = DisplayUIService(self)
         self.effects = DisplayEffectsService(self)
-        logging.warning(f"[TIMING] UIService+Effects init: {time.monotonic()-_t:.2f}s")
 
     def load_ressources(self):
         try:
-            _t0 = time.monotonic()
             self.resources["game_background"] = self.load_background(
                 "images", "game3.jpg"
             )
@@ -145,9 +134,6 @@ class Display:
                 width=2 * HOLE_RADIUS,
                 height=2 * HOLE_RADIUS,
             )
-            logging.warning(f"[TIMING] images loaded: {time.monotonic()-_t0:.2f}s")
-
-            _ts = time.monotonic()
             self.resources["penalty_sound"] = self.load_sound("sounds", "fail.mp3")
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
@@ -163,7 +149,6 @@ class Display:
                 "sounds", "roulette_end.mp3"
             )
             self.resources["applause"] = self.load_sound("sounds", "aplaudissement.mp3")
-            logging.warning(f"[TIMING] sounds loaded: {time.monotonic()-_ts:.2f}s")
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )

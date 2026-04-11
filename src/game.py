@@ -28,12 +28,12 @@ class Game:
     def __init__(self, debug=False, keyboard_mode=False):
         # Initialize only required subsystems — pygame.init() scans joysticks
         # and takes 20-25 seconds on Raspberry Pi when no joystick is connected.
+        # Note: SDL_VIDEODRIVER=x11 is required — Wayland+EGL init takes 25s+ on Pi.
         t0 = time.monotonic()
         pygame.display.init()
-        logging.warning(f"[TIMING] display.init: {time.monotonic()-t0:.2f}s")
         pygame.font.init()
 
-        # Create the window ONCE here and reuse it in Display.
+        # Create the window ONCE here and pass it to Display.
         # Calling set_mode() a second time inside Display.__init__ triggers a full
         # Wayland surface renegotiation (~87s). Passing the screen avoids that.
         pygame.display.set_caption("Bolirana Game")
@@ -43,7 +43,7 @@ class Game:
             flags if debug else flags | pygame.FULLSCREEN,
         )
 
-        # Show loading screen immediately (Wayland window is open, mixer not yet init'd)
+        # Show loading screen immediately before mixer init
         _h = screen.get_height()
         _font = pygame.font.SysFont(None, max(32, _h // 20))
         _text = _font.render("Chargement...", True, (200, 200, 200))
@@ -52,23 +52,14 @@ class Game:
         pygame.display.flip()
         del _font, _text
 
-        t1 = time.monotonic()
         pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=512)
         pygame.mixer.init()
-        logging.warning(f"[TIMING] mixer.init: {time.monotonic()-t1:.2f}s")
 
-        t2 = time.monotonic()
         self.display = Display(debug, screen=screen)
-        logging.warning(f"[TIMING] Display init: {time.monotonic()-t2:.2f}s")
-
         self.menu = Menu()
         self.end_menu = EndMenu()
         self.keyboard_mode = keyboard_mode
-
-        t3 = time.monotonic()
         self.pin = PIN(self.display.screen, use_i2c=not keyboard_mode)
-        logging.warning(f"[TIMING] PIN init: {time.monotonic()-t3:.2f}s")
-
         self.gamelogic = GameLogic()
         self.gamelogic.reset_game()
         self.last_next_action_time = time.monotonic()
@@ -78,11 +69,10 @@ class Game:
         self.debug = debug
         self.running = True
         self.clock = pygame.time.Clock()
-        logging.warning(f"[TIMING] total Game.__init__: {time.monotonic()-t0:.2f}s")
+        logging.warning(f"Game ready in {time.monotonic()-t0:.2f}s")
 
     def run(self):
         while self.running:
-            logging.warning(f"[TIMING] run_menu called (menu now visible)")
             self.run_menu()
             if not self.running:
                 break
