@@ -683,10 +683,6 @@ class UIMenuMixin:
                 "Collision bouton / firmware",
                 self._format_pin_list(audit["button_conflicts"]),
             ),
-            (
-                "Pull mode",
-                f"firmware {audit['pull_mode_firmware']}  |  schema {audit['pull_mode_schematic']}",
-            ),
         ]
         base_y = audit_rect.y + 54
         for index, (label, value) in enumerate(audit_lines):
@@ -726,14 +722,6 @@ class UIMenuMixin:
             (118, 242, 214, 220),
             text_color=BLACK,
         )
-        for index, line in enumerate(audit["wiring_notes"][:4]):
-            self.draw_text_with_shadow(
-                line,
-                self.display.font_tiny,
-                WHITE,
-                BLACK,
-                (notes_rect.x + 14, notes_rect.y + 18 + index * 22),
-            )
 
     def _draw_data_panel(self, rect, phase, label):
         panel_rect = pygame.Rect(rect)

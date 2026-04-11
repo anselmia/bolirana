@@ -120,20 +120,7 @@ class PIN:
             32,
             33,
         }
-        self.pull_mode_reference = {
-            "firmware": "Mixte: GPIO4 pulldown, autres GPIO capteurs pullup",
-            "schematic": "PULLDOWN interne",
-        }
-        self.wiring_notes = [
-            "Emetteur IR: anode longue, cathode courte.",
-            "Recepteur IR: collecteur long, emetteur court.",
-            "R1/R2: 100 Ohm en 3.3V d'apres le schema.",
-            "Le schema recommande un pull-down interne sur les GPIO.",
-            "20 A (GPIO4) utilise actuellement INPUT_PULLDOWN + RISING car ce capteur est different.",
-            "Les autres capteurs valident actuellement les impulsions en INPUT_PULLUP + CHANGE.",
-            "Les boutons firmware sont sur GPIO 19, 0 et 12 en INPUT_PULLUP.",
-            "GPIO 21 et 22 restent reserves au bus I2C cote ESP32.",
-        ]
+
         self.pin_labels = {}
         for group in self.diagnostic_groups:
             for index, pin in enumerate(group["pins"]):
@@ -704,22 +691,6 @@ class PIN:
                 "Si des boots aleatoires apparaissent, deplacer les boutons de GPIO0/GPIO12 vers des GPIO non strap."
             )
 
-        if (
-            self.pull_mode_reference["firmware"]
-            != self.pull_mode_reference["schematic"]
-        ):
-            alerts.insert(
-                0,
-                {
-                    "severity": "warning",
-                    "title": "Pull mode incoherent",
-                    "detail": f"Firmware: {self.pull_mode_reference['firmware']} | schema: {self.pull_mode_reference['schematic']}",
-                    "fix": "Verifier si le montage doit etre lu en pull-up ou pull-down puis harmoniser firmware/schema.",
-                },
-            )
-            actions.append(
-                "Comparer le mode d'entree declare dans le firmware avec la note de pull-down du schema."
-            )
 
         if not actions:
             actions.append(
@@ -781,8 +752,5 @@ class PIN:
                 "button_conflicts": button_conflicts,
                 "firmware_button_pins": sorted(self.firmware_button_reference_pins),
                 "boot_strap_buttons": boot_strap_buttons,
-                "pull_mode_firmware": self.pull_mode_reference["firmware"],
-                "pull_mode_schematic": self.pull_mode_reference["schematic"],
-                "wiring_notes": list(self.wiring_notes),
             },
         }
