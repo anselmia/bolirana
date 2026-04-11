@@ -780,6 +780,36 @@ class GameLogic:
             "detail": detail,
         }
 
+    def preview_goal_result(self, pin, display=None):
+        if not self.pin_to_hole and display is not None:
+            self.setup_normal_mode(display)
+
+        hole = self.get_hole_for_pin(pin)
+        if hole is None:
+            result = self._build_goal_result(
+                "ignored",
+                pin,
+                reason="no_hole",
+                detail="Diagnostic: aucun trou associe",
+            )
+            result["player"] = "DIAG"
+            return result
+
+        detail = (
+            "Diagnostic: grande grenouille -> roulette"
+            if hole.type == "large_frog"
+            else f"Diagnostic: {hole.text} -> +{hole.value}"
+        )
+        result = self._build_goal_result(
+            "scored",
+            pin,
+            hole=hole,
+            points=hole.value,
+            detail=detail,
+        )
+        result["player"] = "DIAG"
+        return result
+
     def apply_points_to_current_player(self, points, win_threshold):
         if self.current_player is None:
             return

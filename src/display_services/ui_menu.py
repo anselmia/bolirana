@@ -557,26 +557,12 @@ class UIMenuMixin:
             (118, 242, 214, 220),
             text_color=BLACK,
         )
-        hints = [
-            "Les lectures [255, 0] sont cachees et servent de heartbeat bus.",
-            "Seuls les messages capteur [pin, 1] restent affiches ici.",
-            "Dernier score jeu montre si le jeu a vraiment accepte l'impact.",
-            "Message capteur sans score: regarder cooldown, mode ou logique jeu.",
-        ]
-        for index, line in enumerate(hints):
-            self.draw_text_with_shadow(
-                line,
-                self.display.font_tiny,
-                WHITE,
-                BLACK,
-                (hint_rect.x + 14, hint_rect.y + 18 + index * 20),
-            )
 
     def _format_score_history_lines(self, score_history):
         if not score_history:
             return [
                 "Aucun score jeu recu.",
-                "Declenche un capteur en partie.",
+                "Declenche un capteur sur cette page.",
                 "Le verdict du jeu apparait ici.",
             ]
         lines = []

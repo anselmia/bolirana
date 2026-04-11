@@ -195,6 +195,9 @@ class Game:
         if pin == PIN_RIGHT:
             self.pin.reset_diagnostics()
             return None
+        if pin in self.pin.pin_hole:
+            score_result = self.gamelogic.preview_goal_result(pin, self.display)
+            self.pin.record_game_score_event(score_result)
         return None
 
     def execute_end_menu_option(self):
