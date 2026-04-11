@@ -1,6 +1,8 @@
 import logging
 import platform
 import pygame
+import queue
+import threading
 from typing import Any, Dict
 
 smbus2_module = None
@@ -139,76 +141,149 @@ class PIN:
                 self.pin_labels[pin] = f"{group['name']}{suffix}"
         self.reset_diagnostics()
 
+        self._event_queue: queue.SimpleQueue = queue.SimpleQueue()
+        self._stop_event = threading.Event()
+        self._i2c_connected = threading.Event()
+        self._i2c_thread: threading.Thread | None = None
+
         if not self.use_i2c:
             logging.info("Keyboard/test mode enabled: skipping I2C initialization.")
+            self._i2c_connected.set()  # keyboard mode is always "connected"
             return
 
-        self.bus = (
-            smbus2_module.SMBus(I2C_BUS)
-            if smbus2_module is not None
-            else _SMBusRuntime(I2C_BUS)
-        )  # Initialize the I2C bus
-        logging.info("Initializing communication with the I2C slave...")
+        # Start background thread — __init__ returns immediately, no blocking
+        self._i2c_thread = threading.Thread(
+            target=self._i2c_worker, daemon=True, name="i2c-worker"
+        )
+        self._i2c_thread.start()
+        logging.info("I2C worker thread started in background.")
 
-        self.display_waiting_popup(screen)
-        bus = self.bus
+    # ------------------------------------------------------------------
+    # Background I2C worker
+    # ------------------------------------------------------------------
 
-        while True:
+    def _i2c_read_once(self, bus, timeout: float = 2.0):
+        """Read 2 bytes from I2C in a sub-thread, enforcing a wall-clock timeout.
+
+        Returns (data, error).  Both may be None when the sub-thread times out
+        without producing a result.
+        """
+        result: list = [None]
+        exc: list = [None]
+
+        def _do():
             try:
-                # Attempt to read back a response
-                raw_data = bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
-                response = list(raw_data)
-
-                if response:  # If a response is received, break the loop
-                    logging.info(f"I2C slave connected. Received response: {response}")
-                    break
-
+                result[0] = bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
             except Exception as e:
-                logging.error(f"Failed to receive data: {e}")
-                logging.info("Retrying in 1 second...")
-                time.sleep(1)  # Wait before retrying
+                exc[0] = e
 
-        logging.info("Communication with the I2C slave was successful.")
-        self.clear_popup(screen)
+        t = threading.Thread(target=_do, daemon=True)
+        t.start()
+        t.join(timeout)
+        return result[0], exc[0]  # exc[0] may still be None on timeout
 
-    def display_waiting_popup(self, screen):
-        font = pygame.font.Font(None, 36)
-        text = font.render("Waiting for I2C connection...", True, (255, 255, 255))
-        text_rect = text.get_rect(center=screen.get_rect().center)
+    def _open_bus(self):
+        """Open (or reopen) the SMBus handle."""
+        try:
+            if self.bus is not None:
+                try:
+                    self.bus.close()
+                except Exception:
+                    pass
+                self.bus = None
+            self.bus = (
+                smbus2_module.SMBus(I2C_BUS)
+                if smbus2_module is not None
+                else _SMBusRuntime(I2C_BUS)
+            )
+            return True
+        except Exception as e:
+            logging.error(f"I2C: failed to open bus: {e}")
+            return False
 
-        screen.fill((0, 0, 0))  # Fill the screen with black
-        screen.blit(text, text_rect)
-        pygame.display.flip()
+    def _i2c_worker(self):
+        """Background thread: connect to ESP32, then continuously poll."""
+        if not self._open_bus():
+            return
 
-    def clear_popup(self, screen):
-        screen.fill((0, 0, 0))  # Clear the screen
-        pygame.display.flip()
+        logging.info("I2C worker: waiting for ESP32 to respond...")
+
+        # ── Connection phase ──────────────────────────────────────────
+        while not self._stop_event.is_set():
+            data, err = self._i2c_read_once(self.bus, timeout=2.0)
+            if data is not None:
+                logging.info(f"I2C connected. First response: {list(data)}")
+                self._i2c_connected.set()
+                self._process_raw(data)
+                break
+            if err is not None:
+                logging.warning(f"I2C init: {err}")
+            self._stop_event.wait(0.1)
+
+        if not self._i2c_connected.is_set():
+            return  # stop_event fired before connection
+
+        # ── Polling phase ─────────────────────────────────────────────
+        consecutive_errors = 0
+        while not self._stop_event.is_set():
+            data, err = self._i2c_read_once(self.bus, timeout=2.0)
+            if data is not None:
+                consecutive_errors = 0
+                self._process_raw(data)
+            else:
+                consecutive_errors += 1
+                logging.error(f"I2C read error #{consecutive_errors}: {err}")
+                if consecutive_errors >= 5:
+                    logging.warning("I2C: too many errors, recovering bus...")
+                    self._stop_event.wait(0.5)
+                    if self._open_bus():
+                        consecutive_errors = 0
+                else:
+                    self._stop_event.wait(0.05)
+
+    def _process_raw(self, data):
+        """Parse raw I2C bytes and push any HIGH pin event onto the queue."""
+        pin_number = data[0]
+        state = "LOW" if data[1] == 0 else "HIGH"
+        self.diagnostics_packets += 1
+        packet = {
+            "raw": list(data),
+            "pin": None if pin_number == 0xFF else int(pin_number),
+            "state": state,
+            "timestamp": time.monotonic(),
+            "source": "i2c",
+        }
+        self._record_packet(packet)
+        if pin_number != 0xFF and state == "HIGH":
+            self._event_queue.put(int(pin_number))
+
+    def is_connected(self) -> bool:
+        """Return True once the I2C link is established (or in keyboard mode)."""
+        return self._i2c_connected.is_set()
+
+    def stop(self):
+        """Signal the worker thread to exit. Call this on game shutdown."""
+        self._stop_event.set()
+        if self._i2c_thread is not None:
+            self._i2c_thread.join(timeout=3.0)
+        try:
+            if self.bus is not None:
+                self.bus.close()
+        except Exception:
+            pass
 
     def read_pin_states(self, game_action):
-        bus = self.bus
-        if not self.use_i2c or bus is None:
+        """Non-blocking: drain one event from the queue, apply debounce + mode filter."""
+        if not self.use_i2c:
             return None
         try:
-            # Request data from the ESP32, assuming 2 bytes are needed
-            raw_data = bus.read_i2c_block_data(I2C_ADDRESS, 0, 2)
-            # Parse the received data into pin states
-            pin = self._parse_i2c_data(raw_data, game_action)
-
-            return pin
-        except Exception as e:
-            logging.error(f"Failed to read from I2C bus: {e}")
-            self.diagnostics_errors += 1
-            self.diagnostics_last_packet = {
-                "raw": [],
-                "pin": None,
-                "state": "ERROR",
-                "timestamp": time.monotonic(),
-                "source": "i2c",
-            }
+            pin_number = self._event_queue.get_nowait()
+            return self._get_next_pin(pin_number, game_action)
+        except queue.Empty:
             return None
 
     def _parse_i2c_data(self, data, game_action):
-        # Convert the raw I2C data into a dictionary of pin states
+        # Legacy helper kept for compatibility; live path now goes through _process_raw
         pin_number = data[0]
         state = "LOW" if data[1] == 0 else "HIGH"
         self.diagnostics_packets += 1
@@ -661,7 +736,7 @@ class PIN:
             )
 
         return {
-            "connected": self.use_i2c and self.bus is not None,
+            "connected": self.is_connected(),
             "transport": (
                 "I2C ACTIF"
                 if bus_alive

@@ -816,6 +816,8 @@ class UIMenuMixin:
         )
 
     def _format_packet_text(self, packet):
+        if packet is None:
+            return "Aucun paquet recu"
         if packet.get("state") == "ERROR":
             return "Erreur de lecture I2C"
         raw = packet.get("raw", [])

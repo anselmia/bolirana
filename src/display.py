@@ -1,5 +1,7 @@
+import io
 import logging
 import os
+import struct
 import sys
 import time
 from array import array
@@ -10,42 +12,61 @@ import pygame
 from src.constants import HOLE_RADIUS
 from src.display_services import DisplayEffectsService, DisplayUIService
 
+_CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "cache")
+
 
 class Display:
-    def __init__(self, debug):
+    def __init__(self, debug, screen=None):
         pygame.display.set_caption("Bolirana Game")
         flags = pygame.HWSURFACE | pygame.DOUBLEBUF
-        if debug:
+        _ta = time.monotonic()
+        if screen is not None:
+            # Reuse the screen created by Game.__init__ — avoids a second
+            # set_mode() call which triggers a costly Wayland surface renegotiation.
+            self.screen = screen
+        elif debug:
             self.screen = pygame.display.set_mode((1024, 768), flags)
         else:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | flags)
+        logging.warning(f"[TIMING] Display set_mode: {time.monotonic()-_ta:.2f}s")
 
         self.screen_width = self.screen.get_width()
         self.screen_height = self.screen.get_height()
 
         # Show a loading splash immediately so the screen isn't black while assets load
+        _tb = time.monotonic()
         self._show_loading_screen()
+        logging.warning(f"[TIMING] Display _show_loading_screen: {time.monotonic()-_tb:.2f}s")
         font_dir = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
         font_path = os.path.join(font_dir, "AntonSC-Regular.ttf")
         title_font_path = os.path.join(font_dir, "GaMaamli-Regular.ttf")
+        # Read font files once as bytes — avoids re-parsing the TTF for each size
+        with open(font_path, "rb") as f:
+            font_bytes = f.read()
+        with open(title_font_path, "rb") as f:
+            title_font_bytes = f.read()
+        def _font(data, size):
+            return pygame.font.Font(io.BytesIO(data), size)
+        _tc = time.monotonic()
         if self.screen_height >= 900:
-            self.font_title = pygame.font.Font(title_font_path, 78)
-            self.font_title_small = pygame.font.Font(title_font_path, 60)
-            self.font_large = pygame.font.Font(font_path, 56)
-            self.font_medium = pygame.font.Font(font_path, 34)
-            self.font_small = pygame.font.Font(font_path, 28)
-            self.font_verysmall = pygame.font.Font(font_path, 22)
-            self.font_micro = pygame.font.Font(font_path, 19)
-            self.font_tiny = pygame.font.Font(font_path, 17)
+            self.font_title = _font(title_font_bytes, 78)
+            self.font_title_small = _font(title_font_bytes, 60)
+            self.font_large = _font(font_bytes, 56)
+            self.font_medium = _font(font_bytes, 34)
+            self.font_small = _font(font_bytes, 28)
+            self.font_verysmall = _font(font_bytes, 22)
+            self.font_micro = _font(font_bytes, 19)
+            self.font_tiny = _font(font_bytes, 17)
         else:
-            self.font_title = pygame.font.Font(title_font_path, 68)
-            self.font_title_small = pygame.font.Font(title_font_path, 54)
-            self.font_large = pygame.font.Font(font_path, 50)
-            self.font_medium = pygame.font.Font(font_path, 30)
-            self.font_small = pygame.font.Font(font_path, 25)
-            self.font_verysmall = pygame.font.Font(font_path, 20)
-            self.font_micro = pygame.font.Font(font_path, 17)
-            self.font_tiny = pygame.font.Font(font_path, 15)
+            self.font_title = _font(title_font_bytes, 68)
+            self.font_title_small = _font(title_font_bytes, 54)
+            self.font_large = _font(font_bytes, 50)
+            self.font_medium = _font(font_bytes, 30)
+            self.font_small = _font(font_bytes, 25)
+            self.font_verysmall = _font(font_bytes, 20)
+            self.font_micro = _font(font_bytes, 17)
+            self.font_tiny = _font(font_bytes, 15)
+        logging.warning(f"[TIMING] Display fonts: {time.monotonic()-_tc:.2f}s")
         self.half_width = self.screen_width // 2
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
@@ -79,12 +100,17 @@ class Display:
         self.time_warning_channel = None
         self.time_warning_next_allowed = 0.0
         self.time_warning_level = -1
+        _t = time.monotonic()
         self.load_ressources()
+        logging.warning(f"[TIMING] load_ressources: {time.monotonic()-_t:.2f}s")
+        _t = time.monotonic()
         self.ui = DisplayUIService(self)
         self.effects = DisplayEffectsService(self)
+        logging.warning(f"[TIMING] UIService+Effects init: {time.monotonic()-_t:.2f}s")
 
     def load_ressources(self):
         try:
+            _t0 = time.monotonic()
             self.resources["game_background"] = self.load_background(
                 "images", "game3.jpg"
             )
@@ -119,7 +145,9 @@ class Display:
                 width=2 * HOLE_RADIUS,
                 height=2 * HOLE_RADIUS,
             )
+            logging.warning(f"[TIMING] images loaded: {time.monotonic()-_t0:.2f}s")
 
+            _ts = time.monotonic()
             self.resources["penalty_sound"] = self.load_sound("sounds", "fail.mp3")
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
@@ -135,6 +163,7 @@ class Display:
                 "sounds", "roulette_end.mp3"
             )
             self.resources["applause"] = self.load_sound("sounds", "aplaudissement.mp3")
+            logging.warning(f"[TIMING] sounds loaded: {time.monotonic()-_ts:.2f}s")
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )
@@ -146,6 +175,17 @@ class Display:
             self.display_error_message("Failed to load resources. Exiting...")
             pygame.quit()
             sys.exit()
+
+    def draw_i2c_connecting(self):
+        """Draw a small banner at the bottom of the screen while I2C is connecting."""
+        bar_h = max(28, self.screen_height // 24)
+        bar = pygame.Surface((self.screen_width, bar_h), pygame.SRCALPHA)
+        bar.fill((0, 0, 0, 180))
+        font = pygame.font.SysFont(None, bar_h - 4)
+        text = font.render("⏳  Connexion manette en cours…", True, (255, 200, 60))
+        bar.blit(text, text.get_rect(center=(self.screen_width // 2, bar_h // 2)))
+        self.screen.blit(bar, (0, self.screen_height - bar_h))
+        pygame.display.flip()
 
     def prepare_surface(self, surface):
         if surface.get_alpha() is not None:
@@ -162,31 +202,139 @@ class Display:
         )
         pygame.display.flip()
 
+    def _surface_cache_path(self, src_path, width, height, ext):
+        """Return cache file path keyed by source filename + target dimensions."""
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        basename = os.path.basename(src_path).replace(".", "_")
+        return os.path.join(_CACHE_DIR, f"{basename}_{width}x{height}{ext}")
+
+    def _save_surface_cache(self, surface, cache_path, has_alpha):
+        """Serialise a surface to cache: BMP for opaque, binary for alpha."""
+        if has_alpha:
+            w, h = surface.get_size()
+            raw = pygame.image.tostring(surface, "RGBA")
+            header = struct.pack(">HHBI", w, h, 1, len(raw))
+            with open(cache_path, "wb") as f:
+                f.write(header)
+                f.write(raw)
+        else:
+            pygame.image.save(surface, cache_path)
+
+    def _load_surface_cache(self, cache_path, has_alpha):
+        """Deserialise a surface from cache."""
+        if has_alpha:
+            with open(cache_path, "rb") as f:
+                header = f.read(9)
+                w, h, _, _ = struct.unpack(">HHBI", header)
+                raw = f.read()
+            return pygame.image.frombytes(raw, (w, h), "RGBA").convert_alpha()
+        else:
+            return pygame.image.load(cache_path).convert()
+
+    @staticmethod
+    def _read_png_size(path):
+        """Read PNG image dimensions from the file header (no full decode)."""
+        try:
+            with open(path, "rb") as f:
+                f.seek(16)
+                w, h = struct.unpack(">II", f.read(8))
+            return w, h
+        except Exception:
+            return None
+
+    @staticmethod
+    def _source_has_alpha(path):
+        """Check if an image file has an alpha channel from its raw header.
+
+        This avoids dependence on the display surface format (which varies between
+        dummy and real Wayland display modes).
+        """
+        lower = path.lower()
+        if lower.endswith((".jpg", ".jpeg")):
+            return False  # JPEG never carries an alpha channel
+        if lower.endswith(".png"):
+            try:
+                with open(path, "rb") as f:
+                    f.seek(25)
+                    color_type = struct.unpack("B", f.read(1))[0]
+                    # PNG color types 4 (greyscale+alpha) and 6 (RGBA) have alpha
+                    return color_type in (4, 6)
+            except Exception:
+                pass
+        return True  # Safe default: treat unknown formats as having alpha
+
+    def _cached_surface(self, src_path, build_fn, target_size=None):
+        """Load a surface from cache if fresh, otherwise build once and cache.
+
+        Uses BMP for opaque surfaces (fastest SDL load) and raw RGBA binary
+        for surfaces with an alpha channel.
+        """
+        try:
+            src_mtime = os.path.getmtime(src_path)
+            w, h = target_size or self.screen.get_size()
+            has_alpha = self._source_has_alpha(src_path)
+            ext = ".surfcache" if has_alpha else ".bmp"
+            cache_path = self._surface_cache_path(src_path, w, h, ext)
+            if os.path.exists(cache_path) and os.path.getmtime(cache_path) >= src_mtime:
+                return self._load_surface_cache(cache_path, has_alpha)
+            surface = build_fn()
+            self._save_surface_cache(surface, cache_path, has_alpha)
+            return surface
+        except Exception as e:
+            logging.warning(f"Surface cache miss ({src_path}): {e}")
+            return build_fn()
+
     def load_background(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
-        surface = self.prepare_surface(pygame.image.load(path))
-        return pygame.transform.smoothscale(surface, self.screen.get_size())
+        return self._cached_surface(
+            path,
+            lambda: pygame.transform.smoothscale(
+                self.prepare_surface(pygame.image.load(path)), self.screen.get_size()
+            ),
+        )
 
     def load_image(self, folder, filename, scale=None, width=None, height=None):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
-        original_image = self.prepare_surface(pygame.image.load(path))
 
+        if scale is None and width is None:
+            return self.prepare_surface(pygame.image.load(path))
+
+        # Determine target size — avoid loading the full image if possible
+        _loaded = []
         if scale is not None:
-            original_width, original_height = original_image.get_size()
-            _, screen_height = self.screen.get_size()
-            new_height = int(screen_height * scale)
-            aspect_ratio = original_width / original_height
-            new_width = int(new_height * aspect_ratio)
-            return self.prepare_surface(
-                pygame.transform.smoothscale(original_image, (new_width, new_height))
-            )
+            png_size = self._read_png_size(path)
+            if png_size:
+                orig_w, orig_h = png_size
+            else:
+                # Fallback for non-PNG: load image once and reuse below
+                _loaded = [self.prepare_surface(pygame.image.load(path))]
+                orig_w, orig_h = _loaded[0].get_size()
+            _, screen_h = self.screen.get_size()
+            new_h = int(screen_h * scale)
+            new_w = int(new_h * orig_w / orig_h)
+            target = (new_w, new_h)
+        else:
+            target = (int(width), int(height))
 
-        if width is not None and height is not None:
-            return self.prepare_surface(
-                pygame.transform.smoothscale(original_image, (int(width), int(height)))
-            )
+        # Check cache with known target and source-derived alpha flag — zero decode on hit
+        has_alpha = self._source_has_alpha(path)
+        ext = ".surfcache" if has_alpha else ".bmp"
+        try:
+            src_mtime = os.path.getmtime(path)
+            cache_path = self._surface_cache_path(path, *target, ext)
+            if os.path.exists(cache_path) and os.path.getmtime(cache_path) >= src_mtime:
+                return self._load_surface_cache(cache_path, has_alpha)
+        except Exception as e:
+            logging.warning(f"Image cache check failed ({path}): {e}")
 
-        return original_image
+        # Cache miss: load once (reuse surface if already loaded above for dimensions)
+        orig = _loaded[0] if _loaded else self.prepare_surface(pygame.image.load(path))
+        result = self.prepare_surface(pygame.transform.smoothscale(orig, target))
+        try:
+            self._save_surface_cache(result, self._surface_cache_path(path, *target, ext), has_alpha)
+        except Exception as e:
+            logging.warning(f"Image cache save failed ({path}): {e}")
+        return result
 
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
