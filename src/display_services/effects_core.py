@@ -89,6 +89,7 @@ class EffectsCoreMixin:
         sound_name=None,
         sound_volume=1.0,
         sound_fade_ms=0,
+        fade_out_ms=0,
     ):
         if cv2 is None or not os.path.exists(video_path):
             return False
@@ -102,6 +103,12 @@ class EffectsCoreMixin:
         source_fps = capture.get(cv2.CAP_PROP_FPS)
         target_fps = 30 if not source_fps or source_fps <= 1 else int(round(source_fps))
         target_fps = max(12, min(60, target_fps))
+        total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        total_duration_ms = 0.0
+        if source_fps and source_fps > 1 and total_frames > 0:
+            total_duration_ms = (total_frames / source_fps) * 1000.0
+        frame_index = 0
+        fade_color = self.get_rgb(fill_color)
 
         try:
             if sound_name is not None:
@@ -120,6 +127,7 @@ class EffectsCoreMixin:
                 has_frame, frame = capture.read()
                 if not has_frame:
                     break
+                frame_index += 1
 
                 frame_height, frame_width = frame.shape[:2]
                 if frame_width <= 0 or frame_height <= 0:
@@ -139,6 +147,14 @@ class EffectsCoreMixin:
                 frame_surface = pygame.image.frombuffer(
                     rgb_frame.tobytes(), scaled_size, "RGB"
                 ).convert()
+                fade_ratio = 1.0
+                if fade_out_ms > 0 and total_duration_ms > 0:
+                    current_ms = capture.get(cv2.CAP_PROP_POS_MSEC)
+                    if not current_ms or current_ms < 0:
+                        current_ms = (frame_index / source_fps) * 1000.0
+                    remaining_ms = max(0.0, total_duration_ms - current_ms)
+                    if remaining_ms < fade_out_ms:
+                        fade_ratio = self.clamp(remaining_ms / fade_out_ms)
 
                 self.display.screen.fill(fill_color)
                 frame_rect = frame_surface.get_rect(
@@ -148,6 +164,16 @@ class EffectsCoreMixin:
                     )
                 )
                 self.display.screen.blit(frame_surface, frame_rect)
+                if fade_ratio < 1.0:
+                    fade_overlay = pygame.Surface(
+                        self.display.screen.get_size(), pygame.SRCALPHA
+                    )
+                    fade_overlay.fill(
+                        (*fade_color, int(round((1.0 - fade_ratio) * 255)))
+                    )
+                    self.display.screen.blit(fade_overlay, (0, 0))
+                if sound_channel is not None:
+                    sound_channel.set_volume(sound_volume * fade_ratio)
                 pygame.display.flip()
                 self.display.clock.tick(target_fps)
         finally:

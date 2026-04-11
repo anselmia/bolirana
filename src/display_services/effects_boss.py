@@ -26,6 +26,7 @@ class EffectsBossMixin:
             sound_name="stadium_celebration",
             sound_volume=0.8,
             sound_fade_ms=50,
+            fade_out_ms=450,
         ):
             return self.animation_roulette()
         return self._animation_large_frog_procedural()
