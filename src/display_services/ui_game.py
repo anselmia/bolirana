@@ -85,8 +85,13 @@ class UIGameMixin:
                 hole.text,
                 hole.value,
                 getattr(hole, "bonus_active", False),
+                getattr(hole, "bonus_active_pin", None),
                 round(getattr(hole, "bonus_activated_at", 0.0), 1),
                 round(getattr(hole, "bonus_duration", 0.0), 1),
+                getattr(hole, "malus_active", False),
+                getattr(hole, "malus_active_pin", None),
+                round(getattr(hole, "malus_activated_at", 0.0), 1),
+                round(getattr(hole, "malus_duration", 0.0), 1),
             )
             for hole in holes
         )
@@ -696,11 +701,27 @@ class UIGameMixin:
             )
 
     def draw_side_bonus_hole_highlight(self, hole, center, phase):
+        self.draw_side_special_hole_highlight(hole, center, phase, special_type="bonus")
+
+    def draw_side_malus_hole_highlight(self, hole, center, phase):
+        self.draw_side_special_hole_highlight(hole, center, phase, special_type="malus")
+
+    def draw_side_special_hole_highlight(
+        self, hole, center, phase, special_type="bonus"
+    ):
+        is_malus = special_type == "malus"
+        activated_attr = "malus_activated_at" if is_malus else "bonus_activated_at"
+        duration_attr = "malus_duration" if is_malus else "bonus_duration"
+        primary_color = (255, 92, 92) if is_malus else (255, 214, 82)
+        secondary_color = (255, 176, 136) if is_malus else (120, 214, 255)
+        accent_color = (255, 232, 220) if is_malus else (255, 248, 220)
+        timer_fill = (196, 58, 58, 224) if is_malus else (120, 214, 255, 212)
+
         pulse_fast = 0.5 + 0.5 * math.sin(phase * 6.8)
         pulse_slow = 0.5 + 0.5 * math.sin(phase * 2.7)
         blink = 0.5 + 0.5 * math.sin(phase * 11.0)
-        elapsed = max(0.0, time.monotonic() - getattr(hole, "bonus_activated_at", 0.0))
-        duration = max(0.1, getattr(hole, "bonus_duration", 0.0) or 20.0)
+        elapsed = max(0.0, time.monotonic() - getattr(hole, activated_attr, 0.0))
+        duration = max(0.1, getattr(hole, duration_attr, 0.0) or 20.0)
         remaining_ratio = max(0.08, 1.0 - min(1.0, elapsed / duration))
         seconds_left = max(0, math.ceil(duration - elapsed))
         switch_pulse = max(0.0, 1.0 - min(1.0, elapsed / 0.85))
@@ -708,17 +729,17 @@ class UIGameMixin:
         halo_surface = pygame.Surface((168, 168), pygame.SRCALPHA)
         halo_center = halo_surface.get_rect().center
         for radius, color, local_alpha in (
-            (HOLE_RADIUS + 10 + int(pulse_fast * 3), (255, 214, 82), 34),
-            (HOLE_RADIUS + 18 + int(pulse_slow * 4), (120, 214, 255), 24),
-            (HOLE_RADIUS + 26 + int(pulse_fast * 5), (255, 214, 82), 12),
+            (HOLE_RADIUS + 10 + int(pulse_fast * 3), primary_color, 34),
+            (HOLE_RADIUS + 18 + int(pulse_slow * 4), secondary_color, 24),
+            (HOLE_RADIUS + 26 + int(pulse_fast * 5), primary_color, 12),
         ):
             pygame.draw.circle(halo_surface, (*color, local_alpha), halo_center, radius)
         self.display.screen.blit(halo_surface, halo_surface.get_rect(center=center))
 
         for ring_radius, color, width, alpha in (
-            (HOLE_RADIUS + 8 + pulse_fast * 2, (255, 214, 82), 4, 152),
-            (HOLE_RADIUS + 16 + pulse_slow * 3, (120, 214, 255), 3, 128),
-            (HOLE_RADIUS + 24 + pulse_fast * 4, (255, 214, 82), 2, 82),
+            (HOLE_RADIUS + 8 + pulse_fast * 2, primary_color, 4, 152),
+            (HOLE_RADIUS + 16 + pulse_slow * 3, secondary_color, 3, 128),
+            (HOLE_RADIUS + 24 + pulse_fast * 4, primary_color, 2, 82),
         ):
             self.draw_glow_ring(
                 center,
@@ -735,7 +756,7 @@ class UIGameMixin:
                 int(center[0] + math.cos(angle) * orbit_radius),
                 int(center[1] + math.sin(angle) * orbit_radius * 0.88),
             )
-            sparkle_color = (255, 214, 82) if orbit_index % 2 == 0 else (120, 214, 255)
+            sparkle_color = primary_color if orbit_index % 2 == 0 else secondary_color
             self.draw_arcade_sparkle(
                 sparkle_center,
                 phase + orbit_index * 0.32,
@@ -810,28 +831,28 @@ class UIGameMixin:
             inner_y = corner_y - sign_y * bracket_len
             pygame.draw.line(
                 bracket_surface,
-                (255, 214, 82, 218),
+                (*primary_color, 218),
                 (corner_x, corner_y),
                 (inner_x, corner_y),
                 4,
             )
             pygame.draw.line(
                 bracket_surface,
-                (255, 214, 82, 218),
+                (*primary_color, 218),
                 (corner_x, corner_y),
                 (corner_x, inner_y),
                 4,
             )
             pygame.draw.line(
                 bracket_surface,
-                (120, 214, 255, 164),
+                (*secondary_color, 164),
                 (corner_x - sign_x * 2, corner_y - sign_y * 2),
                 (inner_x - sign_x * 2, corner_y - sign_y * 2),
                 2,
             )
             pygame.draw.line(
                 bracket_surface,
-                (120, 214, 255, 164),
+                (*secondary_color, 164),
                 (corner_x - sign_x * 2, corner_y - sign_y * 2),
                 (corner_x - sign_x * 2, inner_y - sign_y * 2),
                 2,
@@ -846,7 +867,7 @@ class UIGameMixin:
             angle = phase * 1.4 + tick_index * (math.tau / 12)
             inner_radius = HOLE_RADIUS + 18 + (tick_index % 2) * 2
             outer_radius = inner_radius + 8 + blink * 2
-            warning_color = (255, 74, 74) if tick_index % 3 == 0 else (255, 214, 82)
+            warning_color = primary_color if tick_index % 3 == 0 else secondary_color
             pygame.draw.line(
                 self.display.screen,
                 warning_color,
@@ -868,7 +889,7 @@ class UIGameMixin:
         right_x = center[0] + arrow_offset + arrow_bob
         pygame.draw.polygon(
             self.display.screen,
-            (255, 214, 82),
+            primary_color,
             [
                 (left_x, center[1]),
                 (left_x + arrow_size, center[1] - arrow_size + 1),
@@ -877,7 +898,7 @@ class UIGameMixin:
         )
         pygame.draw.polygon(
             self.display.screen,
-            (255, 78, 78) if blink > 0.58 else (255, 248, 220),
+            primary_color if blink > 0.58 else accent_color,
             [
                 (left_x + 2, center[1]),
                 (left_x + arrow_size - 2, center[1] - arrow_size + 3),
@@ -886,7 +907,7 @@ class UIGameMixin:
         )
         pygame.draw.polygon(
             self.display.screen,
-            (255, 214, 82),
+            primary_color,
             [
                 (right_x, center[1]),
                 (right_x - arrow_size, center[1] - arrow_size + 1),
@@ -895,7 +916,7 @@ class UIGameMixin:
         )
         pygame.draw.polygon(
             self.display.screen,
-            (255, 78, 78) if blink > 0.58 else (255, 248, 220),
+            primary_color if blink > 0.58 else accent_color,
             [
                 (right_x - 2, center[1]),
                 (right_x - arrow_size + 2, center[1] - arrow_size + 3),
@@ -909,7 +930,7 @@ class UIGameMixin:
         for lamp_index in range(3):
             lamp_x = 16 + lamp_index * lamp_spacing
             lamp_on = blink > 0.52 or lamp_index == 1
-            lamp_color = (255, 78, 78) if lamp_index == 1 else (255, 214, 82)
+            lamp_color = primary_color if lamp_index == 1 else secondary_color
             lamp_alpha = 210 if lamp_on else 82
             pygame.draw.circle(
                 lamp_glow_surface,
@@ -936,7 +957,7 @@ class UIGameMixin:
         self.draw_badge(
             f"{seconds_left}s",
             timer_badge_rect,
-            (120, 214, 255, 212),
+            timer_fill,
             text_color=WHITE,
             border_color=(255, 255, 255, 86),
             font=self.display.font_tiny,
@@ -1558,6 +1579,24 @@ class UIGameMixin:
 
         for hole in holes:
             x1, y1 = hole.position[0], hole.position[1]
+            first_pin = hole.pin[0] if hole.pin else None
+            second_pin = hole.pin[1] if len(hole.pin) > 1 else None
+            is_first_bonus_active = (
+                getattr(hole, "bonus_active", False)
+                and getattr(hole, "bonus_active_pin", None) == first_pin
+            )
+            is_first_malus_active = (
+                getattr(hole, "malus_active", False)
+                and getattr(hole, "malus_active_pin", None) == first_pin
+            )
+            is_second_bonus_active = (
+                getattr(hole, "bonus_active", False)
+                and getattr(hole, "bonus_active_pin", None) == second_pin
+            )
+            is_second_malus_active = (
+                getattr(hole, "malus_active", False)
+                and getattr(hole, "malus_active_pin", None) == second_pin
+            )
             hole_shadow = pygame.Surface(
                 (HOLE_RADIUS * 3, HOLE_RADIUS * 2), pygame.SRCALPHA
             )
@@ -1571,18 +1610,19 @@ class UIGameMixin:
                 (x1 - hole_shadow.get_width() // 2, y1 + HOLE_RADIUS // 2),
             )
             self.draw_special_hole_accent(hole, (int(x1), int(y1)), phase)
-            is_bonus_active = getattr(hole, "bonus_active", False)
-            if is_bonus_active:
+            if is_first_bonus_active:
                 self.draw_side_bonus_hole_highlight(hole, (int(x1), int(y1)), phase)
+            if is_first_malus_active:
+                self.draw_side_malus_hole_highlight(hole, (int(x1), int(y1)), phase)
             is_target = (
                 challenge_state
                 and challenge_state.get("type") == "order"
                 and challenge_state.get("target_hole_type") == hole.type
                 and challenge_state.get("target_hole_text") == hole.text
             )
-            hole_surface = (
+            first_hole_surface = (
                 self.display.resources["hole_score"]
-                if is_target or is_bonus_active
+                if is_target or is_first_bonus_active or is_first_malus_active
                 else self.display.resources["hole"]
             )
             if is_target:
@@ -1593,7 +1633,10 @@ class UIGameMixin:
                     width=5,
                     alpha=130,
                 )
-            self.display.screen.blit(hole_surface, (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS))
+            self.display.screen.blit(
+                first_hole_surface,
+                (x1 - HOLE_RADIUS, y1 - HOLE_RADIUS),
+            )
             font = (
                 self.display.font_medium
                 if hole.type != "large_frog"
@@ -1602,7 +1645,15 @@ class UIGameMixin:
             self.draw_text_with_shadow(
                 hole.text,
                 font,
-                (255, 248, 228) if (is_target or is_bonus_active) else LIGHT_GREY,
+                (
+                    (255, 212, 212)
+                    if is_first_malus_active
+                    else (
+                        (255, 248, 228)
+                        if (is_target or is_first_bonus_active)
+                        else LIGHT_GREY
+                    )
+                ),
                 BLACK,
                 (x1, y1),
                 shadow_offset=(2, 2),
@@ -1616,8 +1667,12 @@ class UIGameMixin:
                     (x2 - hole_shadow.get_width() // 2, y2 + HOLE_RADIUS // 2),
                 )
                 self.draw_special_hole_accent(hole, (int(x2), int(y2)), phase + 0.6)
-                if is_bonus_active:
+                if is_second_bonus_active:
                     self.draw_side_bonus_hole_highlight(
+                        hole, (int(x2), int(y2)), phase + 0.6
+                    )
+                if is_second_malus_active:
+                    self.draw_side_malus_hole_highlight(
                         hole, (int(x2), int(y2)), phase + 0.6
                     )
                 if is_target:
@@ -1628,14 +1683,27 @@ class UIGameMixin:
                         width=5,
                         alpha=130,
                     )
+                second_hole_surface = (
+                    self.display.resources["hole_score"]
+                    if is_target or is_second_bonus_active or is_second_malus_active
+                    else self.display.resources["hole"]
+                )
                 self.display.screen.blit(
-                    hole_surface,
+                    second_hole_surface,
                     (x2 - HOLE_RADIUS, y2 - HOLE_RADIUS),
                 )
                 self.draw_text_with_shadow(
                     hole.text,
                     font,
-                    (255, 248, 228) if (is_target or is_bonus_active) else LIGHT_GREY,
+                    (
+                        (255, 212, 212)
+                        if is_second_malus_active
+                        else (
+                            (255, 248, 228)
+                            if (is_target or is_second_bonus_active)
+                            else LIGHT_GREY
+                        )
+                    ),
                     BLACK,
                     (x2, y2),
                     shadow_offset=(2, 2),

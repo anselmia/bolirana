@@ -6,6 +6,7 @@ from src.constants import (
     CHALLENGE_ALL_HOLES,
     CHALLENGE_ORDER,
     CHALLENGE_TIME_ATTACK,
+    MODE_NORMAL,
     OFF,
     PIN_H20,
     PIN_HBOTTLE,
@@ -28,10 +29,15 @@ from src.player import Player
 
 
 class DummyDisplay:
-    def __init__(self, penalty_value=None):
+    def __init__(self, penalty_value=None, roulette_value=120):
         self.penalty_value = penalty_value
+        self.roulette_value = roulette_value
         self.holes_drawn = False
         self.winner = None
+        self.goal_animation_calls = 0
+        self.roulette_animation_calls = 0
+        self.bonus_roulette_animation_calls = 0
+        self.malus_roulette_animation_calls = 0
 
     def draw_penalty(self):
         return self.penalty_value
@@ -43,7 +49,20 @@ class DummyDisplay:
         return (100, 100)
 
     def draw_goal_animation(self, hole, pin):
+        self.goal_animation_calls += 1
         return None
+
+    def animation_roulette(self):
+        self.roulette_animation_calls += 1
+        return self.roulette_value
+
+    def animation_bonus_roulette(self):
+        self.bonus_roulette_animation_calls += 1
+        return self.roulette_value
+
+    def animation_malus_roulette(self):
+        self.malus_roulette_animation_calls += 1
+        return self.roulette_value
 
     def draw_player_win(self, winner):
         self.winner = winner
@@ -90,6 +109,145 @@ class RegressionTests(unittest.TestCase):
         self.assertTrue(display.holes_drawn)
         self.assertIs(logic.current_player, logic.players[1])
         self.assertTrue(logic.players[1].is_active)
+
+    def test_penalty_mode_initializes_side_bonus_and_malus(self):
+        logic = GameLogic()
+        logic.game_mode = MODE_NORMAL
+        logic.penalty = True
+        display = DummyDisplay()
+
+        logic.setup_normal_mode(display)
+        logic.initialize_side_hole_bonus()
+
+        self.assertIsNotNone(logic.active_side_bonus_hole)
+        self.assertIsNotNone(logic.active_side_malus_hole)
+        self.assertIsNot(logic.active_side_bonus_hole, logic.active_side_malus_hole)
+        self.assertTrue(logic.active_side_bonus_hole.bonus_active)
+        self.assertTrue(logic.active_side_malus_hole.malus_active)
+        self.assertIn(logic.active_side_bonus_pin, logic.active_side_bonus_hole.pin)
+        self.assertEqual(
+            logic.active_side_bonus_hole.bonus_active_pin,
+            logic.active_side_bonus_pin,
+        )
+        self.assertIn(logic.active_side_malus_pin, logic.active_side_malus_hole.pin)
+        self.assertEqual(
+            logic.active_side_malus_hole.malus_active_pin,
+            logic.active_side_malus_pin,
+        )
+
+    def test_penalty_mode_malus_side_hole_triggers_negative_roulette(self):
+        logic = GameLogic()
+        logic.game_mode = MODE_NORMAL
+        logic.penalty = True
+        logic.score = 400
+        logic.num_players = 1
+        logic.setup_players()
+        display = DummyDisplay(roulette_value=130)
+        logic.setup_normal_mode(display)
+        bonus_hole = logic.holes[0]
+        malus_hole = logic.holes[1]
+        logic.activate_side_hole_bonus(bonus_hole, notify=False, malus_hole=malus_hole)
+
+        result = logic.goal(malus_hole.pin[0], display)
+
+        self.assertEqual(result["status"], "scored")
+        self.assertEqual(result["points"], -130)
+        self.assertEqual(logic.current_player.score, -130)
+        self.assertEqual(logic.current_player.turn_score, -130)
+        self.assertIn("malus", result["detail"].lower())
+
+    def test_side_bonus_roulette_skips_normal_hole_animation(self):
+        logic = GameLogic()
+        logic.game_mode = MODE_NORMAL
+        logic.penalty = False
+        logic.score = 400
+        logic.num_players = 1
+        logic.setup_players()
+        display = DummyDisplay(roulette_value=110)
+        logic.setup_normal_mode(display)
+        bonus_hole = logic.holes[0]
+        logic.activate_side_hole_bonus(bonus_hole, notify=False)
+
+        result = logic.goal(bonus_hole.pin[0], display)
+
+        self.assertEqual(result["points"], 110)
+        self.assertEqual(display.goal_animation_calls, 0)
+        self.assertEqual(display.roulette_animation_calls, 0)
+        self.assertEqual(display.bonus_roulette_animation_calls, 1)
+        self.assertEqual(display.malus_roulette_animation_calls, 0)
+
+    def test_side_malus_roulette_skips_normal_hole_animation(self):
+        logic = GameLogic()
+        logic.game_mode = MODE_NORMAL
+        logic.penalty = True
+        logic.score = 400
+        logic.num_players = 1
+        logic.setup_players()
+        display = DummyDisplay(roulette_value=130)
+        logic.setup_normal_mode(display)
+        bonus_hole = logic.holes[0]
+        malus_hole = logic.holes[1]
+        logic.activate_side_hole_bonus(bonus_hole, notify=False, malus_hole=malus_hole)
+
+        result = logic.goal(malus_hole.pin[0], display)
+
+        self.assertEqual(result["points"], -130)
+        self.assertEqual(display.goal_animation_calls, 0)
+        self.assertEqual(display.roulette_animation_calls, 0)
+        self.assertEqual(display.bonus_roulette_animation_calls, 0)
+        self.assertEqual(display.malus_roulette_animation_calls, 1)
+
+    def test_bonus_side_special_only_triggers_on_active_pin(self):
+        logic = GameLogic()
+        logic.game_mode = MODE_NORMAL
+        logic.penalty = False
+        logic.score = 400
+        logic.num_players = 1
+        logic.setup_players()
+        display = DummyDisplay(roulette_value=110)
+        logic.setup_normal_mode(display)
+        bonus_hole = logic.holes[0]
+        active_pin = bonus_hole.pin[1]
+        inactive_pin = bonus_hole.pin[0]
+        logic.activate_side_hole_bonus(
+            bonus_hole,
+            notify=False,
+            bonus_pin=active_pin,
+        )
+
+        result = logic.goal(inactive_pin, display)
+
+        self.assertEqual(result["points"], bonus_hole.value)
+        self.assertEqual(display.goal_animation_calls, 1)
+        self.assertEqual(display.bonus_roulette_animation_calls, 0)
+
+    def test_malus_side_special_only_triggers_on_active_pin(self):
+        logic = GameLogic()
+        logic.game_mode = MODE_NORMAL
+        logic.penalty = True
+        logic.score = 400
+        logic.num_players = 1
+        logic.setup_players()
+        display = DummyDisplay(roulette_value=130)
+        logic.setup_normal_mode(display)
+        bonus_hole = logic.holes[0]
+        malus_hole = logic.holes[1]
+        active_malus_pin = malus_hole.pin[1]
+        inactive_malus_pin = malus_hole.pin[0]
+        logic.activate_side_hole_bonus(
+            bonus_hole,
+            notify=False,
+            malus_hole=malus_hole,
+            bonus_pin=bonus_hole.pin[0],
+            malus_pin=active_malus_pin,
+        )
+
+        result = logic.goal(inactive_malus_pin, display)
+
+        self.assertEqual(result["points"], malus_hole.value)
+        self.assertEqual(logic.current_player.score, malus_hole.value)
+        self.assertEqual(display.goal_animation_calls, 1)
+        self.assertEqual(display.malus_roulette_animation_calls, 0)
 
     def test_inactive_game_hole_pins_do_not_consume_shot_lockout(self):
         pin_reader = PIN(None, use_i2c=False)

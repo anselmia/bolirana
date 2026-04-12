@@ -65,6 +65,9 @@ class GameLogic:
         self.status_message = ""
         self.status_message_until = 0.0
         self.active_side_bonus_hole = None
+        self.active_side_bonus_pin = None
+        self.active_side_malus_hole = None
+        self.active_side_malus_pin = None
         self.active_side_bonus_started_at = 0.0
         self.active_side_bonus_switch_at = 0.0
         self.draw_game = True
@@ -151,12 +154,20 @@ class GameLogic:
 
     def clear_side_hole_bonus(self):
         self.active_side_bonus_hole = None
+        self.active_side_bonus_pin = None
+        self.active_side_malus_hole = None
+        self.active_side_malus_pin = None
         self.active_side_bonus_started_at = 0.0
         self.active_side_bonus_switch_at = 0.0
         for hole in self.holes:
             hole.bonus_active = False
+            hole.bonus_active_pin = None
             hole.bonus_activated_at = 0.0
             hole.bonus_duration = 0.0
+            hole.malus_active = False
+            hole.malus_active_pin = None
+            hole.malus_activated_at = 0.0
+            hole.malus_duration = 0.0
 
     def supports_side_hole_bonus(self):
         return (
@@ -166,57 +177,152 @@ class GameLogic:
             and not self.is_time_attack_challenge()
         )
 
+    def supports_side_hole_malus(self):
+        return self.supports_side_hole_bonus() and bool(self.penalty)
+
     def get_bonus_side_holes(self):
         return [hole for hole in self.holes if hole.type == "side"]
 
-    def activate_side_hole_bonus(self, hole, notify=True):
+    def get_bonus_side_entries(self):
+        return [(hole, pin) for hole in self.get_bonus_side_holes() for pin in hole.pin]
+
+    def activate_side_hole_bonus(
+        self,
+        hole,
+        notify=True,
+        malus_hole=None,
+        bonus_pin=None,
+        malus_pin=None,
+    ):
         now = time.monotonic()
         for candidate in self.holes:
             candidate.bonus_active = False
+            candidate.bonus_active_pin = None
             candidate.bonus_activated_at = 0.0
             candidate.bonus_duration = 0.0
+            candidate.malus_active = False
+            candidate.malus_active_pin = None
+            candidate.malus_activated_at = 0.0
+            candidate.malus_duration = 0.0
+
+        if hole is not None and bonus_pin is None:
+            bonus_pin = hole.pin[0]
+        if malus_hole is not None and malus_pin is None:
+            malus_pin = malus_hole.pin[0]
 
         self.active_side_bonus_hole = hole
+        self.active_side_bonus_pin = bonus_pin
+        self.active_side_malus_hole = malus_hole
+        self.active_side_malus_pin = malus_pin
         self.active_side_bonus_started_at = now
         self.active_side_bonus_switch_at = now + self.SIDE_HOLE_BONUS_DURATION
         if hole is not None:
             hole.bonus_active = True
+            hole.bonus_active_pin = bonus_pin
             hole.bonus_activated_at = now
             hole.bonus_duration = self.SIDE_HOLE_BONUS_DURATION
-            if notify:
+        if malus_hole is not None:
+            malus_hole.malus_active = True
+            malus_hole.malus_active_pin = malus_pin
+            malus_hole.malus_activated_at = now
+            malus_hole.malus_duration = self.SIDE_HOLE_BONUS_DURATION
+        if notify and hole is not None:
+            if malus_hole is not None:
+                self.set_status_message(
+                    f"Bonus roulette sur {hole.text} | Malus roulette sur {malus_hole.text} !",
+                    duration=2.2,
+                )
+            else:
                 self.set_status_message(
                     f"Bonus roulette sur {hole.text} !",
                     duration=1.8,
                 )
         self.draw_game = True
 
+    def choose_side_hole_specials(self, exclude_holes=None):
+        candidates = self.get_bonus_side_entries()
+        if not candidates:
+            return None, None, None, None
+
+        exclude_entries = set(exclude_holes or ())
+        available_bonus_entries = [
+            entry for entry in candidates if entry not in exclude_entries
+        ]
+        if not available_bonus_entries:
+            available_bonus_entries = candidates[:]
+        bonus_hole, bonus_pin = random.choice(available_bonus_entries)
+
+        malus_hole = None
+        malus_pin = None
+        if self.supports_side_hole_malus() and len(candidates) > 1:
+            malus_candidates = [
+                entry
+                for entry in candidates
+                if entry != (bonus_hole, bonus_pin) and entry not in exclude_entries
+            ]
+            preferred_malus_candidates = [
+                entry for entry in malus_candidates if entry[0] is not bonus_hole
+            ]
+            if preferred_malus_candidates:
+                malus_candidates = preferred_malus_candidates
+            if not malus_candidates:
+                malus_candidates = [
+                    entry for entry in candidates if entry != (bonus_hole, bonus_pin)
+                ]
+            if malus_candidates:
+                malus_hole, malus_pin = random.choice(malus_candidates)
+
+        return bonus_hole, bonus_pin, malus_hole, malus_pin
+
     def initialize_side_hole_bonus(self):
         if not self.supports_side_hole_bonus():
             self.clear_side_hole_bonus()
             return
-        candidates = self.get_bonus_side_holes()
-        if not candidates:
+        bonus_hole, bonus_pin, malus_hole, malus_pin = self.choose_side_hole_specials()
+        if bonus_hole is None:
             self.clear_side_hole_bonus()
             return
-        self.activate_side_hole_bonus(random.choice(candidates), notify=False)
+        self.activate_side_hole_bonus(
+            bonus_hole,
+            notify=False,
+            malus_hole=malus_hole,
+            bonus_pin=bonus_pin,
+            malus_pin=malus_pin,
+        )
 
     def rotate_side_hole_bonus(self, notify=True, exclude_current=False):
         if not self.supports_side_hole_bonus():
             self.clear_side_hole_bonus()
             return
-        candidates = self.get_bonus_side_holes()
-        if not candidates:
+        exclude_holes = set()
+        if exclude_current:
+            if (
+                self.active_side_bonus_hole is not None
+                and self.active_side_bonus_pin is not None
+            ):
+                exclude_holes.add(
+                    (self.active_side_bonus_hole, self.active_side_bonus_pin)
+                )
+            if (
+                self.active_side_malus_hole is not None
+                and self.active_side_malus_pin is not None
+            ):
+                exclude_holes.add(
+                    (self.active_side_malus_hole, self.active_side_malus_pin)
+                )
+        bonus_hole, bonus_pin, malus_hole, malus_pin = self.choose_side_hole_specials(
+            exclude_holes
+        )
+        if bonus_hole is None:
             self.clear_side_hole_bonus()
             return
-        if (
-            exclude_current
-            and len(candidates) > 1
-            and self.active_side_bonus_hole in candidates
-        ):
-            candidates = [
-                hole for hole in candidates if hole is not self.active_side_bonus_hole
-            ]
-        self.activate_side_hole_bonus(random.choice(candidates), notify=notify)
+        self.activate_side_hole_bonus(
+            bonus_hole,
+            notify=notify,
+            malus_hole=malus_hole,
+            bonus_pin=bonus_pin,
+            malus_pin=malus_pin,
+        )
 
     def update_side_hole_bonus_runtime(self):
         if self.game_ended:
@@ -231,12 +337,22 @@ class GameLogic:
         if time.monotonic() >= self.active_side_bonus_switch_at:
             self.rotate_side_hole_bonus(notify=True, exclude_current=True)
 
-    def should_trigger_side_hole_bonus_roulette(self, hole):
-        return (
+    def should_trigger_side_hole_bonus_roulette(self, hole, pin):
+        return bool(
             hole is not None
             and hole.type == "side"
             and hole is self.active_side_bonus_hole
+            and pin == self.active_side_bonus_pin
             and self.supports_side_hole_bonus()
+        )
+
+    def should_trigger_side_hole_malus_roulette(self, hole, pin):
+        return bool(
+            hole is not None
+            and hole.type == "side"
+            and hole is self.active_side_malus_hole
+            and pin == self.active_side_malus_pin
+            and self.supports_side_hole_malus()
         )
 
     def is_order_challenge(self):
@@ -720,9 +836,19 @@ class GameLogic:
             return
         self.current_player.little_frog_streak += 1
 
-    def run_hole_animation(self, hole, pin, display, force_roulette=False):
+    def run_hole_animation(
+        self,
+        hole,
+        pin,
+        display,
+        force_roulette=False,
+        use_bonus_roulette_intro=False,
+        use_malus_roulette_intro=False,
+    ):
         points = hole.value
-        display.draw_goal_animation(hole, pin)
+        should_draw_goal_animation = not (force_roulette and hole.type == "side")
+        if should_draw_goal_animation:
+            display.draw_goal_animation(hole, pin)
 
         if hole.type == "bottle":
             display.animation_bottle()
@@ -732,7 +858,12 @@ class GameLogic:
             points = display.animation_large_frog()
 
         if force_roulette and hole.type != "large_frog":
-            points = display.animation_roulette()
+            if use_malus_roulette_intro:
+                points = display.animation_malus_roulette()
+            elif use_bonus_roulette_intro:
+                points = display.animation_bonus_roulette()
+            else:
+                points = display.animation_roulette()
 
         self.draw_game = True
         return points
@@ -907,6 +1038,26 @@ class GameLogic:
             return
         self.current_player.goal(points, win_threshold)
 
+    def apply_side_hole_malus_to_current_player(self, points, win_threshold):
+        if self.current_player is None:
+            return
+        self.current_player.apply_score_delta(
+            -points,
+            win_threshold,
+            reset_rank_on_loss=True,
+        )
+        self.current_player.turn_score -= points
+        self.current_player.turn_hits += 1
+        self.current_player.successful_shots += 1
+        self.current_player.max_combo = max(
+            self.current_player.max_combo,
+            self.current_player.turn_hits,
+        )
+        self.current_player.best_turn = max(
+            self.current_player.best_turn,
+            self.current_player.turn_score,
+        )
+
     def handle_standard_goal_result(self, display, points, status_message):
         if self.current_player is None:
             return
@@ -986,27 +1137,37 @@ class GameLogic:
                 hole
             )
             triggered_side_hole_bonus_roulette = (
-                self.should_trigger_side_hole_bonus_roulette(hole)
+                self.should_trigger_side_hole_bonus_roulette(hole, pin)
+            )
+            triggered_side_hole_malus_roulette = (
+                self.should_trigger_side_hole_malus_roulette(hole, pin)
             )
             points = self.run_hole_animation(
                 hole,
                 pin,
                 display,
                 force_roulette=(
-                    triggered_little_frog_roulette or triggered_side_hole_bonus_roulette
+                    triggered_little_frog_roulette
+                    or triggered_side_hole_bonus_roulette
+                    or triggered_side_hole_malus_roulette
                 ),
+                use_bonus_roulette_intro=triggered_side_hole_bonus_roulette,
+                use_malus_roulette_intro=triggered_side_hole_malus_roulette,
             )
             self.update_little_frog_streak(
                 hole,
                 triggered_roulette=triggered_little_frog_roulette,
             )
-            if triggered_side_hole_bonus_roulette:
+            if triggered_side_hole_bonus_roulette or triggered_side_hole_malus_roulette:
                 self.rotate_side_hole_bonus(notify=True, exclude_current=True)
 
             win_threshold = (
                 float("inf") if self.is_time_attack_challenge() else self.score
             )
-            self.apply_points_to_current_player(points, win_threshold)
+            if triggered_side_hole_malus_roulette:
+                self.apply_side_hole_malus_to_current_player(points, win_threshold)
+            else:
+                self.apply_points_to_current_player(points, win_threshold)
             status_message = f"{self.current_player} +{points}"
             if triggered_little_frog_roulette:
                 status_message = (
@@ -1015,6 +1176,10 @@ class GameLogic:
             elif triggered_side_hole_bonus_roulette:
                 status_message = (
                     f"{self.current_player} bonus {hole.text} -> roulette +{points}"
+                )
+            elif triggered_side_hole_malus_roulette:
+                status_message = (
+                    f"{self.current_player} malus {hole.text} -> roulette -{points}"
                 )
 
             if self.is_time_attack_challenge():
@@ -1026,6 +1191,11 @@ class GameLogic:
                 elif triggered_side_hole_bonus_roulette:
                     status_message = (
                         f"{self.current_player} bonus {hole.text} -> roulette +{points}"
+                        f" | {self.get_turns_left_for_player()} tours"
+                    )
+                elif triggered_side_hole_malus_roulette:
+                    status_message = (
+                        f"{self.current_player} malus {hole.text} -> roulette -{points}"
                         f" | {self.get_turns_left_for_player()} tours"
                     )
                 else:
@@ -1040,7 +1210,11 @@ class GameLogic:
 
             self.handle_standard_goal_result(display, points, status_message)
             return self._build_goal_result(
-                "scored", pin, hole=hole, points=points, detail=status_message
+                "scored",
+                pin,
+                hole=hole,
+                points=(-points if triggered_side_hole_malus_roulette else points),
+                detail=status_message,
             )
         else:
             logging.warning(f"No matching hole found for pin {pin}.")

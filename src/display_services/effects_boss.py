@@ -6,10 +6,63 @@ import time
 import pygame
 
 from src.constants import BLACK, GOLD_COLORS, WHITE, YELLOW
-from src.roulette import RouletteAnimation
+from src.roulette import MALUS_ROULETTE_VALUES, RouletteAnimation
 
 
 class EffectsBossMixin:
+    def animation_bonus_roulette(self):
+        video_path = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "videos",
+                "happy_frog.mp4",
+            )
+        )
+        self.play_video_clip(
+            video_path,
+            fill_color=(6, 24, 10),
+            sound_name="kool_sound",
+            sound_volume=0.86,
+            sound_fade_ms=60,
+            fade_out_ms=260,
+            intro_fade_ms=180,
+            accent_color=(132, 255, 162),
+            title="BONUS",
+            subtitle="La roulette sourit au joueur",
+        )
+        return self.animation_roulette()
+
+    def animation_malus_roulette(self):
+        video_path = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "videos",
+                "devil_laugh2.mp4",
+            )
+        )
+        self.play_video_clip(
+            video_path,
+            fill_color=(20, 2, 4),
+            sound_name="devil_laugh_sound",
+            sound_volume=0.9,
+            sound_fade_ms=40,
+            fade_out_ms=260,
+            intro_fade_ms=180,
+            accent_color=(255, 86, 86),
+            title="MALUS",
+            subtitle="Le diable lance la roulette",
+        )
+        return self.animation_roulette(
+            values=MALUS_ROULETTE_VALUES,
+            wheel_style="malus",
+        )
+
     def animation_large_frog(self):
         video_path = os.path.normpath(
             os.path.join(
@@ -397,212 +450,18 @@ class EffectsBossMixin:
             frog_sound.stop()
         return self.animation_roulette()
 
-    def animation_roulette(self):
-        backdrop = self.display.screen.copy()
-        center = (self.display.screen_width // 2, self.display.screen_height // 2)
-        cues_triggered = set()
-
-        def render(progress):
-            phase = time.monotonic()
-            self.trigger_cue(
-                cues_triggered,
-                "roulette-rise",
-                0.22,
-                progress,
-                "applause",
-                volume=0.24,
-                fade_ms=80,
-            )
-            pulse = 0.5 + 0.5 * math.sin(progress * math.tau * 4)
-            stage_pop = self.clamp((progress - 0.16) / 0.26)
-            self.draw_overlay((4, 10, 28), 128)
-            self.display.ui.draw_spotlight_canopy(
-                phase, intensity=0.92, tint=(255, 224, 164)
-            )
-            self.display.ui.draw_stage_floor(
-                phase, horizon_ratio=0.79, tint=(120, 214, 255), alpha=22
-            )
-            self.display.ui.draw_screen_frame(
-                phase,
-                accent_color=(255, 220, 126),
-                secondary_color=(120, 214, 255),
-            )
-            self.display.ui.draw_scene_badges("ROULETTE", "SHOWTIME", phase)
-            self.draw_cartoon_flash(
-                center,
-                min(1.0, progress * 0.95),
-                (255, 220, 126),
-                radius=250,
-                alpha=94,
-            )
-            self.draw_star_field(
-                progress, density=30, color=(255, 244, 186), drift=14, alpha=118
-            )
-            self.draw_party_ribbons(progress, alpha=28, speed=0.42)
-            self.draw_confetti(progress * 0.85, density=18)
-            self.draw_confetti_fountain(
-                (center[0], center[1] + 200),
-                self.clamp((progress - 0.18) / 0.48),
-                palette=[YELLOW, WHITE, (120, 214, 255), (255, 144, 190)],
-                count=18,
-                spread=230,
-                height=160,
-                alpha=180,
-            )
-            self.draw_light_beam(center, progress, YELLOW, width=320, alpha=54)
-            self.draw_glow_circle(
-                center, 98 + pulse * 18, YELLOW, glow_radius=70, alpha=138
-            )
-            self.draw_cartoon_starburst(
-                center,
-                min(1.0, progress * 1.04),
-                (255, 220, 126),
-                rays=12,
-                inner_radius=28,
-                outer_radius=164,
-                alpha=128,
-                twist=0.08,
-            )
-
-            frame_rect = pygame.Rect(center[0] - 272, center[1] - 54, 544, 132)
-            self.display.ui.draw_panel_shadow(
-                frame_rect,
-                alpha=114,
-                inflate=24,
-                offset=(0, 14),
-                border_radius=30,
-            )
-            frame_surface = pygame.Surface(frame_rect.size, pygame.SRCALPHA)
-            pygame.draw.rect(
-                frame_surface,
-                (8, 24, 46, 220),
-                frame_surface.get_rect(),
-                border_radius=30,
-            )
-            pygame.draw.rect(
-                frame_surface,
-                (255, 255, 255, 14),
-                (14, 12, frame_rect.width - 28, 34),
-                border_radius=18,
-            )
-            self.display.screen.blit(frame_surface, frame_rect.topleft)
-            self.display.ui.draw_panel_grid(
-                frame_rect.inflate(-18, -16),
-                phase,
-                color=(120, 214, 255),
-                alpha=10,
-                step=60,
-            )
-            self.display.ui.draw_chrome_rect(frame_rect, GOLD_COLORS, 28, 4)
-            self.display.ui.draw_marquee_lights(
-                frame_rect,
-                phase,
-                (255, 220, 126),
-                count=18,
-            )
-            self.display.ui.draw_badge(
-                "JACKPOT",
-                (frame_rect.centerx - 54, frame_rect.top - 12, 108, 24),
-                (255, 214, 82, 224),
-                text_color=BLACK,
-                border_color=(255, 255, 255, 90),
-            )
-            self.display.ui.draw_text_with_shadow(
-                "ROULETTE",
-                self.display.font_title_small,
-                (255, 248, 222),
-                BLACK,
-                (frame_rect.centerx, frame_rect.top + 36),
-                center=True,
-            )
-            self.display.ui.draw_text_with_shadow(
-                "Le destin choisit la valeur finale",
-                self.display.font_small,
-                YELLOW,
-                BLACK,
-                (frame_rect.centerx, frame_rect.bottom - 24),
-                center=True,
-            )
-            self.draw_sticker_burst(
-                frame_rect.midtop,
-                min(1.0, progress * 1.18),
-                [YELLOW, WHITE, (120, 214, 255)],
-                count=8,
-                distance=96,
-                size=13,
-                twist=0.12,
-            )
-            medallion_center = (center[0], center[1] + 132)
-            medallion_surface = pygame.Surface((220, 220), pygame.SRCALPHA)
-            pygame.draw.circle(medallion_surface, (16, 36, 72, 216), (110, 110), 88)
-            pygame.draw.circle(
-                medallion_surface, (255, 220, 126, 238), (110, 110), 88, width=8
-            )
-            pygame.draw.circle(medallion_surface, (255, 255, 255, 18), (110, 88), 54)
-            self.display.screen.blit(
-                medallion_surface,
-                medallion_surface.get_rect(center=medallion_center),
-            )
-            pointer_length = 72 + int(stage_pop * 18)
-            pointer_angle = -math.pi / 2 + math.sin(progress * math.tau * 5.4) * 0.18
-            pointer_tip = (
-                medallion_center[0] + int(math.cos(pointer_angle) * pointer_length),
-                medallion_center[1] + int(math.sin(pointer_angle) * pointer_length),
-            )
-            self.draw_motion_smear(
-                medallion_center,
-                pointer_tip,
-                min(1.0, 0.32 + pulse * 0.68),
-                (255, 220, 126),
-                width=20,
-                trail=3,
-                alpha=30,
-            )
-            pygame.draw.line(
-                self.display.screen,
-                (255, 220, 126),
-                medallion_center,
-                pointer_tip,
-                6,
-            )
-            pygame.draw.circle(self.display.screen, WHITE, medallion_center, 10)
-            self.draw_comic_caption(
-                "SPIN!",
-                (center[0] + 192, center[1] + 120),
-                min(1.0, progress * 1.14),
-                fill_color=(255, 232, 164),
-                outline_color=(86, 138, 196),
-                wobble=9.0,
-            )
-            if progress > 0.52:
-                hit_progress = self.clamp((progress - 0.52) / 0.2)
-                self.draw_cartoon_smoke(
-                    medallion_center,
-                    hit_progress,
-                    color=(255, 244, 214),
-                    puff_count=8,
-                    spread=92,
-                    alpha=126,
-                )
-                self.draw_shockwave(
-                    medallion_center,
-                    hit_progress,
-                    (255, 220, 126),
-                    start_radius=28,
-                    end_radius=130,
-                    width=5,
-                    y_scale=0.9,
-                    alpha=118,
-                )
-            self.draw_reaction_signs(progress, ["SPIN!", "JACKPOT!", "WOW!"])
-
-        self.animate_scene(1.18, render, background=backdrop)
+    def animation_roulette(self, values=None, wheel_style="default"):
+        wheel_image_key = (
+            "roulette_devil" if wheel_style == "malus" else "roulette_image"
+        )
         roulette_animation = RouletteAnimation(
             self.display.screen,
             self.display.resources["roulette_sound"],
             self.display.resources["roulette_end_sound"],
-            self.display.resources["roulette_image"],
+            self.display.resources[wheel_image_key],
             self.display.resources["roulette_pointer"],
             self.display.ui,
+            values=values,
+            wheel_style=wheel_style,
         )
         return roulette_animation.run()

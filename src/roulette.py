@@ -10,7 +10,25 @@ from src.constants import BLACK, CHROME_COLORS, GOLD_COLORS, WHITE, YELLOW
 
 DARK_GOLD_COLOR = (184, 134, 11)
 LIGHT_GOLD_COLOR = (255, 239, 153)
-VALUES = [400, 50, 350, 250, 300, 200, 450, 0, 400, 50, 350, 250, 300, 200, 450, 0]
+DEFAULT_VALUES = [
+    400,
+    50,
+    350,
+    250,
+    300,
+    200,
+    450,
+    0,
+    400,
+    50,
+    350,
+    250,
+    300,
+    200,
+    450,
+    0,
+]
+MALUS_ROULETTE_VALUES = [0, 10, 15, 25, 50, 100, 150, 200] * 2
 
 
 class RouletteAnimation:
@@ -25,30 +43,27 @@ class RouletteAnimation:
         roulette_image,
         roulette_pointer,
         ui=None,
+        values=None,
+        wheel_style="default",
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.ui = ui
-        self.rotated_image = roulette_image
         self.current_angle = 0.0
+        self.values = list(values) if values is not None else list(DEFAULT_VALUES)
+        self.sections = len(self.values)
+        self.angle_per_section = 360 / self.sections
+        self.unique_values = list(dict.fromkeys(self.values))
+        self.wheel_style = wheel_style
 
         screen_width, screen_height = self.screen.get_size()
         self.center_x, self.center_y = screen_width // 2, screen_height // 2
 
-        self.angular_speed = (360 / len(VALUES)) / 2
+        self.angular_speed = (360 / len(self.values)) / 2
         self.min_turns = 3
 
         self.roulette_sound = roulette_sound
         self.roulette_end_sound = roulette_end_sound
-        self.roulette_image = roulette_image
-        self.roulette_pointer = roulette_pointer
-        self.base_image_rect = self.roulette_image.get_rect(
-            center=(self.center_x, self.center_y + 18)
-        )
-
-        self.sections = len(VALUES)
-        self.angle_per_section = 360 / self.sections
-        self.base_speed = self.angular_speed
         self.title_font = self._get_font("font_title_small", 82)
         self.value_font = self._get_font("font_large", 84)
         self.medium_font = self._get_font("font_medium", 52)
@@ -56,6 +71,13 @@ class RouletteAnimation:
         self.tiny_font = self._get_font("font_verysmall", 24)
         self._surface_cache = {}
         self._fast_rotation_cache = {}
+        self.roulette_image = self.build_wheel_image(roulette_image)
+        self.rotated_image = self.roulette_image
+        self.roulette_pointer = roulette_pointer
+        self.base_image_rect = self.roulette_image.get_rect(
+            center=(self.center_x, self.center_y + 18)
+        )
+        self.base_speed = self.angular_speed
 
         roulette_height = self.roulette_image.get_height()
         self.circle_radius = max(42, int(roulette_height * 0.29) // 2)
@@ -66,6 +88,151 @@ class RouletteAnimation:
             if font is not None:
                 return font
         return pygame.font.Font(None, fallback_size)
+
+    def build_wheel_image(self, roulette_image):
+        if self.wheel_style != "malus":
+            return roulette_image
+        return self.build_programmatic_wheel(roulette_image)
+
+    def build_programmatic_wheel(self, base_image):
+        wheel_surface = base_image.copy().convert_alpha()
+        width, height = wheel_surface.get_size()
+        center = (width // 2, height // 2)
+        radius = min(width, height) // 2
+        outer_radius = int(radius * 0.8)
+        inner_radius = int(radius * 0.43)
+        label_radius = int((outer_radius + inner_radius) / 2)
+        palette = [
+            (86, 12, 18, 220),
+            (126, 18, 24, 220),
+            (162, 34, 16, 220),
+            (194, 54, 18, 220),
+            (130, 20, 18, 220),
+            (172, 42, 16, 220),
+            (214, 68, 18, 220),
+            (148, 24, 20, 220),
+        ]
+        segment_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        for index, value in enumerate(self.values):
+            start_angle = -90 + index * self.angle_per_section
+            end_angle = start_angle + self.angle_per_section
+            polygon = self.build_ring_segment_points(
+                center,
+                inner_radius,
+                outer_radius,
+                start_angle,
+                end_angle,
+            )
+            pygame.draw.polygon(
+                segment_surface,
+                palette[index % len(palette)],
+                polygon,
+            )
+            boundary_angle = math.radians(start_angle)
+            inner_point = self.polar_to_point(center, inner_radius, boundary_angle)
+            outer_point = self.polar_to_point(center, outer_radius, boundary_angle)
+            pygame.draw.line(
+                segment_surface,
+                (255, 246, 220, 208),
+                inner_point,
+                outer_point,
+                3,
+            )
+            pygame.draw.line(
+                segment_surface,
+                (255, 214, 82, 72),
+                inner_point,
+                outer_point,
+                7,
+            )
+
+            label_angle = math.radians(start_angle + self.angle_per_section / 2)
+            label_center = self.polar_to_point(center, label_radius, label_angle)
+            text_rotation = -math.degrees(label_angle) - 90
+            if text_rotation < -90:
+                text_rotation += 180
+            if text_rotation > 90:
+                text_rotation -= 180
+            self.draw_glowing_wheel_value(
+                segment_surface,
+                str(value),
+                label_center,
+                text_rotation,
+            )
+
+        pygame.draw.circle(
+            segment_surface,
+            (255, 242, 180, 120),
+            center,
+            outer_radius,
+            width=5,
+        )
+        pygame.draw.circle(
+            segment_surface,
+            (255, 232, 156, 92),
+            center,
+            inner_radius,
+            width=5,
+        )
+        wheel_surface.blit(segment_surface, (0, 0))
+        return wheel_surface
+
+    def build_ring_segment_points(
+        self,
+        center,
+        inner_radius,
+        outer_radius,
+        start_angle_deg,
+        end_angle_deg,
+        steps=6,
+    ):
+        outer_points = []
+        inner_points = []
+        for step in range(steps + 1):
+            progress = step / steps
+            angle = math.radians(self.lerp(start_angle_deg, end_angle_deg, progress))
+            outer_points.append(self.polar_to_point(center, outer_radius, angle))
+        for step in range(steps, -1, -1):
+            progress = step / steps
+            angle = math.radians(self.lerp(start_angle_deg, end_angle_deg, progress))
+            inner_points.append(self.polar_to_point(center, inner_radius, angle))
+        return outer_points + inner_points
+
+    def polar_to_point(self, center, radius, angle):
+        return (
+            int(center[0] + math.cos(angle) * radius),
+            int(center[1] + math.sin(angle) * radius),
+        )
+
+    def draw_glowing_wheel_value(self, target_surface, text, center, rotation):
+        font = self.medium_font if len(text) >= 3 else self.value_font
+        shadow = font.render(text, True, (66, 24, 0))
+        glow = font.render(text, True, (255, 194, 40))
+        main = font.render(text, True, (255, 235, 70))
+
+        if rotation:
+            shadow = pygame.transform.rotate(shadow, rotation)
+            glow = pygame.transform.rotate(glow, rotation)
+            main = pygame.transform.rotate(main, rotation)
+
+        glow_rect = glow.get_rect(center=center)
+        for offset_x, offset_y, alpha in (
+            (-6, 0, 42),
+            (6, 0, 42),
+            (0, -6, 42),
+            (0, 6, 42),
+            (-3, -3, 82),
+            (3, 3, 82),
+        ):
+            glow_copy = glow.copy()
+            glow_copy.set_alpha(alpha)
+            target_surface.blit(glow_copy, glow_rect.move(offset_x, offset_y))
+
+        target_surface.blit(
+            shadow, shadow.get_rect(center=(center[0] + 3, center[1] + 3))
+        )
+        target_surface.blit(main, main.get_rect(center=center))
 
     def clamp(self, value, minimum=0.0, maximum=1.0):
         return max(minimum, min(maximum, value))
@@ -194,7 +361,7 @@ class RouletteAnimation:
         section_index = (
             int(self.current_angle // self.angle_per_section) % self.sections
         )
-        return VALUES[section_index]
+        return self.values[section_index]
 
     def draw_panel(self, rect, phase, accent_color, border_colors, title=None):
         panel_rect = pygame.Rect(rect)
@@ -433,7 +600,7 @@ class RouletteAnimation:
             track_rect, phase, (120, 214, 255), CHROME_COLORS, title="TABLE"
         )
 
-        unique_values = [0, 50, 200, 250, 300, 350, 400, 450]
+        unique_values = self.unique_values
         chip_width = 72
         gap = 10
         total_width = len(unique_values) * chip_width + (len(unique_values) - 1) * gap
@@ -514,6 +681,13 @@ class RouletteAnimation:
         if not visible:
             return
 
+        is_malus = self.wheel_style == "malus"
+        halo_color = (255, 94, 94) if is_malus else (74, 178, 255)
+        shell_color = (64, 10, 18, 242) if is_malus else (14, 30, 58, 242)
+        hub_ring_color = (255, 126, 126, 170) if is_malus else (86, 188, 255, 170)
+        core_color = (176, 24, 38, 236) if is_malus else (40, 106, 196, 236)
+        inner_glow_color = (255, 132, 132, 76) if is_malus else (132, 214, 255, 76)
+
         medallion_surface = pygame.Surface(
             (self.circle_radius * 4, self.circle_radius * 4), pygame.SRCALPHA
         )
@@ -533,7 +707,7 @@ class RouletteAnimation:
         ):
             pygame.draw.circle(
                 medallion_surface,
-                (74, 178, 255, alpha),
+                (*halo_color, alpha),
                 (center_point, center_point),
                 radius,
             )
@@ -546,7 +720,7 @@ class RouletteAnimation:
         )
         pygame.draw.circle(
             medallion_surface,
-            (14, 30, 58, 242),
+            shell_color,
             (center_point, center_point),
             outer_radius,
         )
@@ -572,14 +746,14 @@ class RouletteAnimation:
         )
         pygame.draw.circle(
             medallion_surface,
-            (86, 188, 255, 170),
+            hub_ring_color,
             (center_point, center_point),
             hub_radius,
             width=3,
         )
         pygame.draw.circle(
             medallion_surface,
-            (40, 106, 196, 236),
+            core_color,
             (center_point, center_point),
             core_radius,
         )
@@ -596,7 +770,7 @@ class RouletteAnimation:
         inner_glow_rect.center = (center_point, center_point + 2)
         pygame.draw.ellipse(
             medallion_surface,
-            (132, 214, 255, 76),
+            inner_glow_color,
             inner_glow_rect,
         )
 
@@ -707,7 +881,7 @@ class RouletteAnimation:
     def get_value_from_angle(self, angle):
         normalized_angle = angle % 360
         section_index = int(normalized_angle // self.angle_per_section)
-        return VALUES[section_index]
+        return self.values[section_index]
 
     def run(self):
         random.seed(time.time() + int.from_bytes(os.urandom(8), "big"))
@@ -761,7 +935,7 @@ class RouletteAnimation:
         self.rotated_image = pygame.transform.rotate(
             self.roulette_image, self.current_angle
         )
-        final_value = VALUES[additional_sections % len(VALUES)]
+        final_value = self.values[additional_sections % len(self.values)]
         blink_duration = 2.0
         end_blink_time = time.time() + blink_duration
 

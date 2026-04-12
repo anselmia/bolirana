@@ -115,6 +115,9 @@ class Display:
             self.resources["roulette_image"] = self.load_image(
                 "images", "roulette_image.png", scale=0.8
             )
+            self.resources["roulette_devil"] = self.load_image(
+                "images", "roulette_devil.png", scale=0.8
+            )
             self.resources["roulette_pointer"] = self.load_image(
                 "images", "roulette_pointer.png", scale=0.1
             )
@@ -142,6 +145,10 @@ class Display:
             self.resources["frog_sound"] = self.load_sound("sounds", "frog.mp3")
             self.resources["stadium_celebration"] = self.load_sound(
                 "sounds", "stadium_celebration.mp3"
+            )
+            self.resources["kool_sound"] = self.load_sound("sounds", "kool.mp3")
+            self.resources["devil_laugh_sound"] = self.load_sound(
+                "sounds", "devil_laugh.mp3"
             )
             self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
             self.resources["coin_sound"] = self.create_coin_sound()
@@ -741,6 +748,14 @@ class Display:
     def animation_roulette(self, *args, **kwargs):
         self.stop_time_warning_audio()
         return self.effects.animation_roulette(*args, **kwargs)
+
+    def animation_bonus_roulette(self, *args, **kwargs):
+        self.stop_time_warning_audio()
+        return self.effects.animation_bonus_roulette(*args, **kwargs)
+
+    def animation_malus_roulette(self, *args, **kwargs):
+        self.stop_time_warning_audio()
+        return self.effects.animation_malus_roulette(*args, **kwargs)
 
     def animation_large_frog(self, *args, **kwargs):
         self.stop_time_warning_audio()

@@ -1,0 +1,209 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "run regression tests",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"tests/test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run regression discover",
+			"type": "shell",
+			"command": ".venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"unittest",
+				"discover",
+				"-s",
+				"tests",
+				"-p",
+				"test_regressions.py"
+			],
+			"isBackground": false
+		}
+	]
+}
