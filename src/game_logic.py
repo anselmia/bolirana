@@ -4,16 +4,12 @@ import time
 
 from src.holes import Hole
 from src.constants import (
-    CHALLENGE_ARCADE,
+    CHALLENGE_ALL_HOLES,
     CHALLENGE_CLASSIC,
     CHALLENGE_ORDER,
     CHALLENGE_TIME_ATTACK,
-    COMBO_BONUS_CAP,
-    COMBO_BONUS_STEP,
     DEFAULT_TIME_ATTACK_SECONDS,
     DEFAULT_TIME_ATTACK_TURNS,
-    FINAL_RUSH_BONUS,
-    FINAL_RUSH_THRESHOLD,
     LOW_TIME_WARNING_SECONDS,
     PIN_H20,
     PIN_H25,
@@ -32,9 +28,6 @@ from src.constants import (
     OFF,
     ON,
     ORDER_TARGET_SEQUENCE,
-    PRESSURE_BONUS,
-    PRESSURE_GAP,
-    PRESSURE_TRIGGER_POINTS,
 )
 from src.player import Player
 
@@ -64,6 +57,7 @@ class GameLogic:
         self.pin_to_hole = {}
         self.challenge_mode = CHALLENGE_CLASSIC
         self.challenge_progress = {}
+        self.challenge_completed_holes = {}
         self.time_attack_seconds = DEFAULT_TIME_ATTACK_SECONDS
         self.time_attack_turns = DEFAULT_TIME_ATTACK_TURNS
         self.turn_started_at = 0.0
@@ -88,6 +82,7 @@ class GameLogic:
         self.status_message = ""
         self.status_message_until = 0.0
         self.challenge_progress = {}
+        self.challenge_completed_holes = {}
         self.time_attack_waiting_start = False
         self.initialize_challenge_state()
         self.initialize_side_hole_bonus()
@@ -166,6 +161,7 @@ class GameLogic:
     def supports_side_hole_bonus(self):
         return (
             self.game_mode == MODE_NORMAL
+            and not self.is_all_holes_challenge()
             and not self.is_order_challenge()
             and not self.is_time_attack_challenge()
         )
@@ -246,8 +242,38 @@ class GameLogic:
     def is_order_challenge(self):
         return self.challenge_mode == CHALLENGE_ORDER
 
+    def is_all_holes_challenge(self):
+        return self.challenge_mode == CHALLENGE_ALL_HOLES
+
     def is_time_attack_challenge(self):
         return self.challenge_mode == CHALLENGE_TIME_ATTACK
+
+    def get_challenge_target_key(self, hole):
+        return (hole.type, hole.text)
+
+    def get_challenge_target_label(self, hole_type, hole_text):
+        if hole_type == "little_frog":
+            return "Petite grenouille"
+        if hole_type == "large_frog":
+            return "Roulette"
+        return str(hole_text)
+
+    def get_all_holes_targets(self):
+        seen = set()
+        targets = []
+        for hole in self.holes:
+            target_key = self.get_challenge_target_key(hole)
+            if target_key in seen:
+                continue
+            seen.add(target_key)
+            targets.append(
+                (
+                    hole.type,
+                    hole.text,
+                    self.get_challenge_target_label(hole.type, hole.text),
+                )
+            )
+        return targets
 
     def get_group_key(self, player=None):
         player = player or self.current_player
@@ -273,6 +299,7 @@ class GameLogic:
 
     def initialize_challenge_state(self):
         self.challenge_progress = {}
+        self.challenge_completed_holes = {}
         if self.is_order_challenge():
             for player in self.players:
                 group_key = self.get_group_key(player)
@@ -284,6 +311,16 @@ class GameLogic:
             self.set_status_message(
                 f"Cible : {self.get_order_target_label(0)}", duration=3.0
             )
+        elif self.is_all_holes_challenge():
+            for player in self.players:
+                group_key = self.get_group_key(player)
+                if group_key not in self.challenge_progress:
+                    self.challenge_progress[group_key] = 0
+                self.challenge_completed_holes[group_key] = set()
+            for player in self.players:
+                player.score = 0
+                player.sequence_progress = 0
+            self.set_status_message("Valide tous les trous !", duration=3.0)
         elif self.is_time_attack_challenge():
             self.arm_time_attack_turn(
                 f"Chrono {self.time_attack_seconds}s | appuie sur HAUT pour lancer"
@@ -352,6 +389,14 @@ class GameLogic:
             player.score = progress
             player.sequence_progress = progress
 
+    def sync_all_holes_progress(self, group_key, completed_targets):
+        progress = len(completed_targets)
+        self.challenge_completed_holes[group_key] = set(completed_targets)
+        self.challenge_progress[group_key] = progress
+        for player in self.get_players_for_group_key(group_key):
+            player.score = progress
+            player.sequence_progress = progress
+
     def register_order_hit(self):
         if self.current_player is None:
             return
@@ -368,6 +413,8 @@ class GameLogic:
     def get_display_target_score(self):
         if self.is_order_challenge():
             return len(ORDER_TARGET_SEQUENCE)
+        if self.is_all_holes_challenge():
+            return max(1, len(self.get_all_holes_targets()))
         if self.is_time_attack_challenge():
             return max(
                 self.score,
@@ -390,6 +437,27 @@ class GameLogic:
                 "sequence_labels": labels,
                 "target_hole_type": None if target is None else target[0],
                 "target_hole_text": None if target is None else target[1],
+            }
+        if self.is_all_holes_challenge():
+            group_key = self.get_group_key()
+            completed_targets = self.challenge_completed_holes.get(group_key, set())
+            targets = self.get_all_holes_targets()
+            labels = [target[2] for target in targets]
+            return {
+                "type": "all_holes",
+                "progress": self.challenge_progress.get(group_key, 0),
+                "total": len(labels),
+                "remaining": max(
+                    0, len(labels) - self.challenge_progress.get(group_key, 0)
+                ),
+                "sequence_labels": labels,
+                "target_ids": tuple(
+                    f"{hole_type}:{hole_text}" for hole_type, hole_text, _ in targets
+                ),
+                "completed_targets": tuple(
+                    f"{hole_type}:{hole_text}"
+                    for hole_type, hole_text in sorted(completed_targets)
+                ),
             }
         if self.is_time_attack_challenge():
             remaining = self.get_turn_time_remaining()
@@ -442,53 +510,20 @@ class GameLogic:
         return ""
 
     def get_current_progress_score(self):
-        if self.is_order_challenge():
+        if self.is_order_challenge() or self.is_all_holes_challenge():
             return self.challenge_progress.get(self.get_group_key(), 0)
         return sum(player.score for player in self.get_current_group())
 
     def get_leader_progress_score(self):
         if not self.players:
             return 0
-        if self.is_order_challenge():
+        if self.is_order_challenge() or self.is_all_holes_challenge():
             return max(self.challenge_progress.values(), default=0)
         if self.team_mode == TEAM_MODE_SOLO:
             return max(player.score for player in self.players)
 
         groups = self.group_players_by_duo_or_team(self.team_mode == TEAM_MODE_TEAM)
         return max(sum(player.score for player in group) for group in groups)
-
-    def is_final_rush(self):
-        return self.score > 0 and self.get_leader_progress_score() >= int(
-            self.score * FINAL_RUSH_THRESHOLD
-        )
-
-    def calculate_arcade_bonus(self, player, hole, base_points):
-        bonuses = []
-        total_bonus = 0
-
-        combo_bonus = min(player.turn_hits * COMBO_BONUS_STEP, COMBO_BONUS_CAP)
-        if combo_bonus:
-            bonuses.append(f"Combo +{combo_bonus}")
-            total_bonus += combo_bonus
-
-        leader_progress = self.get_leader_progress_score()
-        current_progress = self.get_current_progress_score()
-        if (
-            leader_progress - current_progress >= PRESSURE_GAP
-            and base_points >= PRESSURE_TRIGGER_POINTS
-        ):
-            bonuses.append(f"Pression +{PRESSURE_BONUS}")
-            total_bonus += PRESSURE_BONUS
-
-        if self.is_final_rush() and hole.type in {
-            "bottle",
-            "little_frog",
-            "large_frog",
-        }:
-            bonuses.append(f"Final rush +{FINAL_RUSH_BONUS}")
-            total_bonus += FINAL_RUSH_BONUS
-
-        return total_bonus, bonuses
 
     def setup_team_players(self, player_id):
         temp_teams = {}
@@ -542,7 +577,11 @@ class GameLogic:
     def handle_seul_mode(self, display):
         remaining_players = [p for p in self.players if not p.won]
         if len(self.players) == 1 and self.players[0].won:
-            self.players[0].rank = self.find_next_available_rank()
+            if self.players[0].rank == 0:
+                self.players[0].rank = self.find_next_available_rank()
+            self.game_ended = True
+            logging.info("Game ended.")
+        elif not remaining_players and any(player.won for player in self.players):
             self.game_ended = True
             logging.info("Game ended.")
         elif len(remaining_players) == 1 and len(self.players) != 1:
@@ -554,7 +593,10 @@ class GameLogic:
         groups = self.group_players_by_duo_or_team(is_team)
         remaining_groups = [group for group in groups if not any(p.won for p in group)]
 
-        if len(remaining_groups) == 1:
+        if not remaining_groups and groups:
+            self.game_ended = True
+            logging.info("Game ended.")
+        elif len(remaining_groups) == 1:
             next_rank = self.find_next_available_rank()
             for player in remaining_groups[0]:
                 player.won = True
@@ -565,9 +607,12 @@ class GameLogic:
             )
 
     def group_players_by_duo_or_team(self, is_team):
+        team_ids = sorted(
+            {player.team for player in self.players if player.team is not None}
+        )
         return [
             [player for player in self.players if player.team == team_id]
-            for team_id in {player.team for player in self.players}
+            for team_id in team_ids
         ]
 
     def adjust_player_order_after_win(self):
@@ -760,6 +805,53 @@ class GameLogic:
             detail=f"Prochaine cible: {self.get_order_target_label(progress=progress)}",
         )
 
+    def handle_all_holes_goal(self, hole, pin, display):
+        group_key = self.get_group_key()
+        completed_targets = set(self.challenge_completed_holes.get(group_key, set()))
+        target_key = self.get_challenge_target_key(hole)
+        target_label = self.get_challenge_target_label(hole.type, hole.text)
+        total_targets = len(self.get_all_holes_targets())
+
+        if target_key in completed_targets:
+            self.set_status_message(f"Déjà validé : {target_label}", duration=1.6)
+            self.draw_game = True
+            return self._build_goal_result(
+                "blocked",
+                pin,
+                hole=hole,
+                reason="already_validated",
+                detail=f"Déjà validé: {target_label}",
+            )
+
+        self.run_hole_animation(hole, pin, display)
+        self.register_order_hit()
+        completed_targets.add(target_key)
+        self.sync_all_holes_progress(group_key, completed_targets)
+        progress = len(completed_targets)
+
+        if progress >= total_targets:
+            self.set_status_message("Tous les trous validés !", duration=2.0)
+            self.resolve_sequence_win(display, group_key)
+            return self._build_goal_result(
+                "scored",
+                pin,
+                hole=hole,
+                points=1,
+                detail="Tous les trous validés",
+            )
+
+        self.set_status_message(
+            f"Validé : {target_label} | Reste : {total_targets - progress}",
+            duration=2.0,
+        )
+        return self._build_goal_result(
+            "scored",
+            pin,
+            hole=hole,
+            points=1,
+            detail=f"Reste: {total_targets - progress}",
+        )
+
     def _build_goal_result(
         self, status, pin, hole=None, points=0, reason=None, detail=None
     ):
@@ -849,8 +941,18 @@ class GameLogic:
 
         if self.current_player.turn_score == 0 and self.penalty:
             points = display.draw_penalty()
+            if not isinstance(points, int) or points < 0:
+                logging.warning("Ignoring invalid penalty value: %r", points)
+                points = 0
             display.draw_holes(self.holes)
-            self.current_player.score -= points
+            win_threshold = (
+                float("inf") if self.is_time_attack_challenge() else self.score
+            )
+            self.current_player.apply_score_delta(
+                -points,
+                win_threshold,
+                reset_rank_on_loss=True,
+            )
             self.set_status_message(f"Pénalité -{points}")
 
         if self.is_time_attack_challenge():
@@ -877,6 +979,8 @@ class GameLogic:
         if hole is not None:
             if self.is_order_challenge():
                 return self.handle_order_goal(hole, pin, display)
+            if self.is_all_holes_challenge():
+                return self.handle_all_holes_goal(hole, pin, display)
 
             triggered_little_frog_roulette = self.should_trigger_little_frog_roulette(
                 hole
@@ -899,16 +1003,6 @@ class GameLogic:
             if triggered_side_hole_bonus_roulette:
                 self.rotate_side_hole_bonus(notify=True, exclude_current=True)
 
-            bonus_points = 0
-            bonus_messages = []
-            if self.challenge_mode == CHALLENGE_ARCADE:
-                bonus_points, bonus_messages = self.calculate_arcade_bonus(
-                    self.current_player,
-                    hole,
-                    points,
-                )
-                points += bonus_points
-
             win_threshold = (
                 float("inf") if self.is_time_attack_challenge() else self.score
             )
@@ -922,8 +1016,6 @@ class GameLogic:
                 status_message = (
                     f"{self.current_player} bonus {hole.text} -> roulette +{points}"
                 )
-            if bonus_messages:
-                status_message = " | ".join([status_message] + bonus_messages)
 
             if self.is_time_attack_challenge():
                 if triggered_little_frog_roulette:
@@ -941,8 +1033,6 @@ class GameLogic:
                         f"{self.current_player} +{points}"
                         f" | {self.get_turns_left_for_player()} tours"
                     )
-                if bonus_messages:
-                    status_message = " | ".join([status_message] + bonus_messages)
                 self.set_status_message(status_message)
                 return self._build_goal_result(
                     "scored", pin, hole=hole, points=points, detail=status_message

@@ -48,6 +48,7 @@ GAME_HOLE_LOCKOUT_MS = 380
 I2C_MAX_CONSECUTIVE_ERRORS = 5
 I2C_RECONNECT_DELAY_S = 1.0
 I2C_RECONNECT_LOG_EVERY = 5
+I2C_STOP_JOIN_TIMEOUT_S = 5.0
 
 
 class PIN:
@@ -73,7 +74,12 @@ class PIN:
         )
         self.button_pin = {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
         self.menu_pins = {PIN_BENTER, PIN_RIGHT, PIN_BNEXT}
-        self.game_pins = self.pin_hole | {PIN_BNEXT, PIN_BENTER, PIN_RIGHT}
+        self.active_game_hole_pins = set(self.pin_hole)
+        self.game_pins = self.active_game_hole_pins | {
+            PIN_BNEXT,
+            PIN_BENTER,
+            PIN_RIGHT,
+        }
         self.end_menu_pins = {PIN_BENTER, PIN_BNEXT}
         self.diagnostic_pins = self.pin_hole | self.button_pin
         self.diagnostic_groups = [
@@ -325,7 +331,12 @@ class PIN:
         """Signal the worker thread to exit. Call this on game shutdown."""
         self._stop_event.set()
         if self._i2c_thread is not None:
-            self._i2c_thread.join(timeout=3.0)
+            self._i2c_thread.join(timeout=I2C_STOP_JOIN_TIMEOUT_S)
+            if self._i2c_thread.is_alive():
+                logging.warning(
+                    "I2C worker did not exit within %.1fs",
+                    I2C_STOP_JOIN_TIMEOUT_S,
+                )
         try:
             if self.bus is not None:
                 self.bus.close()
@@ -379,6 +390,14 @@ class PIN:
         if game_action == "sensor_analysis":
             return self.diagnostic_pins
         return set()
+
+    def set_active_game_hole_pins(self, pins):
+        self.active_game_hole_pins = {int(pin) for pin in pins}
+        self.game_pins = self.active_game_hole_pins | {
+            PIN_BNEXT,
+            PIN_BENTER,
+            PIN_RIGHT,
+        }
 
     def _get_next_pin(self, pin, game_action, event_time_ms=None):
         pin = int(pin)

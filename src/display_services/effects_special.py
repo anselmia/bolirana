@@ -10,6 +10,367 @@ from src.constants import BLACK, CHROME_COLORS, GOLD_COLORS, WHITE, YELLOW
 
 class EffectsSpecialMixin:
     def animation_bottle(self):
+        self.play_sound_cue(
+            "bottle_sound",
+            volume=0.74,
+            fade_ms=35,
+            maxtime=900,
+            stop_existing=True,
+        )
+        video_path = os.path.normpath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "assets",
+                "videos",
+                "beer.mp4",
+            )
+        )
+        if self.play_video_clip(
+            video_path,
+            fill_color=(22, 10, 0),
+            sound_name="stadium_celebration",
+            sound_volume=0.82,
+            sound_fade_ms=50,
+            fade_out_ms=420,
+            intro_fade_ms=220,
+            accent_color=(255, 214, 110),
+            title="BOUTEILLE",
+            subtitle="Le bonus entre en scene",
+        ):
+            return
+        self._animation_bottle_procedural()
+
+    def _animation_bottle_video_intro(self, backdrop):
+        self.play_sound_cue(
+            "bottle_sound",
+            volume=0.74,
+            fade_ms=35,
+            maxtime=900,
+            stop_existing=True,
+        )
+        center = (self.display.screen_width // 2, self.display.screen_height // 2 + 6)
+        stage_y = int(self.display.screen_height * 0.78)
+        warm_gold = (255, 210, 122)
+        cool_white = (224, 238, 255)
+        copper = (232, 156, 72)
+
+        def draw_spotlight(origin_x, target, spread, color, alpha, top_width):
+            beam_surface = pygame.Surface(
+                (self.display.screen_width, self.display.screen_height),
+                pygame.SRCALPHA,
+            )
+            red, green, blue = color
+            for layer in range(5, 0, -1):
+                layer_ratio = layer / 5
+                layer_alpha = int(alpha * layer_ratio * 0.28)
+                current_spread = spread * (0.42 + layer_ratio * 0.9)
+                current_top = max(6, int(top_width * (0.6 + (1.0 - layer_ratio) * 0.4)))
+                points = [
+                    (int(origin_x - current_top), 0),
+                    (int(origin_x + current_top), 0),
+                    (int(target[0] + current_spread), int(target[1])),
+                    (int(target[0] - current_spread), int(target[1])),
+                ]
+                pygame.draw.polygon(
+                    beam_surface,
+                    (red, green, blue, layer_alpha),
+                    points,
+                )
+            self.display.screen.blit(beam_surface, (0, 0))
+
+        def draw_floor_reflection(center_point, width, height, color, alpha):
+            reflection_surface = pygame.Surface(
+                (width * 2, height * 2),
+                pygame.SRCALPHA,
+            )
+            for layer in range(4, 0, -1):
+                layer_alpha = int(alpha * (layer / 4) * 0.28)
+                ellipse_rect = pygame.Rect(
+                    width - int(width * layer * 0.48),
+                    height - int(height * layer * 0.18),
+                    int(width * layer * 0.96),
+                    int(height * layer * 0.34),
+                )
+                pygame.draw.ellipse(
+                    reflection_surface,
+                    (*color, layer_alpha),
+                    ellipse_rect,
+                )
+            self.display.screen.blit(
+                reflection_surface,
+                reflection_surface.get_rect(center=center_point),
+            )
+
+        def draw_bottle_silhouette(center_point, reveal, phase):
+            silhouette_surface = pygame.Surface((280, 520), pygame.SRCALPHA)
+            body_rect = pygame.Rect(74, 130, 132, 284)
+            neck_rect = pygame.Rect(118, 56, 44, 104)
+            cap_rect = pygame.Rect(112, 34, 56, 24)
+            glass_color = (18, 12, 8, min(255, int(220 * reveal + 18)))
+            rim_alpha = min(220, int(170 * reveal + 24))
+            label_alpha = min(210, int(84 * reveal))
+            pygame.draw.rect(
+                silhouette_surface,
+                glass_color,
+                body_rect,
+                border_radius=42,
+            )
+            pygame.draw.rect(
+                silhouette_surface,
+                glass_color,
+                neck_rect,
+                border_radius=16,
+            )
+            pygame.draw.rect(
+                silhouette_surface,
+                (78, 52, 18, min(235, int(190 * reveal + 20))),
+                cap_rect,
+                border_radius=8,
+            )
+            pygame.draw.rect(
+                silhouette_surface,
+                (255, 236, 212, rim_alpha),
+                (95, 102, 18, 272),
+                border_radius=12,
+            )
+            pygame.draw.rect(
+                silhouette_surface,
+                (255, 225, 160, label_alpha),
+                (86, 190, 108, 90),
+                border_radius=20,
+            )
+            pygame.draw.rect(
+                silhouette_surface,
+                (255, 244, 230, min(160, int(110 * reveal))),
+                (154, 142, 14, 212),
+                border_radius=10,
+            )
+            wobble = math.sin(phase * 2.1) * (1.0 - reveal) * 1.8
+            lifted_center = (
+                center_point[0] + int(wobble * 5),
+                center_point[1] - int((1.0 - reveal) * 22),
+            )
+            self.draw_glow_circle(
+                lifted_center,
+                88,
+                warm_gold,
+                glow_radius=110,
+                alpha=min(150, int(108 * reveal + 12)),
+            )
+            self.display.screen.blit(
+                silhouette_surface,
+                silhouette_surface.get_rect(center=lifted_center),
+            )
+
+        def render(progress):
+            phase = time.monotonic()
+            reveal = self.ease_out_cubic(self.clamp((progress - 0.08) / 0.78))
+            sweep = self.ease_in_out_sine(self.clamp((progress - 0.12) / 0.68))
+            self.draw_overlay((4, 2, 0), 176)
+            self.display.ui.draw_stage_floor(
+                phase,
+                horizon_ratio=0.79,
+                tint=(255, 188, 96),
+                alpha=26,
+            )
+            self.draw_vignette(154, (10, 4, 0))
+
+            rig_rect = pygame.Rect(0, 0, self.display.screen_width, 92)
+            rig_surface = pygame.Surface(rig_rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(rig_surface, (12, 12, 14, 232), (0, 0, rig_rect.width, 26))
+            pygame.draw.rect(
+                rig_surface, (34, 34, 40, 210), (0, 26, rig_rect.width, 10)
+            )
+            for beam_index in range(11):
+                x = int(44 + beam_index * ((self.display.screen_width - 88) / 10))
+                pygame.draw.line(
+                    rig_surface,
+                    (118, 118, 128, 188),
+                    (x, 0),
+                    (x, 36),
+                    2,
+                )
+            self.display.screen.blit(rig_surface, rig_rect.topleft)
+
+            beam_targets = [
+                (center[0] - 132, stage_y),
+                (center[0] - 52, stage_y - 18),
+                (center[0], stage_y - 30),
+                (center[0] + 58, stage_y - 18),
+                (center[0] + 140, stage_y),
+            ]
+            beam_origins = [
+                self.display.screen_width * 0.12,
+                self.display.screen_width * 0.28,
+                self.display.screen_width * 0.5,
+                self.display.screen_width * 0.72,
+                self.display.screen_width * 0.88,
+            ]
+            beam_colors = [warm_gold, cool_white, copper, cool_white, warm_gold]
+            for index, (origin_x, target, beam_color) in enumerate(
+                zip(beam_origins, beam_targets, beam_colors)
+            ):
+                motion = math.sin(phase * (0.9 + index * 0.12) + index * 0.8)
+                shifted_target = (
+                    target[0] + int(motion * (24 if index != 2 else 12) * sweep),
+                    target[1],
+                )
+                draw_spotlight(
+                    origin_x,
+                    shifted_target,
+                    spread=72 + index * 10,
+                    color=beam_color,
+                    alpha=92 + index * 12,
+                    top_width=12 + index * 3,
+                )
+                fixture_radius = 11 + (2 if index == 2 else 0)
+                pygame.draw.circle(
+                    self.display.screen,
+                    (28, 28, 30),
+                    (int(origin_x), 48),
+                    fixture_radius + 6,
+                )
+                pygame.draw.circle(
+                    self.display.screen,
+                    beam_color,
+                    (int(origin_x), 48),
+                    fixture_radius,
+                )
+                self.draw_glow_circle(
+                    (int(origin_x), 48),
+                    fixture_radius - 2,
+                    beam_color,
+                    glow_radius=28,
+                    alpha=118,
+                )
+
+            haze_surface = pygame.Surface(
+                (self.display.screen_width, self.display.screen_height),
+                pygame.SRCALPHA,
+            )
+            for haze_index in range(10):
+                haze_progress = (progress * 0.55 + haze_index * 0.11) % 1.14
+                haze_width = 180 + haze_index * 22
+                haze_height = 30 + (haze_index % 3) * 8
+                haze_alpha = max(
+                    0, int((26 - haze_index) * reveal * (1.08 - haze_progress))
+                )
+                if haze_alpha <= 0:
+                    continue
+                haze_center = (
+                    int(center[0] + math.sin(phase * 0.38 + haze_index * 0.7) * 180),
+                    int(stage_y - 220 + haze_index * 22 - haze_progress * 90),
+                )
+                pygame.draw.ellipse(
+                    haze_surface,
+                    (255, 234, 202, haze_alpha),
+                    pygame.Rect(
+                        haze_center[0] - haze_width // 2,
+                        haze_center[1] - haze_height // 2,
+                        haze_width,
+                        haze_height,
+                    ),
+                )
+            self.display.screen.blit(haze_surface, (0, 0))
+
+            draw_floor_reflection(
+                (center[0], stage_y + 16), 220, 108, warm_gold, int(148 * reveal)
+            )
+            draw_floor_reflection(
+                (center[0], stage_y + 6), 108, 58, cool_white, int(88 * reveal)
+            )
+
+            for dust_index in range(28):
+                dust_phase = (progress * 0.8 + dust_index * 0.037) % 1.0
+                dust_x = (
+                    center[0]
+                    - 180
+                    + (dust_index % 7) * 58
+                    + math.sin(phase * 0.7 + dust_index) * 10
+                )
+                dust_y = stage_y - 260 + (dust_index // 7) * 46 - dust_phase * 30
+                self.draw_glow_circle(
+                    (int(dust_x), int(dust_y)),
+                    2,
+                    WHITE,
+                    glow_radius=6,
+                    alpha=max(24, int(72 * reveal * (1.0 - dust_phase * 0.4))),
+                )
+
+            draw_bottle_silhouette((center[0], stage_y - 98), reveal, phase)
+
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=warm_gold,
+                secondary_color=(255, 234, 188),
+            )
+            title_alpha = self.clamp((progress - 0.26) / 0.34)
+            if title_alpha > 0:
+                title_rect = pygame.Rect(center[0] - 248, 96, 496, 72)
+                title_surface = pygame.Surface(title_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(
+                    title_surface,
+                    (18, 12, 6, int(188 * title_alpha)),
+                    title_surface.get_rect(),
+                    border_radius=24,
+                )
+                pygame.draw.rect(
+                    title_surface,
+                    (255, 255, 255, int(18 * title_alpha)),
+                    (12, 10, title_rect.width - 24, 22),
+                    border_radius=14,
+                )
+                self.display.screen.blit(title_surface, title_rect.topleft)
+                self.display.ui.draw_chrome_rect(title_rect, GOLD_COLORS, 22, 3)
+                self.display.ui.draw_text_with_shadow(
+                    "BOUTEILLE",
+                    self.display.font_title_small,
+                    (255, 245, 224),
+                    BLACK,
+                    (title_rect.centerx, title_rect.top + 24),
+                    center=True,
+                )
+                self.display.ui.draw_text_with_shadow(
+                    "Spotlight reveal",
+                    self.display.font_small,
+                    warm_gold,
+                    BLACK,
+                    (title_rect.centerx, title_rect.bottom - 18),
+                    center=True,
+                )
+
+            cue_alpha = self.clamp((progress - 0.62) / 0.22)
+            if cue_alpha > 0:
+                cue_rect = pygame.Rect(center[0] - 180, stage_y + 54, 360, 34)
+                cue_surface = pygame.Surface(cue_rect.size, pygame.SRCALPHA)
+                pygame.draw.rect(
+                    cue_surface,
+                    (12, 10, 8, int(170 * cue_alpha)),
+                    cue_surface.get_rect(),
+                    border_radius=16,
+                )
+                self.display.screen.blit(cue_surface, cue_rect.topleft)
+                self.display.ui.draw_text_with_shadow(
+                    "Le spot s'ouvre avant le clip",
+                    self.display.font_verysmall,
+                    WHITE,
+                    BLACK,
+                    cue_rect.center,
+                    center=True,
+                )
+
+            self.draw_cinematic_bars(
+                0.24 + progress * 0.22,
+                color=(6, 4, 2),
+                max_height=42,
+                reveal_portion=0.22,
+            )
+
+        return self.animate_scene(1.18, render, background=backdrop, fps=60)
+
+    def _animation_bottle_procedural(self):
         self.play_sound_cue("bottle_sound", volume=0.85)
         backdrop = self.display.screen.copy()
         center = (self.display.screen_width // 2, self.display.screen_height // 2)
@@ -434,6 +795,13 @@ class EffectsSpecialMixin:
             self.draw_reaction_signs(progress, ["POP!", "FIZZ!", "OLE!"])
 
         self.animate_scene(1.72, render, background=backdrop)
+        self.play_scene_reentry(
+            backdrop,
+            (255, 214, 110),
+            "BONUS VALIDE",
+            subtitle="Retour a l'arene",
+            duration=0.18,
+        )
 
     def animation_little_frog(self):
         video_path = os.path.normpath(
@@ -448,10 +816,15 @@ class EffectsSpecialMixin:
         )
         if self.play_video_clip(
             video_path,
+            fill_color=(4, 18, 18),
             sound_name="stadium_celebration",
             sound_volume=0.8,
             sound_fade_ms=50,
             fade_out_ms=450,
+            intro_fade_ms=240,
+            accent_color=(126, 255, 210),
+            title="PETITE GRENOUILLE",
+            subtitle="Precision, elan et capture parfaite",
         ):
             return
         self._animation_little_frog_procedural()
@@ -849,6 +1222,13 @@ class EffectsSpecialMixin:
                 )
 
         self.animate_scene(1.92, render, background=backdrop)
+        self.play_scene_reentry(
+            backdrop,
+            (126, 255, 210),
+            "PETITE GRENOUILLE",
+            subtitle="Retour a l'arene",
+            duration=0.18,
+        )
         frog_sound = self.display.resources.get("frog_sound")
         if frog_sound is not None:
             frog_sound.stop()

@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import cast
 
 import pygame
 
@@ -17,7 +18,7 @@ from src.constants import (
 )
 from src.pin import PIN
 from src.menu import Menu
-from src.end_menu import EndMenu
+from src.end_menu import EndMenu, OPTION_SENSOR_ANALYSIS
 from src.display import Display
 from src.game_logic import GameLogic
 
@@ -26,50 +27,71 @@ class Game:
     MAX_PIN_EVENTS_PER_FRAME = 8
 
     def __init__(self, debug=False, keyboard_mode=False):
-        # Initialize only required subsystems — pygame.init() scans joysticks
-        # and takes 20-25 seconds on Raspberry Pi when no joystick is connected.
-        # Note: SDL_VIDEODRIVER=x11 is required — Wayland+EGL init takes 25s+ on Pi.
-        t0 = time.monotonic()
-        pygame.display.init()
-        pygame.font.init()
-
-        # Create the window ONCE here and pass it to Display.
-        # Calling set_mode() a second time inside Display.__init__ triggers a full
-        # Wayland surface renegotiation (~87s). Passing the screen avoids that.
-        pygame.display.set_caption("Bolirana Game")
-        flags = pygame.HWSURFACE | pygame.DOUBLEBUF
-        screen = pygame.display.set_mode(
-            (1024, 768) if debug else (0, 0),
-            flags if debug else flags | pygame.FULLSCREEN,
-        )
-
-        # Show loading screen immediately before mixer init
-        _h = screen.get_height()
-        _font = pygame.font.SysFont(None, max(32, _h // 20))
-        _text = _font.render("Chargement...", True, (200, 200, 200))
-        screen.fill((10, 10, 10))
-        screen.blit(_text, _text.get_rect(center=(screen.get_width() // 2, _h // 2)))
-        pygame.display.flip()
-        del _font, _text
-
-        pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=512)
-        pygame.mixer.init()
-
-        self.display = Display(debug, screen=screen)
-        self.menu = Menu()
-        self.end_menu = EndMenu()
         self.keyboard_mode = keyboard_mode
-        self.pin = PIN(self.display.screen, use_i2c=not keyboard_mode)
-        self.gamelogic = GameLogic()
-        self.gamelogic.reset_game()
-        self.last_next_action_time = time.monotonic()
+        self.debug = debug
+        self.display: Display = cast(Display, None)
+        self.menu: Menu = cast(Menu, None)
+        self.end_menu: EndMenu = cast(EndMenu, None)
+        self.pin: PIN = cast(PIN, None)
+        self.gamelogic: GameLogic = cast(GameLogic, None)
+        self.last_next_action_time = 0.0
         self.in_end_menu = False
         self.menu_screen = "menu"
         self.sensor_analysis_page = 0
-        self.debug = debug
         self.running = True
         self.clock = pygame.time.Clock()
-        logging.warning(f"Game ready in {time.monotonic()-t0:.2f}s")
+        self._cleaned_up = False
+
+        try:
+            # Initialize only required subsystems — pygame.init() scans joysticks
+            # and takes 20-25 seconds on Raspberry Pi when no joystick is connected.
+            # Note: SDL_VIDEODRIVER=x11 is required — Wayland+EGL init takes 25s+ on Pi.
+            t0 = time.monotonic()
+            pygame.display.init()
+            pygame.font.init()
+
+            # Create the window ONCE here and pass it to Display.
+            # Calling set_mode() a second time inside Display.__init__ triggers a full
+            # Wayland surface renegotiation (~87s). Passing the screen avoids that.
+            pygame.display.set_caption("Bolirana Game")
+            flags = pygame.HWSURFACE | pygame.DOUBLEBUF
+            screen = pygame.display.set_mode(
+                (1024, 768) if debug else (0, 0),
+                flags if debug else flags | pygame.FULLSCREEN,
+            )
+
+            # Show loading screen immediately before mixer init
+            _h = screen.get_height()
+            _font = pygame.font.SysFont(None, max(32, _h // 20))
+            _text = _font.render("Chargement...", True, (200, 200, 200))
+            screen.fill((10, 10, 10))
+            screen.blit(
+                _text,
+                _text.get_rect(center=(screen.get_width() // 2, _h // 2)),
+            )
+            pygame.display.flip()
+            del _font, _text
+
+            pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=512)
+            try:
+                pygame.mixer.init()
+            except Exception as error:
+                logging.warning("Audio disabled: %s", error)
+
+            self.display = Display(debug, screen=screen)
+            self.menu = Menu()
+            self.end_menu = EndMenu()
+            self.pin = PIN(self.display.screen, use_i2c=not keyboard_mode)
+            self.gamelogic = GameLogic()
+            self.gamelogic.reset_game()
+            self.reset_next_action_cooldown()
+            logging.warning(f"Game ready in {time.monotonic()-t0:.2f}s")
+        except Exception:
+            self.cleanup()
+            raise
+
+    def reset_next_action_cooldown(self):
+        self.last_next_action_time = time.monotonic() - ACTION_COOLDOWN
 
     def run(self):
         while self.running:
@@ -111,7 +133,8 @@ class Game:
         self.menu = Menu()
         self.end_menu = EndMenu()
         self.gamelogic.reset_game()
-        self.last_next_action_time = time.monotonic()
+        self.pin.set_active_game_hole_pins(self.pin.pin_hole)
+        self.reset_next_action_cooldown()
         self.in_end_menu = False
         self.menu_screen = "menu"
         self.sensor_analysis_page = 0
@@ -209,6 +232,8 @@ class Game:
             return "new_game"
         if option == "Recommencer":
             return "restart"
+        if option == OPTION_SENSOR_ANALYSIS:
+            return "open_sensor_analysis"
         if option == "Quitter":
             self.cleanup()
             return "quit"
@@ -229,6 +254,8 @@ class Game:
         self.gamelogic.time_attack_seconds = self.menu.get_time_attack_seconds()
         self.gamelogic.time_attack_turns = self.menu.get_time_attack_turns()
         self.gamelogic.setup_game(self.display)
+        self.pin.set_active_game_hole_pins(self.gamelogic.pin_to_hole.keys())
+        self.reset_next_action_cooldown()
         logging.info("Game setup complete.")
 
     def play(self):
@@ -243,6 +270,7 @@ class Game:
                         self.gamelogic.draw_game = True
                     elif menu_action == "restart":
                         self.gamelogic.restart_game()
+                        self.reset_next_action_cooldown()
                         continue
                     else:
                         return menu_action
@@ -268,6 +296,7 @@ class Game:
             menu_action = self.enter_end_menu(can_continue=False)
             if menu_action == "restart":
                 self.gamelogic.restart_game()
+                self.reset_next_action_cooldown()
                 self.display.play_intro()
                 continue
             return menu_action
@@ -277,9 +306,30 @@ class Game:
     def enter_end_menu(self, can_continue):
         self.end_menu.set_context(can_continue)
         self.in_end_menu = True
+        current_screen = "end_menu"
         while self.running and self.in_end_menu:
-            self.display.draw_end_menu(self.end_menu)
-            action = self.process_events("end_menu")
+            if current_screen == "sensor_analysis":
+                snapshot = self.pin.get_diagnostics_snapshot()
+                self.display.draw_sensor_analysis(
+                    snapshot,
+                    page_index=self.sensor_analysis_page,
+                )
+                action = self.process_events("sensor_analysis")
+            else:
+                self.display.draw_end_menu(self.end_menu)
+                action = self.process_events("end_menu")
+
+            if (
+                current_screen == "sensor_analysis"
+                and action == "close_sensor_analysis"
+            ):
+                current_screen = "end_menu"
+                continue
+            if current_screen == "end_menu" and action == "open_sensor_analysis":
+                current_screen = "sensor_analysis"
+                self.sensor_analysis_page = 0
+                self.pin.reset_diagnostics()
+                continue
             if action is not None:
                 self.in_end_menu = False
                 self.gamelogic.draw_game = True
@@ -315,7 +365,14 @@ class Game:
         )
 
     def cleanup(self):
+        if self._cleaned_up:
+            return
+
         logging.info("Cleaning up and shutting down the game.")
+        self._cleaned_up = True
         self.running = False
-        self.pin.stop()
+        if self.pin is not None:
+            self.pin.stop()
+        if pygame.mixer.get_init() is not None:
+            pygame.mixer.quit()
         pygame.quit()

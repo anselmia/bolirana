@@ -67,9 +67,9 @@ class Display:
         self.half_height = self.screen_height // 2
         self.third_width = self.screen_width // 3
         min_horizontal_gap = max(12, self.screen_width // 58)
-        preferred_side_width = max(180, min(320, int(self.screen_width * 0.215)))
-        minimum_hole_width = int(self.screen_width * 0.44)
-        maximum_hole_width = int(self.screen_width * 0.52)
+        preferred_side_width = max(172, min(308, int(self.screen_width * 0.205)))
+        minimum_hole_width = int(self.screen_width * 0.47)
+        maximum_hole_width = int(self.screen_width * 0.56)
         max_side_width = (
             self.screen_width - minimum_hole_width - 4 * min_horizontal_gap
         ) // 2
@@ -86,11 +86,11 @@ class Display:
         )
         self.frame_space_x = max(min_horizontal_gap, remaining_width // 4)
         self.frame_player_width = self.frame_score_width
-        self.hole_rect_height = int(self.screen_height / 2.4)
-        self.frame_space_y = 20
+        self.hole_rect_height = int(self.screen_height / 2.18)
+        self.frame_space_y = 16
         self.border_holes = 0
         self.hole_frame_border = 7
-        self.hole_space = self.hole_rect_height / 30
+        self.hole_space = self.hole_rect_height / 23.5
         self.clock = pygame.time.Clock()
         self.resources = {}
         self.time_warning_channel = None
@@ -140,7 +140,9 @@ class Display:
             self.resources["win_sound"] = self.load_sound("sounds", "victoire.mp3")
             self.resources["intro_sound"] = self.load_sound("sounds", "intro.mp3")
             self.resources["frog_sound"] = self.load_sound("sounds", "frog.mp3")
-            self.resources["stadium_celebration"] = self.load_sound("sounds", "stadium_celebration.mp3")
+            self.resources["stadium_celebration"] = self.load_sound(
+                "sounds", "stadium_celebration.mp3"
+            )
             self.resources["bottle_sound"] = self.load_sound("sounds", "bouteille.mp3")
             self.resources["coin_sound"] = self.create_coin_sound()
             self.resources["warning_sirens"] = [
@@ -155,14 +157,14 @@ class Display:
             self.resources["winner_banner"] = pygame.transform.scale(
                 self.resources["winner_banner"], (50, 50)
             )
-            channel_count = pygame.mixer.get_num_channels()
-            if channel_count > 0:
-                self.time_warning_channel = pygame.mixer.Channel(channel_count - 1)
+            if pygame.mixer.get_init() is not None:
+                channel_count = pygame.mixer.get_num_channels()
+                if channel_count > 0:
+                    self.time_warning_channel = pygame.mixer.Channel(channel_count - 1)
         except Exception as error:
             logging.error(f"Failed to load resources: {error}")
             self.display_error_message("Failed to load resources. Exiting...")
-            pygame.quit()
-            sys.exit()
+            raise RuntimeError("Failed to load display resources") from error
 
     def draw_i2c_connecting(self):
         """Draw a small banner at the bottom of the screen while I2C is connecting."""
@@ -302,6 +304,10 @@ class Display:
             new_w = int(new_h * orig_w / orig_h)
             target = (new_w, new_h)
         else:
+            if width is None or height is None:
+                raise ValueError(
+                    "width and height are required when scale is not provided"
+                )
             target = (int(width), int(height))
 
         # Check cache with known target and source-derived alpha flag — zero decode on hit
@@ -328,8 +334,19 @@ class Display:
 
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
+        if pygame.mixer.get_init() is None:
+            return None
         if (folder, filename) not in self.resources:
-            self.resources[(folder, filename)] = pygame.mixer.Sound(path)
+            try:
+                self.resources[(folder, filename)] = pygame.mixer.Sound(path)
+            except Exception as error:
+                logging.warning(
+                    "Failed to load sound %s/%s: %s",
+                    folder,
+                    filename,
+                    error,
+                )
+                self.resources[(folder, filename)] = None
         return self.resources[(folder, filename)]
 
     def create_coin_sound(self):
@@ -466,10 +483,13 @@ class Display:
         time.sleep(3)
 
     def get_hole_position(self, hole_value, position):
+        center_x = self.screen_width / 2
+        outer_column_offset = self.hole_frame_width * 0.382
+        inner_column_offset = self.hole_frame_width * 0.222
         if hole_value == "20":
             return (
                 [
-                    (self.screen_width / 2) - self.hole_frame_width / 3,
+                    center_x - outer_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + 5 * HOLE_RADIUS
@@ -478,7 +498,7 @@ class Display:
                 ]
                 if position == 1
                 else [
-                    (self.screen_width / 2) + self.hole_frame_width / 3,
+                    center_x + outer_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + 5 * HOLE_RADIUS
@@ -489,7 +509,7 @@ class Display:
         if hole_value == "25":
             return (
                 [
-                    (self.screen_width / 2) - self.hole_frame_width / 3,
+                    center_x - outer_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + 3 * HOLE_RADIUS
@@ -498,7 +518,7 @@ class Display:
                 ]
                 if position == 1
                 else [
-                    (self.screen_width / 2) + self.hole_frame_width / 3,
+                    center_x + outer_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + 3 * HOLE_RADIUS
@@ -509,7 +529,7 @@ class Display:
         if hole_value == "40":
             return (
                 [
-                    (self.screen_width / 2) - self.hole_frame_width / 6,
+                    center_x - inner_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + self.hole_space * 1.5
@@ -518,7 +538,7 @@ class Display:
                 ]
                 if position == 1
                 else [
-                    (self.screen_width / 2) + self.hole_frame_width / 6,
+                    center_x + inner_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + self.hole_space * 1.5
@@ -529,7 +549,7 @@ class Display:
         if hole_value == "50":
             return (
                 [
-                    (self.screen_width / 2) - self.hole_frame_width / 6,
+                    center_x - inner_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + self.hole_space / 2
@@ -538,7 +558,7 @@ class Display:
                 ]
                 if position == 1
                 else [
-                    (self.screen_width / 2) + self.hole_frame_width / 6,
+                    center_x + inner_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + self.hole_space / 2
@@ -549,7 +569,7 @@ class Display:
         if hole_value == "100":
             return (
                 [
-                    (self.screen_width / 2) - self.hole_frame_width / 6,
+                    center_x - inner_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + self.hole_space * 2.5
@@ -558,7 +578,7 @@ class Display:
                 ]
                 if position == 1
                 else [
-                    (self.screen_width / 2) + self.hole_frame_width / 6,
+                    center_x + inner_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + self.hole_space * 2.5
@@ -569,7 +589,7 @@ class Display:
         if hole_value == "150":
             return (
                 [
-                    (self.screen_width / 2) - self.hole_frame_width / 3,
+                    center_x - outer_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + HOLE_RADIUS
@@ -577,7 +597,7 @@ class Display:
                 ]
                 if position == 1
                 else [
-                    (self.screen_width / 2) + self.hole_frame_width / 3,
+                    center_x + outer_column_offset,
                     self.frame_space_y
                     + self.hole_frame_border
                     + HOLE_RADIUS
@@ -586,7 +606,7 @@ class Display:
             )
         if hole_value == "200":
             return [
-                self.screen_width / 2,
+                center_x,
                 self.frame_space_y
                 + self.hole_frame_border
                 + 3 * HOLE_RADIUS
@@ -595,7 +615,7 @@ class Display:
             ]
         if hole_value == "ROUL":
             return [
-                self.screen_width / 2,
+                center_x,
                 self.frame_space_y
                 + self.hole_frame_border
                 + HOLE_RADIUS

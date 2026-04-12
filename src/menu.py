@@ -4,7 +4,7 @@ import pygame
 from src.constants import (
     ACTION_NEXT,
     ACTION_RIGHT,
-    CHALLENGE_ARCADE,
+    CHALLENGE_ALL_HOLES,
     CHALLENGE_CLASSIC,
     CHALLENGE_ORDER,
     CHALLENGE_TIME_ATTACK,
@@ -24,7 +24,6 @@ from src.constants import (
 OPTION_GAME_MODE = "Mode de jeu"
 OPTION_SCORE = "Score"
 OPTION_PENALTY = "Pénalité"
-OPTION_CHALLENGE = "Challenge"
 OPTION_TEAM_MODE = "Mode équipe"
 OPTION_NUM_PLAYERS = "Nombre de joueurs"
 OPTION_NUM_DUOS = "Nombre de Duo"
@@ -37,6 +36,14 @@ OPTION_SENSOR_ANALYSIS = "Analyse capteurs"
 
 class Menu:
     FROG_SOUND_MAXTIME_MS = 320
+    MODE_SELECTION_VALUES = [
+        MODE_NORMAL,
+        MODE_FROG,
+        MODE_BOTTLE,
+        CHALLENGE_ORDER,
+        CHALLENGE_ALL_HOLES,
+        CHALLENGE_TIME_ATTACK,
+    ]
 
     def __init__(self):
         self.selected_option = 0
@@ -44,7 +51,6 @@ class Menu:
             OPTION_GAME_MODE: MODE_NORMAL,
             OPTION_SCORE: 400,
             OPTION_PENALTY: OFF,
-            OPTION_CHALLENGE: CHALLENGE_CLASSIC,
             OPTION_TEAM_MODE: TEAM_MODE_SOLO,
             OPTION_NUM_PLAYERS: 1,
             OPTION_NUM_DUOS: 2,
@@ -61,9 +67,16 @@ class Menu:
 
     def load_sound(self, folder, filename):
         path = os.path.join(os.path.dirname(__file__), "..", "assets", folder, filename)
-        return pygame.mixer.Sound(path)
+        if pygame.mixer.get_init() is None:
+            return None
+        try:
+            return pygame.mixer.Sound(path)
+        except Exception:
+            return None
 
     def play_frog_sound(self):
+        if self.frog_sound is None:
+            return
         self.frog_sound.stop()
         self.frog_sound.play(maxtime=self.FROG_SOUND_MAXTIME_MS, fade_ms=20)
 
@@ -82,30 +95,44 @@ class Menu:
         option.update(kwargs)
         return option
 
+    def get_selected_mode(self):
+        return str(self.values[OPTION_GAME_MODE])
+
+    def is_order_mode_selected(self):
+        return self.get_selected_mode() == CHALLENGE_ORDER
+
+    def is_chrono_mode_selected(self):
+        return self.get_selected_mode() == CHALLENGE_TIME_ATTACK
+
+    def is_all_holes_mode_selected(self):
+        return self.get_selected_mode() == CHALLENGE_ALL_HOLES
+
+    def uses_score_target(self):
+        return not (
+            self.is_order_mode_selected()
+            or self.is_all_holes_mode_selected()
+            or self.is_chrono_mode_selected()
+        )
+
+    def uses_penalty_option(self):
+        return self.uses_score_target()
+
     def sync_options(self):
         self.options = [
             self.build_option(
                 OPTION_GAME_MODE,
-                values=[MODE_NORMAL, MODE_FROG, MODE_BOTTLE],
-            ),
-            self.build_option(OPTION_PENALTY, values=[OFF, ON]),
-            self.build_option(
-                OPTION_CHALLENGE,
-                values=[
-                    CHALLENGE_CLASSIC,
-                    CHALLENGE_ARCADE,
-                    CHALLENGE_ORDER,
-                    CHALLENGE_TIME_ATTACK,
-                ],
+                values=self.MODE_SELECTION_VALUES,
             ),
         ]
 
-        challenge_mode = self.values[OPTION_CHALLENGE]
-        if challenge_mode in {CHALLENGE_CLASSIC, CHALLENGE_ARCADE}:
+        if self.uses_penalty_option():
+            self.options.append(self.build_option(OPTION_PENALTY, values=[OFF, ON]))
+
+        if self.uses_score_target():
             self.options.append(
                 self.build_option(OPTION_SCORE, min=400, max=10000, step=200)
             )
-        elif challenge_mode == CHALLENGE_TIME_ATTACK:
+        elif self.is_chrono_mode_selected():
             self.options.append(
                 self.build_option(
                     OPTION_TIME_ATTACK_SECONDS,
@@ -118,7 +145,7 @@ class Menu:
                 self.build_option(
                     OPTION_TIME_ATTACK_TURNS,
                     min=2,
-                    max=15,
+                    max=6,
                     step=1,
                 )
             )
@@ -154,24 +181,25 @@ class Menu:
         self.selected_option = min(self.selected_option, len(self.options) - 1)
 
     def cycle_option_value(self, option):
+        current_value = self.values[option["name"]]
         if "values" in option:
-            current_index = option["values"].index(option["value"])
+            current_index = option["values"].index(current_value)
             self.values[option["name"]] = option["values"][
                 (current_index + 1) % len(option["values"])
             ]
             return
 
-        self.values[option["name"]] = min(
-            option["max"],
-            option["value"] + option["step"],
-        )
+        next_value = current_value + option["step"]
+        if next_value > option["max"]:
+            next_value = option["min"]
+        self.values[option["name"]] = next_value
 
     def normalize_values(self, changed_option_name):
         self.values[OPTION_TIME_ATTACK_SECONDS] = min(
             60, max(10, self.values[OPTION_TIME_ATTACK_SECONDS])
         )
         self.values[OPTION_TIME_ATTACK_TURNS] = min(
-            15, max(2, self.values[OPTION_TIME_ATTACK_TURNS])
+            6, max(2, self.values[OPTION_TIME_ATTACK_TURNS])
         )
 
         team_mode = self.values[OPTION_TEAM_MODE]
@@ -208,13 +236,29 @@ class Menu:
         return str(self.values[OPTION_TEAM_MODE])
 
     def get_score(self):
+        if not self.uses_score_target():
+            return 0
         return int(self.values[OPTION_SCORE])
 
     def get_game_mode(self):
-        return str(self.values[OPTION_GAME_MODE])
+        selected_mode = self.get_selected_mode()
+        if selected_mode in {
+            CHALLENGE_ORDER,
+            CHALLENGE_ALL_HOLES,
+            CHALLENGE_TIME_ATTACK,
+        }:
+            return MODE_NORMAL
+        return selected_mode
 
     def get_challenge_mode(self):
-        return str(self.values[OPTION_CHALLENGE])
+        selected_mode = self.get_selected_mode()
+        if selected_mode == CHALLENGE_ORDER:
+            return CHALLENGE_ORDER
+        if selected_mode == CHALLENGE_ALL_HOLES:
+            return CHALLENGE_ALL_HOLES
+        if selected_mode == CHALLENGE_TIME_ATTACK:
+            return CHALLENGE_TIME_ATTACK
+        return CHALLENGE_CLASSIC
 
     def get_num_pairs(self):
         return int(self.values[OPTION_NUM_DUOS])
@@ -223,6 +267,8 @@ class Menu:
         return int(self.values[OPTION_NUM_TEAMS])
 
     def get_penalty(self):
+        if not self.uses_penalty_option():
+            return OFF
         return str(self.values[OPTION_PENALTY])
 
     def get_players_per_team(self):

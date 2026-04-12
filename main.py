@@ -9,6 +9,9 @@ from logging.handlers import RotatingFileHandler
 
 from src.game import Game
 
+
+CURRENT_GAME = None
+
 # Reduce GC frequency: fewer pauses during gameplay.
 # Default thresholds are (700, 10, 10); increasing gen1/gen2 reduces mid-game collections.
 gc.set_threshold(700, 20, 20)
@@ -17,7 +20,9 @@ gc.set_threshold(700, 20, 20)
 # Define the signal handler
 def signal_handler(sig, frame):
     print("SIGTERM received, exiting gracefully...")
-    sys.exit(0)
+    if CURRENT_GAME is not None:
+        CURRENT_GAME.cleanup()
+    raise SystemExit(0)
 
 
 # Register the signal handler for SIGTERM
@@ -67,6 +72,8 @@ def parse_args():
         keyboard_mode=platform.system() == "Windows" or env_keyboard,
     )
     return parser.parse_args()
+
+
 # Ensure the log directory exists
 log_dir = os.path.dirname(log_path)
 os.makedirs(log_dir, exist_ok=True)
@@ -81,10 +88,16 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
+    exit_code = 0
     try:
         args = parse_args()
         run_windowed = args.debug or args.keyboard_mode
-        game = Game(debug=run_windowed, keyboard_mode=args.keyboard_mode)
-        game.run()
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        CURRENT_GAME = Game(debug=run_windowed, keyboard_mode=args.keyboard_mode)
+        CURRENT_GAME.run()
+    except Exception:
+        exit_code = 1
+        logging.exception("An error occurred during game execution.")
+    finally:
+        if CURRENT_GAME is not None:
+            CURRENT_GAME.cleanup()
+    raise SystemExit(exit_code)

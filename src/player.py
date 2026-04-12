@@ -8,15 +8,26 @@ class Player:
     def __str__(self):
         return f"Joueur {self.id}"
 
+    def sync_win_state(self, win_threshold, reset_rank_on_loss=False):
+        has_won = self.score >= win_threshold
+        self.won = has_won
+        if reset_rank_on_loss and not has_won:
+            self.rank = 0
+
+    def apply_score_delta(self, delta, win_threshold, reset_rank_on_loss=False):
+        self.score += delta
+        self.sync_win_state(
+            win_threshold,
+            reset_rank_on_loss=reset_rank_on_loss,
+        )
+
     def goal(self, points, win_threshold):
-        self.score += points
+        self.apply_score_delta(points, win_threshold)
         self.turn_score += points
         self.turn_hits += 1
         self.successful_shots += 1
         self.max_combo = max(self.max_combo, self.turn_hits)
         self.best_turn = max(self.best_turn, self.turn_score)
-        if self.score >= win_threshold:
-            self.won = True
 
     def reset(self):
         self.score = 0
@@ -49,44 +60,39 @@ class Player:
 
     @staticmethod
     def activate_next_player(current_player, players):
-
-        # Filter players who are eligible to play
         valid_players = [p for p in players if p.order is not None and not p.won]
 
-        # If no valid players or only one is left, no activation needed
-        if (
-            not valid_players
-            or len(players) == 1
-            or (len(players) > 1 and len(valid_players) == 1)
-        ):
+        if not valid_players:
+            current_player.finish_turn()
+            current_player.deactivate()
             return current_player
+
+        if len(players) == 1 or (len(players) > 1 and len(valid_players) == 1):
+            next_player = valid_players[0]
+            current_player.finish_turn()
+            if current_player is not next_player:
+                current_player.deactivate()
+                next_player.activate()
+            else:
+                current_player.activate()
+            return next_player
 
         sorted_players = sorted(valid_players, key=lambda x: x.order)
 
-        # If no active player is found (e.g., if the current player has just won)
         if current_player not in valid_players:
             current_order = current_player.order
-            # Find the first player with an order greater than the current player's order
             for player in sorted_players:
                 if player.order > current_order:
                     next_player = player
                     break
             else:
-                # Wrap around to the first player in the sorted list if none are greater
                 next_player = sorted_players[0]
-
         else:
-            # Find the next player in the sorted list
             current_index = sorted_players.index(current_player)
-            next_index = (current_index + 1) % len(
-                sorted_players
-            )  # Use modulo for wrapping around
+            next_index = (current_index + 1) % len(sorted_players)
             next_player = sorted_players[next_index]
 
-        # Reset the turn score for cleanup
         current_player.finish_turn()
-
-        # Deactivate current and activate next player
         current_player.deactivate()
         next_player.activate()
 

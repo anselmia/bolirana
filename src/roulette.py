@@ -80,10 +80,13 @@ class RouletteAnimation:
         full_key = (cache_name, cache_key)
         cached_surface = self._surface_cache.get(full_key)
         if cached_surface is not None:
+            self._surface_cache.pop(full_key)
+            self._surface_cache[full_key] = cached_surface
             return cached_surface
 
         if len(self._surface_cache) >= max_entries:
-            self._surface_cache.clear()
+            oldest_key = next(iter(self._surface_cache))
+            self._surface_cache.pop(oldest_key)
 
         cached_surface = builder()
         self._surface_cache[full_key] = cached_surface

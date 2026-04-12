@@ -23,10 +23,15 @@ class EffectsBossMixin:
         )
         if self.play_video_clip(
             video_path,
+            fill_color=(2, 14, 16),
             sound_name="stadium_celebration",
             sound_volume=0.8,
             sound_fade_ms=50,
             fade_out_ms=450,
+            intro_fade_ms=240,
+            accent_color=(110, 255, 210),
+            title="GRANDE GRENOUILLE",
+            subtitle="Le boss arrive avant la roulette",
         ):
             return self.animation_roulette()
         return self._animation_large_frog_procedural()

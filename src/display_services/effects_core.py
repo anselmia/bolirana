@@ -16,10 +16,13 @@ class EffectsCoreMixin:
         full_key = (cache_name, cache_key)
         cached_surface = self._surface_cache.get(full_key)
         if cached_surface is not None:
+            self._surface_cache.pop(full_key)
+            self._surface_cache[full_key] = cached_surface
             return cached_surface
 
         if len(self._surface_cache) >= max_entries:
-            self._surface_cache.clear()
+            oldest_key = next(iter(self._surface_cache))
+            self._surface_cache.pop(oldest_key)
 
         cached_surface = builder()
         self._surface_cache[full_key] = cached_surface
@@ -90,6 +93,10 @@ class EffectsCoreMixin:
         sound_volume=1.0,
         sound_fade_ms=0,
         fade_out_ms=0,
+        intro_fade_ms=220,
+        accent_color=None,
+        title=None,
+        subtitle=None,
     ):
         if cv2 is None or not os.path.exists(video_path):
             return False
@@ -109,6 +116,8 @@ class EffectsCoreMixin:
             total_duration_ms = (total_frames / source_fps) * 1000.0
         frame_index = 0
         fade_color = self.get_rgb(fill_color)
+        accent_rgb = self.get_rgb(accent_color or fill_color)
+        backdrop = self.display.screen.copy()
 
         try:
             if sound_name is not None:
@@ -155,6 +164,12 @@ class EffectsCoreMixin:
                     remaining_ms = max(0.0, total_duration_ms - current_ms)
                     if remaining_ms < fade_out_ms:
                         fade_ratio = self.clamp(remaining_ms / fade_out_ms)
+                current_ms = capture.get(cv2.CAP_PROP_POS_MSEC)
+                if not current_ms or current_ms < 0:
+                    current_ms = (frame_index / max(1, target_fps)) * 1000.0
+                intro_ratio = 1.0
+                if intro_fade_ms > 0:
+                    intro_ratio = self.clamp(current_ms / intro_fade_ms)
 
                 self.display.screen.fill(fill_color)
                 frame_rect = frame_surface.get_rect(
@@ -164,14 +179,34 @@ class EffectsCoreMixin:
                     )
                 )
                 self.display.screen.blit(frame_surface, frame_rect)
+                phase = time.monotonic()
+                self.display.ui.draw_screen_frame(
+                    phase,
+                    accent_color=accent_rgb,
+                    secondary_color=(255, 238, 190),
+                )
+                if title is not None:
+                    self.display.ui.draw_title_panel(
+                        title,
+                        subtitle or "Moment special",
+                        phase,
+                        y=52,
+                    )
+                if intro_ratio < 1.0:
+                    intro_overlay = backdrop.copy()
+                    intro_overlay.set_alpha(int(round((1.0 - intro_ratio) * 255)))
+                    self.display.screen.blit(intro_overlay, (0, 0))
                 if fade_ratio < 1.0:
-                    fade_overlay = pygame.Surface(
+                    fade_overlay = backdrop.copy()
+                    fade_overlay.set_alpha(int(round((1.0 - fade_ratio) * 255)))
+                    self.display.screen.blit(fade_overlay, (0, 0))
+                    tint_overlay = pygame.Surface(
                         self.display.screen.get_size(), pygame.SRCALPHA
                     )
-                    fade_overlay.fill(
-                        (*fade_color, int(round((1.0 - fade_ratio) * 255)))
+                    tint_overlay.fill(
+                        (*fade_color, int(round((1.0 - fade_ratio) * 120)))
                     )
-                    self.display.screen.blit(fade_overlay, (0, 0))
+                    self.display.screen.blit(tint_overlay, (0, 0))
                 if sound_channel is not None:
                     sound_channel.set_volume(sound_volume * fade_ratio)
                 pygame.display.flip()
@@ -182,6 +217,32 @@ class EffectsCoreMixin:
             capture.release()
 
         return True
+
+    def play_scene_reentry(
+        self,
+        backdrop,
+        accent_color,
+        title,
+        subtitle="Retour a l'arene",
+        duration=0.2,
+    ):
+        accent_rgb = self.get_rgb(accent_color)
+
+        def render(progress):
+            phase = time.monotonic()
+            settle = self.ease_out_cubic(progress)
+            overlay = pygame.Surface(self.display.screen.get_size(), pygame.SRCALPHA)
+            overlay.fill((6, 12, 24, int(round((1.0 - settle) * 136))))
+            self.display.screen.blit(overlay, (0, 0))
+            self.display.ui.draw_screen_frame(
+                phase,
+                accent_color=accent_rgb,
+                secondary_color=(255, 236, 186),
+            )
+            panel_y = int(self.lerp(86, 40, settle))
+            self.display.ui.draw_title_panel(title, subtitle, phase, y=panel_y)
+
+        return self.animate_scene(duration, render, background=backdrop, fps=60)
 
     def play_sound_cue(
         self,

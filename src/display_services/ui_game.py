@@ -40,6 +40,16 @@ class UIGameMixin:
                 challenge_state.get("target_hole_type"),
                 challenge_state.get("target_hole_text"),
             )
+        if challenge_type == "all_holes":
+            return (
+                challenge_type,
+                int(challenge_state.get("progress", 0)),
+                int(challenge_state.get("total", 0)),
+                int(challenge_state.get("remaining", 0)),
+                tuple(challenge_state.get("sequence_labels", [])),
+                tuple(challenge_state.get("target_ids", [])),
+                tuple(challenge_state.get("completed_targets", [])),
+            )
         if challenge_type == "time_attack":
             remaining = challenge_state.get("remaining_seconds")
             remaining_bucket = None if remaining is None else round(float(remaining), 1)
@@ -252,6 +262,62 @@ class UIGameMixin:
             sparkle_surface,
             sparkle_surface.get_rect(center=center),
         )
+
+    def draw_active_player_beacon(self, card_rect, group_color, phase):
+        beacon_rect = pygame.Rect(card_rect).inflate(32, 26)
+        pulse = 0.5 + 0.5 * math.sin(phase * 6.4)
+        beacon_surface = pygame.Surface(beacon_rect.size, pygame.SRCALPHA)
+        for index, alpha in enumerate((52, 30)):
+            inset = index * 8
+            pygame.draw.rect(
+                beacon_surface,
+                (*group_color[:3], int(alpha + pulse * 26)),
+                pygame.Rect(
+                    inset,
+                    inset,
+                    beacon_rect.width - inset * 2,
+                    beacon_rect.height - inset * 2,
+                ),
+                border_radius=24 - index * 4,
+                width=3,
+            )
+        self.display.screen.blit(beacon_surface, beacon_rect.topleft)
+
+        rail_width = max(86, min(card_rect.width - 24, 168))
+        rail_rect = pygame.Rect(0, 0, rail_width, 18)
+        rail_rect.midbottom = (card_rect.centerx, card_rect.top - 4)
+        self.draw_badge(
+            "A TOI !",
+            rail_rect,
+            (*group_color[:3], int(198 + pulse * 32)),
+            text_color=WHITE,
+            border_color=(255, 255, 255, 92),
+            font=self.display.font_tiny,
+        )
+
+        chevron_y = rail_rect.centery
+        for direction in (-1, 1):
+            chevron_center_x = rail_rect.centerx + direction * (
+                rail_rect.width // 2 + 18
+            )
+            points = [
+                (chevron_center_x, chevron_y),
+                (chevron_center_x - direction * 10, chevron_y - 8),
+                (chevron_center_x - direction * 10, chevron_y + 8),
+            ]
+            pygame.draw.polygon(
+                self.display.screen,
+                (*group_color[:3], int(172 + pulse * 40)),
+                points,
+            )
+
+        for corner in (
+            (card_rect.left - 10, card_rect.top - 10),
+            (card_rect.right + 10, card_rect.top - 8),
+            (card_rect.left - 8, card_rect.bottom + 8),
+            (card_rect.right + 8, card_rect.bottom + 10),
+        ):
+            self.draw_arcade_sparkle(corner, phase, group_color, radius=8, alpha=132)
 
     def draw_interface_backdrop_motion(
         self,
@@ -1085,7 +1151,7 @@ class UIGameMixin:
         if not challenge_state:
             return
 
-        if challenge_state["type"] == "order":
+        if challenge_state["type"] in {"order", "all_holes"}:
             sequence_labels = challenge_state["sequence_labels"]
             label_count = max(1, len(sequence_labels))
             panel_rect = pygame.Rect(
@@ -1119,14 +1185,19 @@ class UIGameMixin:
             self.draw_arcade_screws(panel_rect, inset=12, radius=3)
             self.draw_chrome_rect(panel_rect, CHROME_COLORS, 22, 4)
 
-            title = self.display.font_small.render(
-                f"Ordre : {challenge_state['progress']}/{challenge_state['total']}",
-                True,
-                YELLOW,
+            title_text = (
+                f"Ordre : {challenge_state['progress']}/{challenge_state['total']}"
+                if challenge_state["type"] == "order"
+                else f"Tous les trous : {challenge_state['progress']}/{challenge_state['total']}"
             )
+            title = self.display.font_small.render(title_text, True, YELLOW)
             self.display.screen.blit(title, (panel_rect.left + 18, panel_rect.top + 10))
 
-            next_target_text = f"Cible : {challenge_state['next_target']}"
+            next_target_text = (
+                f"Cible : {challenge_state['next_target']}"
+                if challenge_state["type"] == "order"
+                else f"Reste : {challenge_state['remaining']}"
+            )
             next_target_width = max(
                 148,
                 self.display.font_verysmall.size(next_target_text)[0] + 24,
@@ -1163,6 +1234,8 @@ class UIGameMixin:
                 ),
                 6,
             )
+            completed_targets = set(challenge_state.get("completed_targets", ()))
+            target_ids = tuple(challenge_state.get("target_ids", ()))
             for index, label in enumerate(sequence_labels):
                 step_rect = pygame.Rect(
                     start_x + index * (step_width + gap),
@@ -1170,7 +1243,11 @@ class UIGameMixin:
                     step_width,
                     34,
                 )
-                if index < challenge_state["progress"]:
+                if challenge_state["type"] == "all_holes":
+                    target_key = target_ids[index] if index < len(target_ids) else None
+                    matched_target = target_key in completed_targets
+                    fill_color = (78, 176, 102) if matched_target else (54, 72, 98)
+                elif index < challenge_state["progress"]:
                     fill_color = (78, 176, 102)
                 elif index == challenge_state["progress"]:
                     fill_color = (255, 206, 84)
@@ -1193,7 +1270,12 @@ class UIGameMixin:
                 text_surface = self.display.font_verysmall.render(
                     short_label,
                     True,
-                    BLACK if index <= challenge_state["progress"] else WHITE,
+                    (
+                        BLACK
+                        if challenge_state["type"] == "order"
+                        and index <= challenge_state["progress"]
+                        else WHITE
+                    ),
                 )
                 self.display.screen.blit(
                     text_surface,
@@ -1607,6 +1689,13 @@ class UIGameMixin:
             )
             left_secondary_label = "PROCHAINE"
             left_secondary_value = str(challenge_state["next_target"])
+        elif challenge_state and challenge_state.get("type") == "all_holes":
+            left_primary_label = "VALIDES"
+            left_primary_value = (
+                f"{challenge_state['progress']}/{challenge_state['total']}"
+            )
+            left_secondary_label = "RESTE"
+            left_secondary_value = str(challenge_state["remaining"])
         elif challenge_state and challenge_state.get("type") == "time_attack":
             left_primary_label = score_label
             left_primary_value = str(current_progress)
@@ -1983,12 +2072,12 @@ class UIGameMixin:
             bottom_reserved = 186
         else:
             bottom_reserved = 86
-        available_height = max(148, self.display.screen_height - bottom_reserved - top)
+        available_height = max(136, self.display.screen_height - bottom_reserved - top)
         target_height = int(
             self.display.screen_height
-            * (0.24 if player_count <= 4 else 0.31 if player_count <= 8 else 0.38)
+            * (0.2 if player_count <= 4 else 0.27 if player_count <= 8 else 0.34)
         )
-        dock_height = max(168, min(available_height, target_height))
+        dock_height = max(150, min(available_height, target_height))
         extra_width = (
             0
             if player_count <= 4
@@ -2094,6 +2183,9 @@ class UIGameMixin:
             id(group): GROUP_COLORS[index % len(GROUP_COLORS)]
             for index, group in enumerate(groups)
         }
+
+        active_card_rect = None
+        active_card_color = None
 
         player_group_color = {}
         for group in groups:
@@ -2226,7 +2318,7 @@ class UIGameMixin:
             )
             self.draw_panel_shadow(
                 card_rect,
-                alpha=66 if player.is_active else 36,
+                alpha=86 if player.is_active else 24,
                 inflate=8,
                 offset=(0, 5),
                 border_radius=16,
@@ -2234,33 +2326,33 @@ class UIGameMixin:
             card_surface = pygame.Surface(card_rect.size, pygame.SRCALPHA)
             pygame.draw.rect(
                 card_surface,
-                (10, 22, 38, 214),
+                (10, 22, 38, 236 if player.is_active else 164),
                 card_surface.get_rect(),
                 border_radius=16,
             )
             pygame.draw.rect(
                 card_surface,
-                (*group_color[:3], 40 if player.is_active else 18),
+                (*group_color[:3], 74 if player.is_active else 10),
                 (0, 0, card_rect.width, max(22, card_rect.height // 3)),
                 border_radius=16,
             )
             pygame.draw.rect(
                 card_surface,
-                (*group_color[:3], 118 if player.is_active else 82),
-                (0, 0, 5, card_rect.height),
+                (*group_color[:3], 182 if player.is_active else 68),
+                (0, 0, 7 if player.is_active else 4, card_rect.height),
                 border_radius=16,
             )
             pygame.draw.rect(
                 card_surface,
-                (255, 255, 255, 14),
+                (255, 255, 255, 24 if player.is_active else 8),
                 (10, 8, card_rect.width - 20, max(10, card_rect.height // 3)),
                 border_radius=12,
             )
             pygame.draw.rect(
                 card_surface,
-                (255, 255, 255, 24),
+                (255, 255, 255, 42 if player.is_active else 18),
                 card_surface.get_rect(),
-                width=1,
+                width=2 if player.is_active else 1,
                 border_radius=16,
             )
             self.display.screen.blit(card_surface, card_rect.topleft)
@@ -2307,18 +2399,32 @@ class UIGameMixin:
             self.display.screen.blit(name_plate_surface, name_plate_rect.topleft)
 
             if player.is_active:
+                active_card_rect = card_rect.copy()
+                active_card_color = group_color
                 pulse_surface = pygame.Surface(
                     (card_width + 16, card_height + 16), pygame.SRCALPHA
                 )
                 pygame.draw.rect(
                     pulse_surface,
-                    (*group_color[:3], 54),
+                    (*group_color[:3], 90),
                     pulse_surface.get_rect(),
                     border_radius=18,
-                    width=2,
+                    width=3,
                 )
                 self.display.screen.blit(
                     pulse_surface, (card_rect.left - 8, card_rect.top - 8)
+                )
+                underline_rect = pygame.Rect(
+                    card_rect.left + 12,
+                    card_rect.bottom - 8,
+                    card_rect.width - 24,
+                    4,
+                )
+                pygame.draw.rect(
+                    self.display.screen,
+                    (*group_color[:3], 220),
+                    underline_rect,
+                    border_radius=2,
                 )
                 live_label = "LIVE" if card_height < 62 else "ON AIR"
                 live_width = max(44, self.display.font_tiny.size(live_label)[0] + 18)
@@ -2481,6 +2587,9 @@ class UIGameMixin:
                     border_color=(255, 255, 255, 54),
                     font=self.display.font_tiny,
                 )
+
+        if active_card_rect is not None and active_card_color is not None:
+            self.draw_active_player_beacon(active_card_rect, active_card_color, phase)
 
     def draw_status_banner(self, status_text, challenge_state=None):
         phase = time.monotonic()
