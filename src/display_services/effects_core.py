@@ -110,6 +110,7 @@ class EffectsCoreMixin:
         source_fps = capture.get(cv2.CAP_PROP_FPS)
         target_fps = 30 if not source_fps or source_fps <= 1 else int(round(source_fps))
         target_fps = max(12, min(60, target_fps))
+        frame_duration_ms = 1000.0 / target_fps
         total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         total_duration_ms = 0.0
         if source_fps and source_fps > 1 and total_frames > 0:
@@ -129,56 +130,75 @@ class EffectsCoreMixin:
                     loops=-1,
                 )
 
+            playback_start = time.monotonic()
+            last_frame_surface = None
+
             while True:
                 if not self.handle_animation_events():
                     return False
 
-                has_frame, frame = capture.read()
+                # Determine which frame should be displayed at this wall-clock moment
+                elapsed_ms = (time.monotonic() - playback_start) * 1000.0
+                target_frame = int(elapsed_ms / frame_duration_ms)
+
+                # Stop if we've passed the end of the video
+                if total_frames > 0 and target_frame >= total_frames:
+                    break
+
+                # Skip frames to stay in sync when the Pi is too slow.
+                # new_frame holds the latest decoded frame (None if we're ahead).
+                has_frame = True
+                new_frame = None
+                while frame_index <= target_frame:
+                    has_frame, f = capture.read()
+                    if not has_frame:
+                        break
+                    frame_index += 1
+                    new_frame = f
+
                 if not has_frame:
                     break
-                frame_index += 1
 
-                frame_height, frame_width = frame.shape[:2]
-                if frame_width <= 0 or frame_height <= 0:
+                if new_frame is not None:
+                    frame_height, frame_width = new_frame.shape[:2]
+                    if frame_width > 0 and frame_height > 0:
+                        scale = min(
+                            self.display.screen_width / frame_width,
+                            self.display.screen_height / frame_height,
+                        )
+                        scaled_size = (
+                            max(1, int(frame_width * scale)),
+                            max(1, int(frame_height * scale)),
+                        )
+                        interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
+                        resized = cv2.resize(new_frame, scaled_size, interpolation=interpolation)
+                        rgb_frame = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+                        last_frame_surface = pygame.image.frombuffer(
+                            rgb_frame.tobytes(), scaled_size, "RGB"
+                        ).convert()
+
+                if last_frame_surface is None:
+                    self.display.clock.tick(target_fps)
                     continue
 
-                scale = min(
-                    self.display.screen_width / frame_width,
-                    self.display.screen_height / frame_height,
-                )
-                scaled_size = (
-                    max(1, int(frame_width * scale)),
-                    max(1, int(frame_height * scale)),
-                )
-                interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
-                resized = cv2.resize(frame, scaled_size, interpolation=interpolation)
-                rgb_frame = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-                frame_surface = pygame.image.frombuffer(
-                    rgb_frame.tobytes(), scaled_size, "RGB"
-                ).convert()
+                current_ms = elapsed_ms
                 fade_ratio = 1.0
                 if fade_out_ms > 0 and total_duration_ms > 0:
-                    current_ms = capture.get(cv2.CAP_PROP_POS_MSEC)
-                    if not current_ms or current_ms < 0:
-                        current_ms = (frame_index / source_fps) * 1000.0
                     remaining_ms = max(0.0, total_duration_ms - current_ms)
                     if remaining_ms < fade_out_ms:
                         fade_ratio = self.clamp(remaining_ms / fade_out_ms)
-                current_ms = capture.get(cv2.CAP_PROP_POS_MSEC)
-                if not current_ms or current_ms < 0:
-                    current_ms = (frame_index / max(1, target_fps)) * 1000.0
                 intro_ratio = 1.0
                 if intro_fade_ms > 0:
                     intro_ratio = self.clamp(current_ms / intro_fade_ms)
 
                 self.display.screen.fill(fill_color)
-                frame_rect = frame_surface.get_rect(
+                frame_rect = last_frame_surface.get_rect(
                     center=(
                         self.display.screen_width // 2,
                         self.display.screen_height // 2,
                     )
                 )
-                self.display.screen.blit(frame_surface, frame_rect)
+                self.display.screen.blit(last_frame_surface, frame_rect)
                 phase = time.monotonic()
                 self.display.ui.draw_screen_frame(
                     phase,
