@@ -60,6 +60,9 @@ class Game:
                 flags if debug else flags | pygame.FULLSCREEN,
             )
 
+            if not debug:
+                pygame.mouse.set_visible(False)
+
             # Show loading screen immediately before mixer init
             _h = screen.get_height()
             _font = pygame.font.SysFont(None, max(32, _h // 20))
