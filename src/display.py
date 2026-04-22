@@ -48,6 +48,7 @@ class Display:
         if self.screen_height >= 900:
             self.font_title = _font(title_font_bytes, 78)
             self.font_title_small = _font(title_font_bytes, 60)
+            self.font_hud_score = _font(font_bytes, 76)
             self.font_large = _font(font_bytes, 56)
             self.font_medium = _font(font_bytes, 34)
             self.font_small = _font(font_bytes, 28)
@@ -57,6 +58,7 @@ class Display:
         else:
             self.font_title = _font(title_font_bytes, 68)
             self.font_title_small = _font(title_font_bytes, 54)
+            self.font_hud_score = _font(font_bytes, 66)
             self.font_large = _font(font_bytes, 50)
             self.font_medium = _font(font_bytes, 30)
             self.font_small = _font(font_bytes, 25)

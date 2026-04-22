@@ -600,6 +600,112 @@ class UIGameMixin:
             center=center_text,
         )
 
+    def draw_hud_score_card(
+        self,
+        rect,
+        label,
+        value,
+        accent_color,
+        value_color=WHITE,
+    ):
+        phase = time.monotonic()
+        card_rect = pygame.Rect(rect)
+        accent_rgb = accent_color[:3]
+        inset_x = max(12, min(18, card_rect.width // 12))
+
+        self.draw_panel_shadow(
+            card_rect,
+            alpha=44,
+            inflate=12,
+            offset=(0, 7),
+            border_radius=20,
+        )
+        card_surface = pygame.Surface(card_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            card_surface,
+            (8, 18, 34, 188),
+            card_surface.get_rect(),
+            border_radius=20,
+        )
+        pygame.draw.rect(
+            card_surface,
+            (*accent_rgb, 92),
+            (0, 0, 7, card_rect.height),
+            border_radius=20,
+        )
+        pygame.draw.rect(
+            card_surface,
+            (255, 255, 255, 16),
+            (10, 10, card_rect.width - 20, max(16, card_rect.height // 4)),
+            border_radius=14,
+        )
+        pygame.draw.rect(
+            card_surface,
+            (*accent_rgb, 38),
+            (10, max(40, card_rect.height // 3), card_rect.width - 20, 36),
+            border_radius=18,
+        )
+        pygame.draw.rect(
+            card_surface,
+            (255, 255, 255, 28),
+            card_surface.get_rect(),
+            width=1,
+            border_radius=20,
+        )
+        self.display.screen.blit(card_surface, card_rect.topleft)
+        self.draw_panel_grid(
+            card_rect.inflate(-14, -12),
+            phase,
+            color=accent_rgb,
+            alpha=6,
+            step=44,
+        )
+        self.draw_panel_orbs(card_rect.inflate(-16, -12), phase, accent_rgb, count=2)
+
+        badge_width = max(84, self.display.font_verysmall.size(str(label))[0] + 24)
+        badge_rect = pygame.Rect(0, 0, badge_width, 20)
+        badge_rect.topleft = (card_rect.left + inset_x, card_rect.top + 10)
+        self.draw_badge(
+            str(label),
+            badge_rect,
+            (*accent_rgb, 208),
+            text_color=BLACK,
+            border_color=(255, 255, 255, 84),
+            font=self.display.font_tiny,
+        )
+
+        value_font = self.get_fitted_font(
+            str(value),
+            [
+                self.display.font_hud_score,
+                self.display.font_large,
+                self.display.font_medium,
+                self.display.font_small,
+            ],
+            card_rect.width - inset_x * 2,
+            max(28, card_rect.height - 42),
+        )
+        value_center = (card_rect.centerx, card_rect.centery + 10)
+        self.draw_text_with_shadow(
+            str(value),
+            value_font,
+            value_color,
+            BLACK,
+            value_center,
+            shadow_offset=(3, 3),
+            center=True,
+        )
+
+        underline_width = min(card_rect.width - 28, max(72, card_rect.width // 2))
+        underline_rect = pygame.Rect(0, 0, underline_width, 4)
+        underline_rect.midbottom = (card_rect.centerx, card_rect.bottom - 12)
+        pygame.draw.rect(
+            self.display.screen,
+            (*accent_rgb, 188),
+            underline_rect,
+            border_radius=3,
+        )
+
     def draw_glow_ring(self, center, radius, color, width=4, alpha=130, y_scale=1.0):
         ellipse_width = max(24, int(radius * 2))
         ellipse_height = max(18, int(radius * 2 * y_scale))
@@ -1830,7 +1936,7 @@ class UIGameMixin:
         draw_arcade_panel_shell(left_panel_rect, (124, 255, 190))
         draw_arcade_panel_shell(right_panel_rect, (255, 214, 110))
 
-        def build_side_panel_layout(panel_rect):
+        def build_side_panel_layout(panel_rect, emphasize_primary=False):
             inset_x = max(14, min(20, panel_rect.width // 11))
             inset_y = max(8, min(16, panel_rect.height // 18))
             header_height = max(18, min(24, panel_rect.height // 14))
@@ -1844,10 +1950,16 @@ class UIGameMixin:
                 - (4 * content_gap)
             )
             layout_scale = max(0.82, min(1.0, available_cards_height / 176))
-            hero_min = max(48, int(56 * layout_scale))
-            stat_min = max(42, int(52 * layout_scale))
-            hero_height = max(hero_min, int(available_cards_height * 0.38))
-            primary_height = max(stat_min, int(available_cards_height * 0.26))
+            if emphasize_primary:
+                hero_min = max(40, int(46 * layout_scale))
+                stat_min = max(44, int(56 * layout_scale))
+                hero_height = max(hero_min, int(available_cards_height * 0.22))
+                primary_height = max(stat_min, int(available_cards_height * 0.46))
+            else:
+                hero_min = max(48, int(56 * layout_scale))
+                stat_min = max(42, int(52 * layout_scale))
+                hero_height = max(hero_min, int(available_cards_height * 0.38))
+                primary_height = max(stat_min, int(available_cards_height * 0.26))
             secondary_height = max(
                 stat_min,
                 available_cards_height - hero_height - primary_height,
@@ -1906,7 +2018,11 @@ class UIGameMixin:
                 "meter_rect": meter_rect,
             }
 
-        left_layout = build_side_panel_layout(left_panel_rect)
+        left_emphasize_primary = left_primary_label == score_label
+        left_layout = build_side_panel_layout(
+            left_panel_rect,
+            emphasize_primary=left_emphasize_primary,
+        )
         right_layout = build_side_panel_layout(right_panel_rect)
 
         left_header_rect = left_layout["header_rect"]
@@ -1985,21 +2101,30 @@ class UIGameMixin:
             )
 
         left_primary_rect = left_layout["primary_rect"]
-        self.draw_hud_stat_card(
-            left_primary_rect,
-            left_primary_label,
-            left_primary_value,
-            (255, 154, 38),
-            value_color=DARK_ORANGE,
-            value_fonts=[
-                self.display.font_large,
-                self.display.font_medium,
-                self.display.font_small,
-                self.display.font_verysmall,
-            ],
-            value_top_padding=28,
-            value_bottom_padding=10,
-        )
+        if left_emphasize_primary:
+            self.draw_hud_score_card(
+                left_primary_rect,
+                left_primary_label,
+                left_primary_value,
+                (255, 154, 38),
+                value_color=DARK_ORANGE,
+            )
+        else:
+            self.draw_hud_stat_card(
+                left_primary_rect,
+                left_primary_label,
+                left_primary_value,
+                (255, 154, 38),
+                value_color=DARK_ORANGE,
+                value_fonts=[
+                    self.display.font_large,
+                    self.display.font_medium,
+                    self.display.font_small,
+                    self.display.font_verysmall,
+                ],
+                value_top_padding=28,
+                value_bottom_padding=10,
+            )
 
         left_secondary_rect = left_layout["secondary_rect"]
         self.draw_hud_stat_card(
