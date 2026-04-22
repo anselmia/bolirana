@@ -1844,11 +1844,6 @@ class UIGameMixin:
             self.display.hole_rect_height,
         )
 
-        current_player_name_text = str(current_player)
-        current_team_text = None
-        if team_mode != TEAM_MODE_SOLO and current_player.team is not None:
-            current_team_text = str(current_player.team)
-
         if team_mode == TEAM_MODE_TEAM:
             score_label = "SCORE EQUIPE"
         elif team_mode == TEAM_MODE_DUO:
@@ -1936,7 +1931,11 @@ class UIGameMixin:
         draw_arcade_panel_shell(left_panel_rect, (124, 255, 190))
         draw_arcade_panel_shell(right_panel_rect, (255, 214, 110))
 
-        def build_side_panel_layout(panel_rect, emphasize_primary=False):
+        def build_side_panel_layout(
+            panel_rect,
+            emphasize_primary=False,
+            include_hero=True,
+        ):
             inset_x = max(14, min(20, panel_rect.width // 11))
             inset_y = max(8, min(16, panel_rect.height // 18))
             header_height = max(18, min(24, panel_rect.height // 14))
@@ -1947,10 +1946,15 @@ class UIGameMixin:
                 - (2 * inset_y)
                 - header_height
                 - meter_height
-                - (4 * content_gap)
+                - ((4 if include_hero else 3) * content_gap)
             )
             layout_scale = max(0.82, min(1.0, available_cards_height / 176))
-            if emphasize_primary:
+            if not include_hero:
+                hero_min = 0
+                stat_min = max(42, int(58 * layout_scale))
+                hero_height = 0
+                primary_height = max(stat_min, int(available_cards_height * 0.6))
+            elif emphasize_primary:
                 hero_min = max(40, int(46 * layout_scale))
                 stat_min = max(44, int(56 * layout_scale))
                 hero_height = max(hero_min, int(available_cards_height * 0.22))
@@ -1984,15 +1988,19 @@ class UIGameMixin:
                 panel_rect.width - 2 * inset_x,
                 header_height,
             )
-            hero_rect = pygame.Rect(
-                panel_rect.left + inset_x,
-                header_rect.bottom + content_gap,
-                panel_rect.width - 2 * inset_x,
-                hero_height,
-            )
+            next_top = header_rect.bottom + content_gap
+            hero_rect = None
+            if include_hero:
+                hero_rect = pygame.Rect(
+                    panel_rect.left + inset_x,
+                    next_top,
+                    panel_rect.width - 2 * inset_x,
+                    hero_height,
+                )
+                next_top = hero_rect.bottom + content_gap
             primary_rect = pygame.Rect(
                 panel_rect.left + inset_x,
-                hero_rect.bottom + content_gap,
+                next_top,
                 panel_rect.width - 2 * inset_x,
                 primary_height,
             )
@@ -2022,6 +2030,7 @@ class UIGameMixin:
         left_layout = build_side_panel_layout(
             left_panel_rect,
             emphasize_primary=left_emphasize_primary,
+            include_hero=False,
         )
         right_layout = build_side_panel_layout(right_panel_rect)
 
@@ -2066,39 +2075,6 @@ class UIGameMixin:
             ),
             shadow_offset=(1, 1),
         )
-
-        left_hero_rect = left_layout["hero_rect"]
-        self.draw_hud_stat_card(
-            left_hero_rect,
-            "JOUEUR ACTIF",
-            current_player_name_text,
-            (84, 214, 126),
-            value_color=DARK_GREEN,
-            value_fonts=[
-                self.display.font_large,
-                self.display.font_medium,
-                self.display.font_small,
-                self.display.font_verysmall,
-            ],
-            value_top_padding=32,
-            value_bottom_padding=12,
-        )
-        if current_team_text is not None:
-            team_badge_width = max(
-                48, self.display.font_verysmall.size(current_team_text)[0] + 20
-            )
-            self.draw_badge(
-                current_team_text,
-                (
-                    left_hero_rect.left + 10,
-                    left_hero_rect.bottom - 24,
-                    team_badge_width,
-                    18,
-                ),
-                (20, 54, 98, 204),
-                text_color=WHITE,
-                border_color=(255, 255, 255, 70),
-            )
 
         left_primary_rect = left_layout["primary_rect"]
         if left_emphasize_primary:
@@ -2529,6 +2505,14 @@ class UIGameMixin:
                 (0, 0, card_rect.width, max(22, card_rect.height // 3)),
                 border_radius=16,
             )
+            if player.is_active:
+                active_top_height = max(24, min(40, card_rect.height // 2))
+                pygame.draw.rect(
+                    card_surface,
+                    (*group_color[:3], 122),
+                    (0, 0, card_rect.width, active_top_height),
+                    border_radius=16,
+                )
             pygame.draw.rect(
                 card_surface,
                 (*group_color[:3], 182 if player.is_active else 68),
@@ -2594,6 +2578,22 @@ class UIGameMixin:
             if player.is_active:
                 active_card_rect = card_rect.copy()
                 active_card_color = group_color
+                glow_surface = pygame.Surface(
+                    (card_width + 28, card_height + 28), pygame.SRCALPHA
+                )
+                glow_rect = glow_surface.get_rect()
+                for inflate, alpha, width in ((0, 54, 4), (10, 34, 3), (18, 18, 2)):
+                    pygame.draw.rect(
+                        glow_surface,
+                        (*group_color[:3], alpha),
+                        glow_rect.inflate(-inflate, -inflate),
+                        border_radius=22,
+                        width=width,
+                    )
+                self.display.screen.blit(
+                    glow_surface,
+                    (card_rect.left - 14, card_rect.top - 14),
+                )
                 pulse_surface = pygame.Surface(
                     (card_width + 16, card_height + 16), pygame.SRCALPHA
                 )
@@ -2751,9 +2751,11 @@ class UIGameMixin:
             self.draw_badge(
                 score_text,
                 score_badge_rect,
-                (12, 24, 40, 224),
-                text_color=PLAYER_OPTION_COLOR,
-                border_color=(*group_color[:3], 108),
+                ((*group_color[:3], 214) if player.is_active else (12, 24, 40, 224)),
+                text_color=WHITE if player.is_active else PLAYER_OPTION_COLOR,
+                border_color=(
+                    (255, 255, 255, 86) if player.is_active else (*group_color[:3], 108)
+                ),
                 font=score_font,
             )
 
